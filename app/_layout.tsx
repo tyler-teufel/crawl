@@ -1,16 +1,20 @@
-
+import React from 'react';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-
-export default function App() {
+export default function RootLayout() {
     return (
-        <>
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <Text>Open up App.js to start working on your app!</Text>
-                <StatusBar style="auto" />
-            </View>
+        <SafeAreaView className="flex-1">
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: '#fff' },
+                }}
+            >
+                <Stack.Screen name="index" />
+            </Stack>
             <StatusBar style="auto" />
-        </>
+        </SafeAreaView>
     );
 }
