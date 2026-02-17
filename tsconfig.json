@@ -5,6 +5,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    // NativeWind v4 requires react-jsx transform with its jsxImportSource.
+    // This aligns tsconfig with the babel-preset-expo jsxImportSource option.
+    "jsx": "react-jsx",
+    "jsxImportSource": "nativewind"
   }
 }

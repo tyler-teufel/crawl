@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "crawl",
+    "name": "Crawl",
     "slug": "crawl",
     "version": "1.0.0",
     "web": {
@@ -10,23 +10,33 @@
       "tsconfigPaths": true
     },
     "scheme": "crawl",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Crawl to use your location to show bars and nightclubs near you."
+        }
+      ]
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0F1E"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.crawl.app"
     },
     "android": {
+      "package": "com.crawl.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0A0F1E"
       }
     }
   }
