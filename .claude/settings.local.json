@@ -15,7 +15,16 @@
       "Bash(cd /c/Users/tyler/'Coding Projects'/crawl && ls -la | grep -E '^\\\\.')",
       "Bash(cd /c/Users/tyler/'Coding Projects'/crawl && ls -la | head -30)",
       "Bash(cd /c/Users/tyler/'Coding Projects'/crawl && find . -maxdepth 2 -type d | grep -v node_modules | sort)",
-      "Bash(cd /c/Users/tyler/'Coding Projects'/crawl && find src -type f | sort)"
+      "Bash(cd /c/Users/tyler/'Coding Projects'/crawl && find src -type f | sort)",
+      "WebFetch(domain:rnr-docs.vercel.app)",
+      "WebFetch(domain:reactnativereusables.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(ls \"C:/Users/tyler/Coding Projects/crawl/components.json\" 2>/dev/null; echo \"exit: $?\")",
+      "Bash(cd \"C:/Users/tyler/Coding Projects/crawl\" && node -e \"require\\('@react-navigation/native'\\)\" 2>&1 && echo \"OK\")",
+      "Bash(cd \"C:/Users/tyler/Coding Projects/crawl\" && npm run format 2>&1 | tail -5)"
     ]
   }
 }
