@@ -264,3 +264,15 @@ Exports the `cn()` function — combines `clsx` (conditional class logic) with `
 ### `src/lib/theme.ts`
 
 Exports `THEME` (light/dark color objects with HSL strings matching `global.css`) and `NAV_THEME` (React Navigation theme objects extending `DefaultTheme` and `DarkTheme`). The dark theme values are mapped to Crawl's color palette. Used by `ThemeProvider` in the root layout.
+
+---
+
+## Development Tools
+
+### `.claude/commands/docs.md`
+
+Claude Code skill definition for the `/docs` command. Provides a structured 6-step process for updating documentation: (1) assess changes via `git diff`/`git log`, (2) map changed files to affected docs using a lookup table, (3) read affected docs and source files, (4) apply targeted updates per doc type, (5) include/update ASCII diagrams, (6) verify internal links and index accuracy.
+
+### `.github/workflows/ci.yaml`
+
+GitHub Actions CI workflow file. Currently empty — placeholder for the validation pipeline described in [CI/CD Pipeline](./CICD_PIPELINE.md). When populated, should run lint, type-check, and tests on push/PR to main.
