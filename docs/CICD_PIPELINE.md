@@ -20,11 +20,11 @@ Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Action
 │  ┌─────────────────────────────────────────────────────────┐     │
 │  │  STAGE 1: Validate (runs on every push/PR)              │     │
 │  │                                                         │     │
-│  │  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌────────┐ │     │
-│  │  │ Install  │─►│  Lint    │─►│TypeCheck  │─►│  Test  │ │     │
-│  │  │   deps   │  │(eslint + │  │(tsc       │  │(jest / │ │     │
-│  │  │(npm ci)  │  │prettier) │  │--noEmit)  │  │ e2e)   │ │     │
-│  │  └──────────┘  └──────────┘  └───────────┘  └────────┘ │     │
+│  │  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌────────┐  │     │
+│  │  │ Install  │─►│  Lint    │─►│TypeCheck  │─►│  Test  │  │     │
+│  │  │   deps   │  │(eslint + │  │(tsc       │  │(jest / │  │     │
+│  │  │(npm ci)  │  │prettier) │  │--noEmit)  │  │ e2e)   │  │     │
+│  │  └──────────┘  └──────────┘  └───────────┘  └────────┘  │     │
 │  │                                                         │     │
 │  │  ✗ Any failure ──► block merge                          │     │
 │  └─────────────────────────────────────────────────────────┘     │
@@ -35,25 +35,25 @@ Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Action
 │  │  STAGE 2: Build (runs on merge to main)                 │     │
 │  │                                                         │     │
 │  │  ┌──────────────────────────────────────────────────┐   │     │
-│  │  │              EAS Build (Expo)                     │   │     │
+│  │  │              EAS Build (Expo)                    │   │     │
 │  │  │                                                  │   │     │
 │  │  │  ┌─────────────────┐  ┌────────────────────┐     │   │     │
 │  │  │  │  iOS Build      │  │  Android Build     │     │   │     │
 │  │  │  │  Profile:       │  │  Profile:          │     │   │     │
 │  │  │  │  "preview"      │  │  "preview"         │     │   │     │
 │  │  │  │  (internal      │  │  (APK for          │     │   │     │
-│  │  │  │  distribution)  │  │  internal testing)  │     │   │     │
+│  │  │  │  distribution)  │  │  internal testing) │     │   │     │
 │  │  │  └─────────────────┘  └────────────────────┘     │   │     │
 │  │  └──────────────────────────────────────────────────┘   │     │
 │  └─────────────────────────────────────────────────────────┘     │
 │                          │                                       │
-│                    builds complete                                │
+│                    builds complete                               │
 │                          │                                       │
 │  ┌───────────────────────▼─────────────────────────────────┐     │
 │  │  STAGE 3: Distribute (automatic after build)            │     │
 │  │                                                         │     │
 │  │  ┌─────────────────┐  ┌───────────────────────────┐     │     │
-│  │  │  Internal Test   │  │  QA Team Notification     │     │     │
+│  │  │  Internal Test  │  │  QA Team Notification     │     │     │
 │  │  │                 │  │                           │     │     │
 │  │  │  iOS: TestFlight│  │  Slack webhook with       │     │     │
 │  │  │  (internal)     │  │  build link + changelog   │     │     │
@@ -69,7 +69,7 @@ Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Action
            │
            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                    RELEASE PIPELINE                               │
+│                    RELEASE PIPELINE                              │
 │              (triggered by git tag: v1.x.x)                      │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐     │
@@ -101,7 +101,7 @@ Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Action
 │  │  │                     │  │                          │  │     │
 │  │  │  eas submit -p ios  │  │  eas submit -p android   │  │     │
 │  │  │                     │  │                          │  │     │
-│  │  │  ──► App Store      │  │  ──► Google Play Console  │  │     │
+│  │  │  ──► App Store      │  │  ──► Google Play Console │  │     │
 │  │  │  Connect            │  │  (internal/beta/prod     │  │     │
 │  │  │  (TestFlight ──►    │  │   track)                 │  │     │
 │  │  │   App Review ──►    │  │                          │  │     │
@@ -124,12 +124,12 @@ Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Action
 
 ## Key Tools
 
-| Tool | Purpose |
-|------|---------|
-| **EAS Build** | Expo's cloud build service. Builds iOS and Android binaries without local Xcode or Android Studio. Configure via `eas.json` with build profiles (development, preview, production). |
-| **EAS Submit** | Automates store submission. Uploads `.ipa` to App Store Connect and `.aab` to Google Play Console. |
-| **EAS Update** | Over-the-air JavaScript bundle updates. Bypasses app store review for JS-only changes. Users receive the update on next app launch. |
-| **GitHub Actions** | CI runner. Triggers on push/PR for validation, on merge to main for preview builds, on git tag for production releases. |
+| Tool               | Purpose                                                                                                                                                                             |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **EAS Build**      | Expo's cloud build service. Builds iOS and Android binaries without local Xcode or Android Studio. Configure via `eas.json` with build profiles (development, preview, production). |
+| **EAS Submit**     | Automates store submission. Uploads `.ipa` to App Store Connect and `.aab` to Google Play Console.                                                                                  |
+| **EAS Update**     | Over-the-air JavaScript bundle updates. Bypasses app store review for JS-only changes. Users receive the update on next app launch.                                                 |
+| **GitHub Actions** | CI runner. Triggers on push/PR for validation, on merge to main for preview builds, on git tag for production releases.                                                             |
 
 ---
 
@@ -171,11 +171,11 @@ Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Action
 
 ### Build Profiles Explained
 
-| Profile | When | Output | Distribution |
-|---------|------|--------|-------------|
-| `development` | Daily development | Dev client app | Internal (TestFlight / Firebase) |
-| `preview` | PR merge to main | Production-like build | Internal (QA team testing) |
-| `production` | Git tag `v1.x.x` | Store-ready binary | App Store / Google Play |
+| Profile       | When              | Output                | Distribution                     |
+| ------------- | ----------------- | --------------------- | -------------------------------- |
+| `development` | Daily development | Dev client app        | Internal (TestFlight / Firebase) |
+| `preview`     | PR merge to main  | Production-like build | Internal (QA team testing)       |
+| `production`  | Git tag `v1.x.x`  | Store-ready binary    | App Store / Google Play          |
 
 ---
 
@@ -255,12 +255,12 @@ jobs:
 
 ## OTA Updates vs Binary Releases
 
-| Change Type | Deploy Method | Review Required | User Gets It |
-|------------|---------------|-----------------|-------------|
-| JS code, styles, images | `eas update` (OTA) | No | Next app launch |
-| New native module | `eas build` + submit | Yes (App Store / Google Play) | Store update |
-| Expo SDK upgrade | `eas build` + submit | Yes | Store update |
-| Config changes (`app.json`) | `eas build` + submit | Yes | Store update |
+| Change Type                 | Deploy Method        | Review Required               | User Gets It    |
+| --------------------------- | -------------------- | ----------------------------- | --------------- |
+| JS code, styles, images     | `eas update` (OTA)   | No                            | Next app launch |
+| New native module           | `eas build` + submit | Yes (App Store / Google Play) | Store update    |
+| Expo SDK upgrade            | `eas build` + submit | Yes                           | Store update    |
+| Config changes (`app.json`) | `eas build` + submit | Yes                           | Store update    |
 
 ### OTA Update Command
 
@@ -276,10 +276,10 @@ eas update --branch production --message "Hotfix: score animation timing"
 
 ## Secrets Required
 
-| Secret | Where | Purpose |
-|--------|-------|---------|
-| `EXPO_TOKEN` | GitHub Actions secrets | Authenticates `eas` CLI |
-| Apple ID + ASC App ID | `eas.json` (submit config) | App Store Connect submission |
+| Secret                     | Where                                      | Purpose                        |
+| -------------------------- | ------------------------------------------ | ------------------------------ |
+| `EXPO_TOKEN`               | GitHub Actions secrets                     | Authenticates `eas` CLI        |
+| Apple ID + ASC App ID      | `eas.json` (submit config)                 | App Store Connect submission   |
 | Google service account key | `google-service-account.json` (gitignored) | Google Play Console submission |
 
 ---
