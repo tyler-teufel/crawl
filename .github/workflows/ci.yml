@@ -1,4 +1,4 @@
-name: CI and Build
+name: CI
 
 on:
   pull_request:
@@ -13,11 +13,48 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 25
+          node-version: 24
           cache: npm
+
+      - run: npm ci
+
+      - name: Lint & format check
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Expo doctor
+        run: npx expo-doctor
+
+      # Uncomment when Jest is configured (v1.1 roadmap):
+      # - name: Unit tests
+      #   run: npm test -- --coverage --ci
+      # - name: Upload coverage
+      #   uses: codecov/codecov-action@v4
+
+  fingerprint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      fingerprint-hash: ${{ steps.fingerprint.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate native fingerprint
+        id: fingerprint
+        run: |
+          HASH=$(npx @expo/fingerprint . --hash-only 2>/dev/null || echo "unknown")
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "Fingerprint: $HASH"

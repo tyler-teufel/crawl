@@ -23,3 +23,6 @@ android
 .metro-health-check*
 
 .env
+
+.claude
+.claude/settings.local.json

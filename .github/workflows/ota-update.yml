@@ -1,0 +1,43 @@
+name: OTA Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'EAS Update branch (preview or production)'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - production
+      message:
+        description: "Update message (e.g. 'Fix voting countdown display')"
+        required: true
+        type: string
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.branch == 'production' && 'production' || '' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Push OTA update
+        run: |
+          echo "Pushing OTA update to branch: ${{ inputs.branch }}"
+          echo "Message: ${{ inputs.message }}"
+          eas update --branch "${{ inputs.branch }}" --message "${{ inputs.message }}" --non-interactive

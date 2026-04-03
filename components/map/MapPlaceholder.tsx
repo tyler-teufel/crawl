@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { DimensionValue, View } from 'react-native';
 import { Venue } from '@/types/venue';
 import { MapPin } from './MapPin';
 import { MapControls } from './MapControls';
@@ -10,8 +10,8 @@ interface MapPlaceholderProps {
 }
 
 // Maps venue positions to percentages on the placeholder
-function getPosition(index: number): { top: string; left: string } {
-  const positions = [
+function getPosition(index: number): { top: DimensionValue; left: DimensionValue } {
+  const positions: { top: DimensionValue; left: DimensionValue }[] = [
     { top: '25%', left: '35%' },
     { top: '40%', left: '65%' },
     { top: '55%', left: '25%' },
