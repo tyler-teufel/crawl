@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { mockVenues } from '@/data/venues';
+import { useVenue } from '@/api/venues';
 import { HotspotScore } from '../../components/venue/HotspotScore';
 import { Badge } from '../../components/ui/Badge';
 
@@ -12,7 +12,16 @@ export default function VenueDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const venue = mockVenues.find((v) => v.id === id);
+  const { data: venue, isLoading } = useVenue(id!);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-crawl-bg">
+        <ActivityIndicator color="#a855f7" />
+      </View>
+    );
+  }
+
   if (!venue) {
     return (
       <View className="flex-1 items-center justify-center bg-crawl-bg">

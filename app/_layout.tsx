@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'nativewind';
 import { PortalHost } from '@rn-primitives/portal';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/api/query-client';
 import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
 
@@ -21,26 +23,28 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={NAV_THEME[scheme]}>
-      <VenueProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: NAV_THEME[scheme].colors.background },
-            animation: 'slide_from_right',
-          }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="venue/[id]" />
-          <Stack.Screen
-            name="filters"
-            options={{
-              presentation: 'transparentModal',
-              animation: 'fade',
-            }}
-          />
-        </Stack>
-        <StatusBar style="light" />
-        <PortalHost />
-      </VenueProvider>
+      <QueryClientProvider client={queryClient}>
+        <VenueProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: NAV_THEME[scheme].colors.background },
+              animation: 'slide_from_right',
+            }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="venue/[id]" />
+            <Stack.Screen
+              name="filters"
+              options={{
+                presentation: 'transparentModal',
+                animation: 'fade',
+              }}
+            />
+          </Stack>
+          <StatusBar style="light" />
+          <PortalHost />
+        </VenueProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

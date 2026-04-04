@@ -29,11 +29,3 @@ jobs:
 
       - name: Build iOS & Android (preview)
         run: eas build --platform all --profile preview --non-interactive
-
-      # Uncomment when Slack webhook is configured:
-      # - name: Notify QA
-      #   if: success()
-      #   run: |
-      #     curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
-      #       -H 'Content-Type: application/json' \
-      #       -d "{\"text\":\"Preview build ready from \`${{ github.sha }}\`\nBranch: main\nTriggered by: ${{ github.actor }}\"}"

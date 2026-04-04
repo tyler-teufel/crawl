@@ -20,6 +20,7 @@
 |----------|-------------|
 | [React Native Reusables](./REACT_NATIVE_REUSABLES.md) | Setup guide, theming integration, adding components, and customization |
 | [Maps SDK Integration](./MAPS_INTEGRATION.md) | Step-by-step plan for replacing the map placeholder with react-native-maps |
+| [API Client Layer](./API_CLIENT.md) | TypeScript API client architecture, data flow, environment config, and endpoint reference |
 | [Data Pipeline & Backend](./DATA_PIPELINE.md) | Backend architecture, API design, and migration path from mock data |
 | [CI/CD Pipeline](./CICD_PIPELINE.md) | Build, test, and release pipeline using EAS Build and GitHub Actions |
 | [Contributing](./CONTRIBUTING.md) | How to add screens, components, shared logic, and follow project conventions |

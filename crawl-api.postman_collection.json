@@ -1,0 +1,264 @@
+{
+  "info": {
+    "name": "Crawl API v1",
+    "description": "API collection for the Crawl venue discovery app. Base URL is configurable via the `baseUrl` variable.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "venueId",
+      "value": "venue-001",
+      "type": "string"
+    },
+    {
+      "key": "city",
+      "value": "Austin, TX",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('authToken', json.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securePassword123\",\n  \"displayName\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Create a new user account. Returns user object and JWT token."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('authToken', json.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate and receive a JWT token. Token is auto-saved to collection variable."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('authToken', json.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"your-refresh-token-here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Exchange a refresh token for a new access token."
+          }
+        }
+      ],
+      "description": "Authentication endpoints — register, login, and token refresh."
+    },
+    {
+      "name": "Venues",
+      "item": [
+        {
+          "name": "List Venues",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/venues?city={{city}}&limit=20&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["venues"],
+              "query": [
+                { "key": "city", "value": "{{city}}", "description": "City name (e.g., 'Austin, TX')" },
+                { "key": "lat", "value": "30.2672", "description": "Latitude for geo search", "disabled": true },
+                { "key": "lng", "value": "-97.7431", "description": "Longitude for geo search", "disabled": true },
+                { "key": "radius", "value": "5000", "description": "Search radius in meters", "disabled": true },
+                { "key": "filters", "value": "open-now,trending", "description": "Comma-separated filter IDs", "disabled": true },
+                { "key": "q", "value": "", "description": "Free-text search query", "disabled": true },
+                { "key": "page", "value": "1", "description": "Page number" },
+                { "key": "limit", "value": "20", "description": "Results per page" }
+              ]
+            },
+            "description": "Retrieve a paginated list of venues. Supports city, geo-coordinates, text search, and filter params."
+          }
+        },
+        {
+          "name": "Get Venue Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/venues/{{venueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["venues", "{{venueId}}"]
+            },
+            "description": "Get full details for a single venue by ID."
+          }
+        }
+      ],
+      "description": "Venue listing and detail endpoints."
+    },
+    {
+      "name": "Votes",
+      "item": [
+        {
+          "name": "Get Vote State",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/votes",
+              "host": ["{{baseUrl}}"],
+              "path": ["votes"]
+            },
+            "description": "Get the current user's vote state: remaining votes, max votes, and voted venue IDs."
+          }
+        },
+        {
+          "name": "Cast Vote",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venueId\": \"{{venueId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/votes",
+              "host": ["{{baseUrl}}"],
+              "path": ["votes"]
+            },
+            "description": "Cast a vote for a venue. Returns updated vote state. Fails if no remaining votes or already voted for this venue today."
+          }
+        },
+        {
+          "name": "Remove Vote",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/votes/{{venueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["votes", "{{venueId}}"]
+            },
+            "description": "Remove a previously cast vote for a venue. Returns updated vote state."
+          }
+        }
+      ],
+      "description": "Vote management — view state, cast, and remove votes."
+    },
+    {
+      "name": "Trending",
+      "item": [
+        {
+          "name": "Get Trending Venues",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trending/{{city}}?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["trending", "{{city}}"],
+              "query": [
+                { "key": "limit", "value": "10", "description": "Number of ranked venues to return" }
+              ]
+            },
+            "description": "Get the ranked list of trending venues for a given city."
+          }
+        }
+      ],
+      "description": "City-level trending/ranking endpoints."
+    }
+  ]
+}

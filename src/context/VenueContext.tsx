@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { Venue, FilterOption, VoteState } from '@/types/venue';
-import { mockVenues } from '@/data/venues';
 import { defaultFilters } from '@/data/filters';
+import { useVenues } from '@/api/venues';
+import { useVoteState, useCastVote, useRemoveVote } from '@/api/votes';
 
 interface VenueContextValue {
   venues: Venue[];
@@ -20,15 +21,27 @@ interface VenueContextValue {
 
 const VenueContext = createContext<VenueContextValue | null>(null);
 
+const DEFAULT_VOTE_STATE: VoteState = {
+  remainingVotes: 3,
+  maxVotes: 3,
+  votedVenueIds: [],
+};
+
 export function VenueProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<FilterOption[]>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState('Austin, TX');
-  const [voteState, setVoteState] = useState<VoteState>({
-    remainingVotes: 3,
-    maxVotes: 3,
-    votedVenueIds: [],
-  });
+
+  const activeFilterIds = useMemo(
+    () => filters.filter((f) => f.enabled).map((f) => f.id),
+    [filters]
+  );
+
+  // Data from TanStack Query
+  const { data: venues = [] } = useVenues(selectedCity, activeFilterIds);
+  const { data: voteState = DEFAULT_VOTE_STATE } = useVoteState();
+  const castVoteMutation = useCastVote();
+  const removeVoteMutation = useRemoveVote();
 
   const toggleFilter = useCallback((id: string) => {
     setFilters((prev) => prev.map((f) => (f.id === id ? { ...f, enabled: !f.enabled } : f)));
@@ -38,47 +51,38 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
     setFilters(defaultFilters);
   }, []);
 
-  const castVote = useCallback((venueId: string) => {
-    setVoteState((prev) => {
-      if (prev.remainingVotes <= 0 || prev.votedVenueIds.includes(venueId)) return prev;
-      return {
-        ...prev,
-        remainingVotes: prev.remainingVotes - 1,
-        votedVenueIds: [...prev.votedVenueIds, venueId],
-      };
+  const castVote = useCallback(
+    (venueId: string) => {
+      castVoteMutation.mutate(venueId);
+    },
+    [castVoteMutation]
+  );
+
+  const removeVote = useCallback(
+    (venueId: string) => {
+      removeVoteMutation.mutate(venueId);
+    },
+    [removeVoteMutation]
+  );
+
+  const filteredVenues = useMemo(() => {
+    return venues.filter((venue) => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!venue.name.toLowerCase().includes(q) && !venue.type.toLowerCase().includes(q))
+          return false;
+      }
+      if (activeFilterIds.length === 0) return true;
+      if (activeFilterIds.includes('trending') && !venue.isTrending) return false;
+      if (activeFilterIds.includes('open-now') && !venue.isOpen) return false;
+      return true;
     });
-  }, []);
-
-  const removeVote = useCallback((venueId: string) => {
-    setVoteState((prev) => {
-      if (!prev.votedVenueIds.includes(venueId)) return prev;
-      return {
-        ...prev,
-        remainingVotes: prev.remainingVotes + 1,
-        votedVenueIds: prev.votedVenueIds.filter((id) => id !== venueId),
-      };
-    });
-  }, []);
-
-  const activeFilterIds = filters.filter((f) => f.enabled).map((f) => f.id);
-
-  const filteredVenues = mockVenues.filter((venue) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!venue.name.toLowerCase().includes(q) && !venue.type.toLowerCase().includes(q))
-        return false;
-    }
-    if (activeFilterIds.length === 0) return true;
-    // Simple filter matching
-    if (activeFilterIds.includes('trending') && !venue.isTrending) return false;
-    if (activeFilterIds.includes('open-now') && !venue.isOpen) return false;
-    return true;
-  });
+  }, [venues, searchQuery, activeFilterIds]);
 
   return (
     <VenueContext.Provider
       value={{
-        venues: mockVenues,
+        venues,
         filters,
         voteState,
         searchQuery,
