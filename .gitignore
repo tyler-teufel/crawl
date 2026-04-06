@@ -24,5 +24,8 @@ android
 
 .env
 
-.claude
-.claude/settings.local.json
+# .claude
+# .claude/settings.local.json
+
+# Turbo 
+.turbo
