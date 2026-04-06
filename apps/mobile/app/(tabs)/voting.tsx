@@ -28,7 +28,7 @@ export default function VotingScreen() {
 
         {/* City selector */}
         <View className="mt-4 items-center">
-          <CitySelector city={selectedCity} onPress={() => {}} />
+          <CitySelector city={selectedCity} onPress={() => { }} />
         </View>
 
         {/* Vote counter */}
