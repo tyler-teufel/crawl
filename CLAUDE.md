@@ -5,22 +5,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Start development server
+# ── Monorepo (Turborepo) ──────────────────────────────────
+turbo dev                         # Start all apps in dev mode
+turbo dev --filter=mobile         # Start only the mobile app
+turbo dev --filter=api            # Start only the API server
+turbo build                       # Build all packages
+turbo build --filter=mobile       # Build mobile only
+turbo lint                        # Lint all workspaces
+turbo typecheck                   # Type-check all workspaces
+turbo test                        # Run tests across all workspaces
+
+# ── Mobile (apps/mobile) ─────────────────────────────────
 npm start            # or: npm run ios | npm run android | npm run web
+npm run prebuild     # Native build prep (run before iOS/Android builds)
+npm run lint         # Lint and format check
+npm run format       # Auto-fix lint and formatting issues
 
-# Lint and format check
-npm run lint
-
-# Auto-fix lint and formatting issues
-npm run format
-
-# Native build prep
-npm run prebuild
+# ── API (apps/api) ───────────────────────────────────────
+# (Not yet scaffolded — see docs/BACKEND_IMPLEMENTATION_PLAN.md)
+# npm run dev         # Start API with hot-reload (tsx watch)
+# npm run build       # Compile TypeScript
+# npm run test        # Run Vitest suite
 ```
 
 There is no test suite configured yet.
 
-## Architecture
+## Monorepo Structure
+
+This project is in-progress migration to a **Turborepo monorepo**. The target structure:
+
+```
+crawl/
+├── apps/
+│   ├── mobile/          → Expo React Native app (primary screen code + config)
+│   └── api/             → Backend API server (to be scaffolded)
+├── packages/
+│   └── shared-types/    → TypeScript types shared between mobile and API
+├── docs/                → Project-wide documentation
+├── turbo.json           → Turborepo pipeline config
+└── package.json         → Root workspace manifest
+```
+
+**Current migration state**: Config files for the mobile app have been moved to `apps/mobile/` (`babel.config.js`, `metro.config.js`, `tailwind.config.js`, `tsconfig.json`, etc.). The main app source (`app/`, `components/`, `src/`) still lives at the repo root until the migration is complete.
+
+**`packages/shared-types`** — Once created, shared types (Venue, Vote, User, API request/response shapes) should live here and be imported by both `apps/mobile` and `apps/api`.
+
+## Mobile App (apps/mobile)
 
 This is an **Expo React Native** app (SDK 54) using **file-based routing** via `expo-router`. The entry point is `expo-router/entry`.
 
@@ -41,7 +71,7 @@ app/filters.tsx         → Filter modal (transparentModal presentation)
 
 - `app/` — Screens and navigation (expo-router file-based routing)
 - `components/` — Presentational components organized by domain (`ui/`, `map/`, `venue/`, `voting/`, `layout/`)
-- `src/` — Shared logic aliased as `@/*` (`types/`, `data/`, `constants/`, `context/`, `hooks/`, `lib/`)
+- `src/` — Shared logic aliased as `@/*` (`types/`, `data/`, `constants/`, `context/`, `hooks/`, `lib/`, `api/`)
 - `docs/` — Project documentation (see Documentation section below)
 - `assets/` — Static images
 
@@ -57,7 +87,7 @@ Tailwind content paths: `app/**`, `components/**`, `src/**`, `node_modules/@rnr/
 
 ### Path Aliases
 
-`@/*` maps to `src/*` (configured in `tsconfig.json`). Place shared code under `src/`.
+`@/*` maps to `src/*` (configured in `tsconfig.json`). Place shared mobile logic under `src/`.
 
 ### Component Library
 
@@ -67,8 +97,11 @@ Tailwind content paths: `app/**`, `components/**`, `src/**`, `node_modules/@rnr/
 
 A single `VenueContext` (React Context) at the root layout level manages filters, search, votes, and derived `filteredVenues`. All screens and modals share this context.
 
+**Data fetching** uses **TanStack Query** (`src/api/`). Query hooks (`useVenues`, `useVoteState`, `useCastVote`, etc.) currently return mock data — the `queryFn` implementations will be swapped to call the real API when `apps/api` is live. The API client (`src/api/client.ts`) reads from `EXPO_PUBLIC_API_URL`.
+
 ### Key Dependencies
 
+- `@tanstack/react-query` — server state, caching, and mutations
 - `react-native-reanimated` + `react-native-worklets` — animations/worklets (worklets Babel plugin is active)
 - `react-native-svg` — SVG rendering (used for HotspotScore circular progress)
 - `react-native-safe-area-context` + `react-native-screens` — navigation primitives
@@ -86,6 +119,52 @@ Colors are defined in three synced locations:
 
 The app forces dark mode on mount via `useColorScheme` + `setColorScheme('dark')` in the root layout.
 
+## Backend (apps/api)
+
+The API is being built as a Node.js/TypeScript server in `apps/api/`. See `docs/BACKEND_IMPLEMENTATION_PLAN.md` for the full phased plan. Key points:
+
+### Route Structure
+
+```
+GET    /api/v1/venues              List venues (city, lat, lng, radius, filters, q, page, limit)
+GET    /api/v1/venues/:id          Single venue detail
+GET    /api/v1/votes               User's vote state (auth required)
+POST   /api/v1/votes               Cast a vote (auth required)
+DELETE /api/v1/votes/:venueId      Remove a vote (auth required)
+GET    /api/v1/trending/:city      Ranked venues for a city
+POST   /api/v1/auth/register       Create account
+POST   /api/v1/auth/login          Authenticate
+POST   /api/v1/auth/refresh        Refresh JWT
+GET    /api/v1/health              Health check (DB + Redis connectivity)
+```
+
+### Architecture Pattern
+
+```
+Route handler (HTTP layer)
+    └── Service (business logic — independently testable)
+            └── Repository (DB queries — one per entity)
+```
+
+### Key Technology Decisions (pending — see plan)
+
+- **Framework**: Express / Fastify / Hono (undecided — document choice in `DESIGN_DECISIONS.md` when made)
+- **Database**: Postgres with PostGIS; hosting TBD (Supabase / Neon / Railway)
+- **ORM**: Drizzle / Prisma / Kysely (undecided)
+- **Auth**: Custom JWT or Supabase Auth (undecided)
+- **Validation**: Zod (strongly preferred — shares types with mobile app)
+- **Testing**: Vitest
+
+### Environment Variables
+
+```
+DATABASE_URL          Postgres connection string
+REDIS_URL             Redis connection string (if used)
+JWT_SECRET            Access token signing secret
+JWT_REFRESH_SECRET    Refresh token signing secret
+CORS_ORIGIN           Allowed CORS origins
+```
+
 ## Documentation
 
 ### Automatic Documentation Maintenance
@@ -101,11 +180,13 @@ Update documentation alongside code changes in these situations:
 | New screen or route | `ARCHITECTURE.md` (navigation tree, diagrams), `FILE_REFERENCE.md`, `PROJECT_OVERVIEW.md` |
 | New component | `FILE_REFERENCE.md` (components section), `ARCHITECTURE.md` (dependency graph) |
 | New file in `src/` | `FILE_REFERENCE.md` (shared logic section) |
+| New API endpoint | `BACKEND_IMPLEMENTATION_PLAN.md`, `FILE_REFERENCE.md`, `DATA_PIPELINE.md` |
 | New dependency added | `PROJECT_OVERVIEW.md` (tech stack), `DESIGN_DECISIONS.md` if a choice was made |
 | Theme/color changes | `REACT_NATIVE_REUSABLES.md` (color mapping table), `ARCHITECTURE.md` (styling pipeline) |
 | State management changes | `ARCHITECTURE.md` (state tree) |
 | Config file changes | `FILE_REFERENCE.md` (config section) |
 | Major architectural decision | `DESIGN_DECISIONS.md` (new section explaining what, why, trade-offs) |
+| Backend technology chosen | `DESIGN_DECISIONS.md` + resolve pending items in `BACKEND_IMPLEMENTATION_PLAN.md` |
 | Feature completed from roadmap | `ROADMAP.md` (move to done), `PROJECT_OVERVIEW.md` (update status) |
 | New conventions established | `CONTRIBUTING.md` |
 
@@ -141,18 +222,20 @@ Use box-drawing characters (`┌─┐│└─┘`), arrows (`──►`, `◄�
 
 ```
 docs/
-├── README.md                    # Index linking to all docs
-├── PROJECT_OVERVIEW.md          # What the app is, features, tech stack
-├── ARCHITECTURE.md              # Structure, navigation, state, styling, diagrams
-├── FILE_REFERENCE.md            # Every file with detailed descriptions
-├── DESIGN_DECISIONS.md          # Rationale behind technical choices
-├── REACT_NATIVE_REUSABLES.md    # RNR setup, theming, adding components
-├── MAPS_INTEGRATION.md          # Guide for replacing map placeholder
-├── DATA_PIPELINE.md             # Backend architecture and migration plan
-├── CICD_PIPELINE.md             # Build, test, release pipeline
-├── CONTRIBUTING.md              # How to add screens, components, follow conventions
-├── ROADMAP.md                   # Prioritized next steps
-└── VERSION_1.0_DOCUMENT.md      # Historical v1.0 consolidated doc
+├── README.md                      # Index linking to all docs
+├── PROJECT_OVERVIEW.md            # What the app is, features, tech stack
+├── ARCHITECTURE.md                # Structure, navigation, state, styling, diagrams
+├── FILE_REFERENCE.md              # Every file with detailed descriptions
+├── DESIGN_DECISIONS.md            # Rationale behind technical choices
+├── REACT_NATIVE_REUSABLES.md      # RNR setup, theming, adding components
+├── MAPS_INTEGRATION.md            # Guide for replacing map placeholder
+├── DATA_PIPELINE.md               # Backend architecture and migration plan
+├── BACKEND_IMPLEMENTATION_PLAN.md # Phased backend build-out plan
+├── CICD_PIPELINE.md               # Build, test, release pipeline
+├── CONTRIBUTING.md                # How to add screens, components, follow conventions
+├── ROADMAP.md                     # Prioritized next steps
+├── CLAUDE_ENHANCEMENTS.md         # Claude Code / AI workflow improvements
+└── VERSION_1.0_DOCUMENT.md        # Historical v1.0 consolidated doc
 ```
 
 ### The `/docs` Skill
