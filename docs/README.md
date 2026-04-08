@@ -24,6 +24,8 @@
 | [Data Pipeline & Backend](./DATA_PIPELINE.md) | Backend architecture, API design, and migration path from mock data |
 | [CI/CD Pipeline](./CICD_PIPELINE.md) | Build, test, and release pipeline using EAS Build and GitHub Actions |
 | [Contributing](./CONTRIBUTING.md) | How to add screens, components, shared logic, and follow project conventions |
+| [Turborepo Migration](./TURBOREPO_MIGRATION.md) | Every change made to enable the monorepo, why each was needed, and how Turbo orchestrates tasks |
+| [Installing Packages](./INSTALLING_PACKAGES.md) | How to add, remove, and manage npm packages across the three workspaces |
 
 ### Reference
 

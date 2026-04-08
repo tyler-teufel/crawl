@@ -2,6 +2,7 @@
   "name": "crawl-monorepo",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "npm@11.4.2",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -12,6 +13,7 @@
     "lint": "turbo run lint",
     "format": "turbo run format",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "clean": "turbo run clean"
   },
   "devDependencies": {

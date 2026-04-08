@@ -1,5 +1,5 @@
 {
-  "name": "crawl",
+  "name": "@crawl/mobile",
   "version": "1.0.0",
   "scripts": {
     "android": "expo start --android",
@@ -44,7 +44,6 @@
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.5.11",
     "tailwindcss": "^3.4.0",
-    "turbo": "^2.9.3",
     "typescript": "~5.9.2"
   },
   "main": "expo-router/entry",

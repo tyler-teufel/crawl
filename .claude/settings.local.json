@@ -29,7 +29,12 @@
       "Bash(python3 -c ':*)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "Bash(npx prettier:*)"
+      "Bash(npx prettier:*)",
+      "Bash(ls:*)",
+      "Bash(npm -v)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx turbo:*)"
     ]
   }
 }
