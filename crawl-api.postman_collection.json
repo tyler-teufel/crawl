@@ -61,9 +61,7 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securePassword123\",\n  \"displayName\": \"Test User\"\n}"
@@ -97,9 +95,7 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securePassword123\"\n}"
@@ -132,9 +128,7 @@
           ],
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refreshToken\": \"your-refresh-token-here\"\n}"
@@ -162,12 +156,41 @@
               "host": ["{{baseUrl}}"],
               "path": ["venues"],
               "query": [
-                { "key": "city", "value": "{{city}}", "description": "City name (e.g., 'Austin, TX')" },
-                { "key": "lat", "value": "30.2672", "description": "Latitude for geo search", "disabled": true },
-                { "key": "lng", "value": "-97.7431", "description": "Longitude for geo search", "disabled": true },
-                { "key": "radius", "value": "5000", "description": "Search radius in meters", "disabled": true },
-                { "key": "filters", "value": "open-now,trending", "description": "Comma-separated filter IDs", "disabled": true },
-                { "key": "q", "value": "", "description": "Free-text search query", "disabled": true },
+                {
+                  "key": "city",
+                  "value": "{{city}}",
+                  "description": "City name (e.g., 'Austin, TX')"
+                },
+                {
+                  "key": "lat",
+                  "value": "30.2672",
+                  "description": "Latitude for geo search",
+                  "disabled": true
+                },
+                {
+                  "key": "lng",
+                  "value": "-97.7431",
+                  "description": "Longitude for geo search",
+                  "disabled": true
+                },
+                {
+                  "key": "radius",
+                  "value": "5000",
+                  "description": "Search radius in meters",
+                  "disabled": true
+                },
+                {
+                  "key": "filters",
+                  "value": "open-now,trending",
+                  "description": "Comma-separated filter IDs",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Free-text search query",
+                  "disabled": true
+                },
                 { "key": "page", "value": "1", "description": "Page number" },
                 { "key": "limit", "value": "20", "description": "Results per page" }
               ]
@@ -209,9 +232,7 @@
           "name": "Cast Vote",
           "request": {
             "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"venueId\": \"{{venueId}}\"\n}"
@@ -251,7 +272,11 @@
               "host": ["{{baseUrl}}"],
               "path": ["trending", "{{city}}"],
               "query": [
-                { "key": "limit", "value": "10", "description": "Number of ranked venues to return" }
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of ranked venues to return"
+                }
               ]
             },
             "description": "Get the ranked list of trending venues for a given city."

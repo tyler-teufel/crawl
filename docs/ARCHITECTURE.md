@@ -50,19 +50,20 @@ crawl/
 
 ### Directory Conventions
 
-| Directory | Convention |
-|-----------|-----------|
-| `app/` | One file = one route. `_layout.tsx` files define navigation containers. Parenthesized directories like `(tabs)` create layout groups without affecting the URL. |
-| `components/` | Presentational components organized by feature domain. Accept data via props. Minimal direct context usage. |
-| `src/` | Business logic, types, data, and utilities. Everything here is imported via the `@/` alias (e.g., `@/types/venue`). |
-| `src/lib/` | Utility functions used across the app. Currently houses `cn()` and `theme.ts` for RNR integration. |
+| Directory     | Convention                                                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/`        | One file = one route. `_layout.tsx` files define navigation containers. Parenthesized directories like `(tabs)` create layout groups without affecting the URL. |
+| `components/` | Presentational components organized by feature domain. Accept data via props. Minimal direct context usage.                                                     |
+| `src/`        | Business logic, types, data, and utilities. Everything here is imported via the `@/` alias (e.g., `@/types/venue`).                                             |
+| `src/lib/`    | Utility functions used across the app. Currently houses `cn()` and `theme.ts` for RNR integration.                                                              |
 
 ### Path Alias
 
 `@/*` maps to `src/*` (configured in `tsconfig.json`):
+
 ```typescript
-import { Venue } from '@/types/venue';       // → src/types/venue.ts
-import { cn } from '@/lib/utils';            // → src/lib/utils.ts
+import { Venue } from '@/types/venue'; // → src/types/venue.ts
+import { cn } from '@/lib/utils'; // → src/lib/utils.ts
 import { useCountdown } from '@/hooks/useCountdown'; // → src/hooks/useCountdown.ts
 ```
 
@@ -85,11 +86,11 @@ Root Stack (app/_layout.tsx)
 
 ### Navigation Stack Behavior
 
-| Route | Presentation | Animation | Tab Bar |
-|-------|-------------|-----------|---------|
-| `(tabs)/*` | Default (fullscreen) | None (tab switch) | Visible |
-| `venue/[id]` | Default (fullscreen push) | `slide_from_right` | Hidden |
-| `filters` | `transparentModal` | `fade` | Visible (behind overlay) |
+| Route        | Presentation              | Animation          | Tab Bar                  |
+| ------------ | ------------------------- | ------------------ | ------------------------ |
+| `(tabs)/*`   | Default (fullscreen)      | None (tab switch)  | Visible                  |
+| `venue/[id]` | Default (fullscreen push) | `slide_from_right` | Hidden                   |
+| `filters`    | `transparentModal`        | `fade`             | Visible (behind overlay) |
 
 ### Custom Tab Bar
 
@@ -184,13 +185,13 @@ The filter modal (`/filters`) is rendered as a separate route outside the tab na
 
 When a backend is added, the recommendation is:
 
-| State Type | Current | Future |
-|-----------|---------|--------|
+| State Type                  | Current       | Future                                      |
+| --------------------------- | ------------- | ------------------------------------------- |
 | Server data (venues, votes) | React Context | TanStack Query (cached queries + mutations) |
-| UI state (filters, search) | React Context | React Context or Zustand |
-| Auth state (tokens, user) | N/A | Zustand + expo-secure-store |
-| Form state | N/A | React Hook Form or local state |
-| Navigation state | expo-router | expo-router (unchanged) |
+| UI state (filters, search)  | React Context | React Context or Zustand                    |
+| Auth state (tokens, user)   | N/A           | Zustand + expo-secure-store                 |
+| Form state                  | N/A           | React Hook Form or local state              |
+| Navigation state            | expo-router   | expo-router (unchanged)                     |
 
 ---
 
@@ -219,10 +220,10 @@ Component                   <View className="bg-primary p-4 rounded-lg" />
 
 ### Two Color Systems
 
-| System | Source | Example Classes | When to Use |
-|--------|--------|----------------|-------------|
-| Semantic tokens | CSS variables in `global.css` | `bg-primary`, `text-muted-foreground`, `border-border` | RNR components, new components following design system |
-| Crawl palette | Hardcoded hex in `tailwind.config.js` | `bg-crawl-purple`, `text-crawl-text-muted`, `bg-crawl-card` | Existing custom components, one-off color needs |
+| System          | Source                                | Example Classes                                             | When to Use                                            |
+| --------------- | ------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| Semantic tokens | CSS variables in `global.css`         | `bg-primary`, `text-muted-foreground`, `border-border`      | RNR components, new components following design system |
+| Crawl palette   | Hardcoded hex in `tailwind.config.js` | `bg-crawl-purple`, `text-crawl-text-muted`, `bg-crawl-card` | Existing custom components, one-off color needs        |
 
 Both systems coexist. The semantic tokens automatically adapt to light/dark mode. The `crawl-*` tokens are static.
 
@@ -253,10 +254,10 @@ The `@rnr` path is critical — without it, Tailwind would purge classes used in
 
 Used for performant, 60fps animations that run on the UI thread:
 
-| Component | Animation | Technique |
-|-----------|-----------|-----------|
-| `MapPin` | Pulsing glow ring for trending venues | `withRepeat` + `withTiming` on shared values for scale (1→1.8) and opacity (0.6→0), 1500ms loop |
-| `HotspotScore` | Circular progress ring fill | `useAnimatedProps` driving `strokeDashoffset` on an SVG `<Circle>`, cubic easing, 1200ms |
+| Component      | Animation                             | Technique                                                                                       |
+| -------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `MapPin`       | Pulsing glow ring for trending venues | `withRepeat` + `withTiming` on shared values for scale (1→1.8) and opacity (0.6→0), 1500ms loop |
+| `HotspotScore` | Circular progress ring fill           | `useAnimatedProps` driving `strokeDashoffset` on an SVG `<Circle>`, cubic easing, 1200ms        |
 
 ### react-native-svg
 

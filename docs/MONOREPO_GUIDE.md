@@ -164,18 +164,18 @@ Both apps use it independently for different things?
 
 ### Common examples
 
-| Package | Where | Why |
-|---------|-------|-----|
-| `expo-haptics` | `@crawl/mobile` | Mobile-only Expo package |
-| `react-native-maps` | `@crawl/mobile` | Mobile-only native module |
-| `@fastify/jwt` | `@crawl/api` | API-only Fastify plugin |
-| `drizzle-orm` | `@crawl/api` | API-only database ORM |
-| `zod` | `@crawl/shared-types` | Used in shared type definitions, transitive to both apps |
-| `turbo` | Root | Repo-wide task runner |
-| `husky` | Root | Repo-wide git hooks |
-| `typescript` | Each workspace that uses it | Workspaces may need different TS configs |
-| `prettier` | Each workspace that uses it | Mobile has Tailwind plugin, API doesn't |
-| `date-fns` | Both apps separately | Used independently in mobile and API |
+| Package             | Where                       | Why                                                      |
+| ------------------- | --------------------------- | -------------------------------------------------------- |
+| `expo-haptics`      | `@crawl/mobile`             | Mobile-only Expo package                                 |
+| `react-native-maps` | `@crawl/mobile`             | Mobile-only native module                                |
+| `@fastify/jwt`      | `@crawl/api`                | API-only Fastify plugin                                  |
+| `drizzle-orm`       | `@crawl/api`                | API-only database ORM                                    |
+| `zod`               | `@crawl/shared-types`       | Used in shared type definitions, transitive to both apps |
+| `turbo`             | Root                        | Repo-wide task runner                                    |
+| `husky`             | Root                        | Repo-wide git hooks                                      |
+| `typescript`        | Each workspace that uses it | Workspaces may need different TS configs                 |
+| `prettier`          | Each workspace that uses it | Mobile has Tailwind plugin, API doesn't                  |
+| `date-fns`          | Both apps separately        | Used independently in mobile and API                     |
 
 ### The `@crawl/shared-types` transitive rule
 
@@ -291,13 +291,13 @@ Both apps should resolve the new type.
 
 Config files are **scoped per workspace** because the mobile app and API have different tooling needs.
 
-| Config | Root | Mobile | API | Why split? |
-|--------|------|--------|-----|------------|
-| `eslint.config.js` | Minimal (ignores only) | Expo/React rules | TypeScript/Node rules | React rules don't apply to a Node server |
-| `prettier.config.js` | Base (no plugins) | + Tailwind class sorting | Inherits root | Tailwind plugin is mobile-only |
-| `tsconfig.json` | — | Extends `expo/tsconfig.base` | ES2022, NodeNext, strict | Completely different module systems |
-| `tailwind.config.js` | — | Full config | — | API has no Tailwind |
-| `babel.config.js` | — | NativeWind + worklets | — | API uses tsx, no Babel |
+| Config               | Root                   | Mobile                       | API                      | Why split?                               |
+| -------------------- | ---------------------- | ---------------------------- | ------------------------ | ---------------------------------------- |
+| `eslint.config.js`   | Minimal (ignores only) | Expo/React rules             | TypeScript/Node rules    | React rules don't apply to a Node server |
+| `prettier.config.js` | Base (no plugins)      | + Tailwind class sorting     | Inherits root            | Tailwind plugin is mobile-only           |
+| `tsconfig.json`      | —                      | Extends `expo/tsconfig.base` | ES2022, NodeNext, strict | Completely different module systems      |
+| `tailwind.config.js` | —                      | Full config                  | —                        | API has no Tailwind                      |
+| `babel.config.js`    | —                      | NativeWind + worklets        | —                        | API uses tsx, no Babel                   |
 
 **How ESLint/Prettier resolution works:** These tools walk up from the file being checked until they find a config. A file in `apps/api/src/` finds `apps/api/eslint.config.js` first. A file in `apps/mobile/components/` finds `apps/mobile/eslint.config.js` first. Files at the repo root find the root config.
 

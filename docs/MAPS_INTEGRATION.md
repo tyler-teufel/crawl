@@ -69,6 +69,7 @@ npx expo prebuild
 ### Google Maps (Android)
 
 Add to `app.json`:
+
 ```json
 {
   "expo": {
@@ -90,6 +91,7 @@ Works by default on iOS — no API key needed.
 ### Google Maps on iOS (optional)
 
 If you prefer Google Maps on iOS for consistency:
+
 ```json
 {
   "expo": {
@@ -223,7 +225,7 @@ const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
 // When a map marker is tapped → scroll carousel
 const handlePinPress = (venue: Venue) => {
   setSelectedVenueId(venue.id);
-  const index = filteredVenues.findIndex(v => v.id === venue.id);
+  const index = filteredVenues.findIndex((v) => v.id === venue.id);
   if (index >= 0) {
     flatListRef.current?.scrollToIndex({ index, animated: true });
   }
@@ -242,6 +244,7 @@ const handleCarouselScroll = (event) => {
 ## Step 6: Keep MapPlaceholder as Fallback
 
 Don't delete `MapPlaceholder.tsx`. It remains useful for:
+
 - Development in Expo Go (no native modules)
 - Web builds where react-native-maps isn't supported
 - Testing UI layout without map rendering overhead

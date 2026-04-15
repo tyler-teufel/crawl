@@ -6,26 +6,26 @@ Create a table with these columns: Area, Decision, Options to Evaluate, Status, 
 
 Populate it with this data:
 
-| Area | Decision | Options | Status | Choice | Priority |
-|------|----------|---------|--------|--------|----------|
-| Framework | API server framework | Express, Fastify, Hono, NestJS | Not Started | | High |
-| Architecture | Monorepo vs separate repo | Turborepo, npm workspaces, separate repo | Decided | Turborepo | High |
-| API style | REST vs tRPC | REST (current plan), tRPC (end-to-end types) | Not Started | | High |
-| Database | Hosting provider | Supabase, Neon, Railway, AWS RDS | Not Started | | High |
-| Database | ORM / query builder | Drizzle, Prisma, Kysely, raw pg | Not Started | | High |
-| Database | Pagination strategy | Cursor-based vs offset-based | Not Started | | Medium |
-| Cache | Redis provider + necessity | Upstash, Railway, defer to later | Not Started | | Low |
-| Auth | Build vs service | Custom JWT, Supabase Auth, Clerk, Firebase Auth | Not Started | | High |
-| Auth | OAuth providers | Apple (required if any social), Google | Not Started | | Medium |
-| Venues | Data source | Google Places, Yelp Fusion, Foursquare, manual | Not Started | | High |
-| Scoring | Hotspot algorithm | Vote count, velocity, recency, external ratings | Not Started | | Medium |
-| Real-time | WebSocket approach | Socket.IO, ws, Supabase Realtime, SSE, managed service | Not Started | | Low |
-| Hosting | Deployment platform | Railway, Render, Fly.io, AWS, Supabase Edge Functions | Not Started | | Medium |
-| Hosting | Container vs serverless | Containers (WS support) vs serverless (cost) | Not Started | | Medium |
-| Observability | Error tracking | Sentry, Bugsnag, Datadog | Not Started | | Low |
-| Observability | Logging platform | Datadog, Logtail, CloudWatch | Not Started | | Low |
-| Testing | Test framework | Vitest vs Jest | Not Started | | Medium |
-| Testing | Test database strategy | Separate DB, transaction rollback, Docker per run | Not Started | | Medium |
+| Area          | Decision                   | Options                                                | Status      | Choice    | Priority |
+| ------------- | -------------------------- | ------------------------------------------------------ | ----------- | --------- | -------- |
+| Framework     | API server framework       | Express, Fastify, Hono, NestJS                         | Not Started |           | High     |
+| Architecture  | Monorepo vs separate repo  | Turborepo, npm workspaces, separate repo               | Decided     | Turborepo | High     |
+| API style     | REST vs tRPC               | REST (current plan), tRPC (end-to-end types)           | Not Started |           | High     |
+| Database      | Hosting provider           | Supabase, Neon, Railway, AWS RDS                       | Not Started |           | High     |
+| Database      | ORM / query builder        | Drizzle, Prisma, Kysely, raw pg                        | Not Started |           | High     |
+| Database      | Pagination strategy        | Cursor-based vs offset-based                           | Not Started |           | Medium   |
+| Cache         | Redis provider + necessity | Upstash, Railway, defer to later                       | Not Started |           | Low      |
+| Auth          | Build vs service           | Custom JWT, Supabase Auth, Clerk, Firebase Auth        | Not Started |           | High     |
+| Auth          | OAuth providers            | Apple (required if any social), Google                 | Not Started |           | Medium   |
+| Venues        | Data source                | Google Places, Yelp Fusion, Foursquare, manual         | Not Started |           | High     |
+| Scoring       | Hotspot algorithm          | Vote count, velocity, recency, external ratings        | Not Started |           | Medium   |
+| Real-time     | WebSocket approach         | Socket.IO, ws, Supabase Realtime, SSE, managed service | Not Started |           | Low      |
+| Hosting       | Deployment platform        | Railway, Render, Fly.io, AWS, Supabase Edge Functions  | Not Started |           | Medium   |
+| Hosting       | Container vs serverless    | Containers (WS support) vs serverless (cost)           | Not Started |           | Medium   |
+| Observability | Error tracking             | Sentry, Bugsnag, Datadog                               | Not Started |           | Low      |
+| Observability | Logging platform           | Datadog, Logtail, CloudWatch                           | Not Started |           | Low      |
+| Testing       | Test framework             | Vitest vs Jest                                         | Not Started |           | Medium   |
+| Testing       | Test database strategy     | Separate DB, transaction rollback, Docker per run      | Not Started |           | Medium   |
 
 ### Formatting requirements
 

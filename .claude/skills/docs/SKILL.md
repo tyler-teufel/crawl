@@ -2,7 +2,7 @@
 name: docs
 description: Update project documentation to reflect current codebase state. Use when code changes alter architecture, add/remove files, introduce new patterns, add dependencies, or change how systems connect.
 when_to_use: After making code changes that affect project structure, navigation, state management, styling, dependencies, configuration, or API endpoints. Also use when the user explicitly asks to update docs or when a PostToolUse hook suggests documentation may need updating.
-argument-hint: "[description of what changed]"
+argument-hint: '[description of what changed]'
 allowed-tools: Read Grep Glob Bash(git diff *) Bash(git log *)
 ---
 
@@ -26,24 +26,24 @@ If `$ARGUMENTS` was provided, treat that as a description of what changed and fo
 
 Use this table to determine which docs need updates:
 
-| Changed Files | Docs to Update |
-|---------------|----------------|
-| `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, new route files | ARCHITECTURE.md (navigation), FILE_REFERENCE.md |
-| Any file in `app/` | FILE_REFERENCE.md (screen files) |
-| Any file in `components/` | FILE_REFERENCE.md (components), ARCHITECTURE.md (component graph) |
-| Any file in `src/` | FILE_REFERENCE.md (shared logic) |
-| `tailwind.config.js`, `global.css`, `src/lib/theme.ts` | REACT_NATIVE_REUSABLES.md (theme), ARCHITECTURE.md (styling) |
-| `package.json` (new deps) | PROJECT_OVERVIEW.md (tech stack) |
-| RNR-related files | REACT_NATIVE_REUSABLES.md |
-| Config files (babel, metro, eslint, prettier, tsconfig) | FILE_REFERENCE.md (config) |
-| New screens or major features | PROJECT_OVERVIEW.md, ARCHITECTURE.md, DESIGN_DECISIONS.md |
-| CI/CD workflows, `eas.json` | CICD_PIPELINE.md |
-| `apps/api/src/**` | FILE_REFERENCE.md (backend), ARCHITECTURE.md (backend), DATA_PIPELINE.md |
-| `apps/api/package.json` | PROJECT_OVERVIEW.md (tech stack) |
-| `packages/shared-types/**` | FILE_REFERENCE.md, ARCHITECTURE.md |
-| `turbo.json`, root `package.json` | TURBOREPO_MIGRATION.md (if structural), FILE_REFERENCE.md |
-| New library or framework adopted | DESIGN_DECISIONS.md |
-| Roadmap item completed | ROADMAP.md, PROJECT_OVERVIEW.md |
+| Changed Files                                                | Docs to Update                                                           |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, new route files | ARCHITECTURE.md (navigation), FILE_REFERENCE.md                          |
+| Any file in `app/`                                           | FILE_REFERENCE.md (screen files)                                         |
+| Any file in `components/`                                    | FILE_REFERENCE.md (components), ARCHITECTURE.md (component graph)        |
+| Any file in `src/`                                           | FILE_REFERENCE.md (shared logic)                                         |
+| `tailwind.config.js`, `global.css`, `src/lib/theme.ts`       | REACT_NATIVE_REUSABLES.md (theme), ARCHITECTURE.md (styling)             |
+| `package.json` (new deps)                                    | PROJECT_OVERVIEW.md (tech stack)                                         |
+| RNR-related files                                            | REACT_NATIVE_REUSABLES.md                                                |
+| Config files (babel, metro, eslint, prettier, tsconfig)      | FILE_REFERENCE.md (config)                                               |
+| New screens or major features                                | PROJECT_OVERVIEW.md, ARCHITECTURE.md, DESIGN_DECISIONS.md                |
+| CI/CD workflows, `eas.json`                                  | CICD_PIPELINE.md                                                         |
+| `apps/api/src/**`                                            | FILE_REFERENCE.md (backend), ARCHITECTURE.md (backend), DATA_PIPELINE.md |
+| `apps/api/package.json`                                      | PROJECT_OVERVIEW.md (tech stack)                                         |
+| `packages/shared-types/**`                                   | FILE_REFERENCE.md, ARCHITECTURE.md                                       |
+| `turbo.json`, root `package.json`                            | TURBOREPO_MIGRATION.md (if structural), FILE_REFERENCE.md                |
+| New library or framework adopted                             | DESIGN_DECISIONS.md                                                      |
+| Roadmap item completed                                       | ROADMAP.md, PROJECT_OVERVIEW.md                                          |
 
 ### 3. Read Affected Docs and Source Files
 
@@ -54,11 +54,13 @@ Read each doc that needs updates AND the source files that changed. Do not updat
 For each document that needs changes:
 
 **FILE_REFERENCE.md** — Add or update entries. Each entry should describe:
+
 - What the file does (purpose and behavior, not just restating the filename)
 - Key implementation details
 - How it connects to other files
 
 **ARCHITECTURE.md** — Update:
+
 - Project structure tree if directories changed
 - Navigation route tree if routes changed
 - State management section if context/providers changed
@@ -89,6 +91,7 @@ For each document that needs changes:
 ### 5. Diagrams
 
 Include or update ASCII diagrams when:
+
 - Navigation flow changes → ARCHITECTURE.md
 - Component trees change → ARCHITECTURE.md
 - State management changes → ARCHITECTURE.md
@@ -100,6 +103,7 @@ Diagram style: box-drawing characters (`┌─┐│└─┘`), arrows (`──
 ### 6. Verify
 
 After making changes:
+
 - Ensure internal links between docs still work
 - Check that docs/README.md index reflects all docs
 - Verify no doc references files or features that no longer exist

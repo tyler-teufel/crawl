@@ -19,6 +19,7 @@ claude mcp add github -- npx -y @modelcontextprotocol/server-github
 Set `GITHUB_PERSONAL_ACCESS_TOKEN` in your environment. Scopes needed: `repo`, `read:org`.
 
 **Immediate value for Crawl**:
+
 - "Create a GitHub issue for the Phase 1 framework decision" → Claude drafts and files it
 - "Review PR #42 against the design system rules" → Claude reads the diff and flags issues
 - "What CI checks are failing on the feature-backend branch?" → Claude checks without you switching tabs
@@ -28,6 +29,7 @@ Set `GITHUB_PERSONAL_ACCESS_TOKEN` in your environment. Scopes needed: `repo`, `
 **Why**: Once `apps/api` has a database, Claude can inspect live schema, run exploratory queries, and validate that migrations ran correctly — without you writing the query and pasting results back.
 
 **If you go with Supabase**:
+
 ```bash
 claude mcp add supabase -- npx -y @supabase/mcp-server-supabase \
   --project-ref <your-project-ref> \
@@ -35,12 +37,14 @@ claude mcp add supabase -- npx -y @supabase/mcp-server-supabase \
 ```
 
 **If you go with a raw Postgres connection** (Neon, Railway, etc.):
+
 ```bash
 claude mcp add postgres -- npx -y @modelcontextprotocol/server-postgres \
   postgresql://user:pass@host/dbname
 ```
 
 **Immediate value for Crawl**:
+
 - "Did the PostGIS extension get enabled?" → Claude runs `SELECT * FROM pg_extension`
 - "Show me the current hotspot scores for Austin venues" → Claude queries live
 - "The venues migration failed — what's the current schema?" → Claude inspects and diagnoses
@@ -54,6 +58,7 @@ Claude Code has filesystem access by default in your working directory. No actio
 ### Linear or GitHub Issues (task tracking)
 
 If you use Linear for Crawl roadmap items:
+
 ```bash
 claude mcp add linear -- npx -y @modelcontextprotocol/server-linear
 ```
@@ -73,6 +78,7 @@ Skills are reusable prompt templates that Claude executes when you type a slash 
 **Trigger**: When you need a new screen following the project's conventions (expo-router, NativeWind, RNR, VenueContext).
 
 **What it should do**:
+
 1. Read `CLAUDE.md` to recall routing conventions
 2. Read an existing screen (`app/(tabs)/voting.tsx`) as a style reference
 3. Scaffold the new screen file at the correct `app/` path
@@ -80,13 +86,16 @@ Skills are reusable prompt templates that Claude executes when you type a slash 
 5. Add a `FILE_REFERENCE.md` entry
 
 **Example usage**:
+
 ```
 /mobile-screen app/(tabs)/leaderboard.tsx — Global leaderboard for a city
 ```
 
 **Skill prompt outline** (save to `.claude/skills/mobile-screen.md`):
+
 ```markdown
 The user wants to create a new Expo screen. Follow these steps:
+
 1. Read CLAUDE.md to recall navigation and styling conventions
 2. Read app/(tabs)/voting.tsx as a reference for screen structure
 3. Create the new screen file at the path the user specified
@@ -94,7 +103,7 @@ The user wants to create a new Expo screen. Follow these steps:
    and TanStack Query hooks for data fetching
 5. Update docs/ARCHITECTURE.md navigation tree
 6. Add an entry in docs/FILE_REFERENCE.md
-Screen path and description: $ARGUMENTS
+   Screen path and description: $ARGUMENTS
 ```
 
 ### `/api-endpoint` — New API Route
@@ -102,6 +111,7 @@ Screen path and description: $ARGUMENTS
 **Trigger**: When adding a new endpoint to `apps/api`.
 
 **What it should do**:
+
 1. Read `docs/BACKEND_IMPLEMENTATION_PLAN.md` to recall route naming and patterns
 2. Scaffold the route file, service file, and repository file following the controller→service→repository pattern
 3. Add Zod validation schemas for request body and query params
@@ -109,13 +119,16 @@ Screen path and description: $ARGUMENTS
 5. Update `docs/DATA_PIPELINE.md` with the new endpoint
 
 **Example usage**:
+
 ```
 /api-endpoint GET /api/v1/venues/:id — fetch single venue by ID with vote count
 ```
 
 **Skill prompt outline**:
+
 ```markdown
 The user wants to scaffold a new API endpoint. Follow these steps:
+
 1. Read docs/BACKEND_IMPLEMENTATION_PLAN.md for route naming conventions
 2. Read an existing route file as style reference
 3. Create: the route handler, a service function, and a repository method
@@ -123,7 +136,7 @@ The user wants to scaffold a new API endpoint. Follow these steps:
 5. Return structured errors: { error: string, details?: object }
 6. Write a Vitest integration test covering the happy path and a 400/404 case
 7. Update docs/DATA_PIPELINE.md with the new endpoint entry
-Endpoint spec: $ARGUMENTS
+   Endpoint spec: $ARGUMENTS
 ```
 
 ### `/db-migration` — Database Migration File
@@ -131,6 +144,7 @@ Endpoint spec: $ARGUMENTS
 **Trigger**: When changing the database schema.
 
 **What it should do**:
+
 1. Read the current schema files to understand existing tables/columns
 2. Generate a migration file with an up and down migration
 3. Name it with a timestamp prefix: `YYYYMMDDHHMMSS_description.sql`
@@ -138,23 +152,26 @@ Endpoint spec: $ARGUMENTS
 5. Update `docs/DATA_PIPELINE.md` schema section
 
 **Example usage**:
+
 ```
 /db-migration add venue_hours table with day_of_week, open_time, close_time columns
 ```
 
 **Skill prompt outline**:
+
 ```markdown
 The user wants to create a database migration. Follow these steps:
+
 1. Read existing migration files to understand naming and style conventions
 2. Read docs/DATA_PIPELINE.md for the schema reference
 3. Generate a SQL migration file with:
-   - Timestamp-prefixed filename: YYYYMMDDHHMMSS_<description>.sql
+   - Timestamp-prefixed filename: YYYYMMDDHHMMSS\_<description>.sql
    - UP migration (the schema change)
    - DOWN migration (the rollback)
 4. Use parameterized types consistent with the existing schema
    (PostGIS geography, UUID primary keys, timestamptz)
 5. Update the schema table in docs/DATA_PIPELINE.md
-Migration description: $ARGUMENTS
+   Migration description: $ARGUMENTS
 ```
 
 ### `/commit-and-push` — Smart Monorepo Git Workflow
@@ -162,6 +179,7 @@ Migration description: $ARGUMENTS
 **Trigger**: When you're ready to commit work and push to the feature branch.
 
 **What it should do**:
+
 1. Run `git status` to see what changed
 2. Group changes by workspace: `apps/mobile`, `apps/api`, `packages/shared-types`, `docs/`
 3. Stage and commit each workspace group separately with a scoped commit message (e.g., `feat(api): add venue repository`)
@@ -171,8 +189,10 @@ Migration description: $ARGUMENTS
 **Why this matters for a monorepo**: Commit scoping (`feat(mobile):`, `fix(api):`, `chore(docs):`) makes the git log readable and lets you filter history by workspace.
 
 **Skill prompt outline**:
+
 ```markdown
 The user wants to commit and push their current changes. Follow these steps:
+
 1. Run git status and git diff to see all changes
 2. Group changes by workspace (apps/mobile, apps/api, packages/shared-types, docs)
 3. For each logical unit of work:
@@ -182,7 +202,7 @@ The user wants to commit and push their current changes. Follow these steps:
 4. If multiple workspaces changed together for one feature, one commit is fine
 5. Push to the current branch
 6. Report the commit SHAs and push result
-$ARGUMENTS
+   $ARGUMENTS
 ```
 
 ---
@@ -196,6 +216,7 @@ Agents are autonomous Claude processes that run independently on a task. Use `cl
 **Purpose**: Before merging any mobile PR, verify that new/modified components follow the design system rules.
 
 **What it checks**:
+
 - No hardcoded hex colors — use semantic tokens (`bg-primary`) or crawl palette classes
 - No inline `style={{}}` props where a `className` would work
 - NativeWind `className` props used instead of StyleSheet
@@ -205,14 +226,15 @@ Agents are autonomous Claude processes that run independently on a task. Use `cl
 **How to trigger**: Comment `/review-design-system` on a PR, or run it automatically in CI via GitHub Actions + Claude API.
 
 **Implementation sketch**:
+
 ```typescript
 // In a GitHub Actions step, after checkout:
 const changed = await getChangedFiles(pr); // only app/, components/
 const violations = await claudeAgent({
   prompt: `Review these React Native files for design system violations.
            Rules: ${designSystemRules}
-           Files: ${changed.map(f => f.content).join('\n---\n')}`,
-  model: 'claude-sonnet-4-6'
+           Files: ${changed.map((f) => f.content).join('\n---\n')}`,
+  model: 'claude-sonnet-4-6',
 });
 await postPRComment(violations);
 ```
@@ -224,11 +246,13 @@ await postPRComment(violations);
 **Why it's worth automating**: Writing tests is the task most likely to be skipped when moving fast. An agent that generates a first-draft test file (with the happy path, edge cases, and a TODO for any cases it couldn't infer) removes the blank-page problem.
 
 **What it generates**:
+
 - For `src/api/hooks/useVenues.ts` → a Vitest test with mocked TanStack Query and assertions on filter behavior
 - For `apps/api/src/services/venueService.ts` → a Vitest unit test with a mock repository
 - For `apps/api/src/routes/votes.ts` → a supertest/httpx integration test
 
 **How to trigger**:
+
 ```bash
 # Point at a file, get a test file back
 claude "generate tests for apps/api/src/services/venueService.ts"
@@ -247,13 +271,13 @@ As you create skills above, document them in CLAUDE.md so Claude (and future con
 ```markdown
 ## Slash Commands
 
-| Command | What it does |
-|---------|-------------|
-| `/docs` | Update docs/ after a code change |
-| `/mobile-screen <path> — <description>` | Scaffold a new Expo screen |
-| `/api-endpoint <METHOD /path> — <description>` | Scaffold a new API route |
-| `/db-migration <description>` | Generate a migration file |
-| `/commit-and-push` | Stage, commit by workspace, and push |
+| Command                                        | What it does                         |
+| ---------------------------------------------- | ------------------------------------ |
+| `/docs`                                        | Update docs/ after a code change     |
+| `/mobile-screen <path> — <description>`        | Scaffold a new Expo screen           |
+| `/api-endpoint <METHOD /path> — <description>` | Scaffold a new API route             |
+| `/db-migration <description>`                  | Generate a migration file            |
+| `/commit-and-push`                             | Stage, commit by workspace, and push |
 ```
 
 ### Document Environment Variables
@@ -264,10 +288,12 @@ Add an `## Environment Variables` section:
 ## Environment Variables
 
 ### Mobile (apps/mobile)
+
 - `EXPO_PUBLIC_API_URL` — Base URL for the API server (e.g., `https://api.crawlapp.com`)
 - `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` — Google Maps key (iOS/Android)
 
 ### API (apps/api)
+
 - `DATABASE_URL` — Postgres connection string
 - `REDIS_URL` — Redis connection string
 - `JWT_SECRET` — Access token signing secret (min 32 chars)
@@ -285,6 +311,7 @@ Once `packages/shared-types` exists, add a note about where types live and how t
 ### Shared Types (packages/shared-types)
 
 Import shared types from `@crawl/shared-types`, not from local files:
+
 - `Venue`, `VenueType`, `VenueFilters` — venue domain types
 - `Vote`, `VoteState` — voting domain types
 - `ApiResponse<T>`, `PaginatedResponse<T>` — API response envelopes
@@ -309,6 +336,7 @@ When adding a new API endpoint or database table, run:
 Every Monday, run an automated scan of `// TODO` and `// FIXME` comments across the codebase, grouped by file and priority, and post a summary to a GitHub issue or Slack.
 
 **Using Claude Code's scheduled tasks**:
+
 ```bash
 /schedule "Every Monday at 9am: scan the codebase for TODO and FIXME comments,
 group them by apps/mobile and apps/api, estimate which ones are blocking
@@ -317,11 +345,12 @@ production launch vs nice-to-have, and create a GitHub issue titled
 ```
 
 Or via the `cron` trigger in your CI pipeline:
+
 ```yaml
 # .github/workflows/todo-audit.yml
 on:
   schedule:
-    - cron: '0 9 * * 1'  # Monday 9am UTC
+    - cron: '0 9 * * 1' # Monday 9am UTC
 jobs:
   audit:
     runs-on: ubuntu-latest

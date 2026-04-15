@@ -94,37 +94,37 @@ Architecture for the backend services, API design, and the incremental migration
 
 ### Venues
 
-| Method | Path | Query Params | Response |
-|--------|------|-------------|----------|
-| GET | `/api/v1/venues` | `city`, `lat`, `lng`, `radius`, `filters`, `q` (search), `page`, `limit` | Paginated venue list with scores |
-| GET | `/api/v1/venues/:id` | — | Full venue detail |
+| Method | Path                 | Query Params                                                             | Response                         |
+| ------ | -------------------- | ------------------------------------------------------------------------ | -------------------------------- |
+| GET    | `/api/v1/venues`     | `city`, `lat`, `lng`, `radius`, `filters`, `q` (search), `page`, `limit` | Paginated venue list with scores |
+| GET    | `/api/v1/venues/:id` | —                                                                        | Full venue detail                |
 
 ### Votes
 
-| Method | Path | Body | Response |
-|--------|------|------|----------|
-| GET | `/api/v1/votes` | — | `{ remainingVotes, maxVotes, votedVenueIds }` |
-| POST | `/api/v1/votes` | `{ venueId }` | Updated vote state |
-| DELETE | `/api/v1/votes/:venueId` | — | Updated vote state |
+| Method | Path                     | Body          | Response                                      |
+| ------ | ------------------------ | ------------- | --------------------------------------------- |
+| GET    | `/api/v1/votes`          | —             | `{ remainingVotes, maxVotes, votedVenueIds }` |
+| POST   | `/api/v1/votes`          | `{ venueId }` | Updated vote state                            |
+| DELETE | `/api/v1/votes/:venueId` | —             | Updated vote state                            |
 
 ### Trending
 
-| Method | Path | Query Params | Response |
-|--------|------|-------------|----------|
-| GET | `/api/v1/trending/:city` | `limit` | Ranked venue list for city |
+| Method | Path                     | Query Params | Response                   |
+| ------ | ------------------------ | ------------ | -------------------------- |
+| GET    | `/api/v1/trending/:city` | `limit`      | Ranked venue list for city |
 
 ### Auth
 
-| Method | Path | Body | Response |
-|--------|------|------|----------|
-| POST | `/api/v1/auth/register` | `{ email, password, displayName }` | `{ user, token }` |
-| POST | `/api/v1/auth/login` | `{ email, password }` | `{ user, token }` |
-| POST | `/api/v1/auth/refresh` | `{ refreshToken }` | `{ token }` |
+| Method | Path                    | Body                               | Response          |
+| ------ | ----------------------- | ---------------------------------- | ----------------- |
+| POST   | `/api/v1/auth/register` | `{ email, password, displayName }` | `{ user, token }` |
+| POST   | `/api/v1/auth/login`    | `{ email, password }`              | `{ user, token }` |
+| POST   | `/api/v1/auth/refresh`  | `{ refreshToken }`                 | `{ token }`       |
 
 ### WebSocket
 
-| Path | Events |
-|------|--------|
+| Path                   | Events                                                                            |
+| ---------------------- | --------------------------------------------------------------------------------- |
 | `/ws/live?city=austin` | `vote_update { venueId, newScore, newVoteCount }`, `trending_change { rankings }` |
 
 ---
@@ -142,6 +142,7 @@ npx expo install @tanstack/react-query
 ```
 
 Create `src/api/client.ts`:
+
 ```typescript
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
 
@@ -159,6 +160,7 @@ export async function apiClient<T>(path: string, options?: RequestInit): Promise
 ```
 
 Create query hooks that initially return mock data:
+
 ```typescript
 // src/api/venues.ts
 import { useQuery } from '@tanstack/react-query';
@@ -234,6 +236,7 @@ export function useCastVote() {
 ## Database Schema (Reference)
 
 ### venues
+
 ```sql
 CREATE TABLE venues (
   id            UUID PRIMARY KEY,
@@ -255,6 +258,7 @@ CREATE TABLE venues (
 ```
 
 ### votes
+
 ```sql
 CREATE TABLE votes (
   id         UUID PRIMARY KEY,
@@ -267,6 +271,7 @@ CREATE TABLE votes (
 ```
 
 ### users
+
 ```sql
 CREATE TABLE users (
   id            UUID PRIMARY KEY,

@@ -80,6 +80,7 @@ app/filters.tsx         → Filter modal (transparentModal presentation)
 Styling uses **NativeWind** (Tailwind CSS for React Native). Use `className` props on React Native components. The Babel preset is configured with `jsxImportSource: 'nativewind'` so JSX automatically gets NativeWind support. Prettier auto-sorts Tailwind classes via `prettier-plugin-tailwindcss`.
 
 There are two color systems:
+
 - **Semantic tokens** (`bg-primary`, `text-muted-foreground`) — CSS variable-based, defined in `global.css`, used by RNR components. Prefer these for new components.
 - **Crawl palette** (`bg-crawl-purple`, `text-crawl-text-muted`) — hardcoded hex in `tailwind.config.js`, used by existing custom components.
 
@@ -113,6 +114,7 @@ A single `VenueContext` (React Context) at the root layout level manages filters
 ### Theme Configuration
 
 Colors are defined in three synced locations:
+
 1. `global.css` — CSS variables (HSL values) for light/dark mode
 2. `tailwind.config.js` — Maps CSS vars to Tailwind classes + `crawl-*` hex palette
 3. `src/lib/theme.ts` — `THEME` and `NAV_THEME` objects for React Navigation
@@ -175,26 +177,27 @@ CORS_ORIGIN           Allowed CORS origins
 
 Update documentation alongside code changes in these situations:
 
-| Change Type | Docs to Update |
-|-------------|----------------|
-| New screen or route | `ARCHITECTURE.md` (navigation tree, diagrams), `FILE_REFERENCE.md`, `PROJECT_OVERVIEW.md` |
-| New component | `FILE_REFERENCE.md` (components section), `ARCHITECTURE.md` (dependency graph) |
-| New file in `src/` | `FILE_REFERENCE.md` (shared logic section) |
-| New API endpoint | `BACKEND_IMPLEMENTATION_PLAN.md`, `FILE_REFERENCE.md`, `DATA_PIPELINE.md` |
-| New dependency added | `PROJECT_OVERVIEW.md` (tech stack), `DESIGN_DECISIONS.md` if a choice was made |
-| Theme/color changes | `REACT_NATIVE_REUSABLES.md` (color mapping table), `ARCHITECTURE.md` (styling pipeline) |
-| State management changes | `ARCHITECTURE.md` (state tree) |
-| Config file changes | `FILE_REFERENCE.md` (config section) |
-| Major architectural decision | `DESIGN_DECISIONS.md` (new section explaining what, why, trade-offs) |
-| Backend technology chosen | `DESIGN_DECISIONS.md` + resolve pending items in `BACKEND_IMPLEMENTATION_PLAN.md` |
-| Feature completed from roadmap | `ROADMAP.md` (move to done), `PROJECT_OVERVIEW.md` (update status) |
-| New conventions established | `CONTRIBUTING.md` |
+| Change Type                    | Docs to Update                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------- |
+| New screen or route            | `ARCHITECTURE.md` (navigation tree, diagrams), `FILE_REFERENCE.md`, `PROJECT_OVERVIEW.md` |
+| New component                  | `FILE_REFERENCE.md` (components section), `ARCHITECTURE.md` (dependency graph)            |
+| New file in `src/`             | `FILE_REFERENCE.md` (shared logic section)                                                |
+| New API endpoint               | `BACKEND_IMPLEMENTATION_PLAN.md`, `FILE_REFERENCE.md`, `DATA_PIPELINE.md`                 |
+| New dependency added           | `PROJECT_OVERVIEW.md` (tech stack), `DESIGN_DECISIONS.md` if a choice was made            |
+| Theme/color changes            | `REACT_NATIVE_REUSABLES.md` (color mapping table), `ARCHITECTURE.md` (styling pipeline)   |
+| State management changes       | `ARCHITECTURE.md` (state tree)                                                            |
+| Config file changes            | `FILE_REFERENCE.md` (config section)                                                      |
+| Major architectural decision   | `DESIGN_DECISIONS.md` (new section explaining what, why, trade-offs)                      |
+| Backend technology chosen      | `DESIGN_DECISIONS.md` + resolve pending items in `BACKEND_IMPLEMENTATION_PLAN.md`         |
+| Feature completed from roadmap | `ROADMAP.md` (move to done), `PROJECT_OVERVIEW.md` (update status)                        |
+| New conventions established    | `CONTRIBUTING.md`                                                                         |
 
 ### Documentation Standards
 
 Every doc update must follow these standards:
 
 **Diagrams** — Include ASCII diagrams when documenting:
+
 - Navigation flow changes (box diagrams showing route relationships)
 - Component hierarchy changes (tree diagrams showing parent-child relationships)
 - Data flow changes (arrow diagrams showing how data moves between systems)
@@ -203,17 +206,20 @@ Every doc update must follow these standards:
 Use box-drawing characters (`┌─┐│└─┘`), arrows (`──►`, `◄──`), and clear labels. Keep under 80 chars wide.
 
 **Design decisions** — When introducing a new library, pattern, or making a significant choice, add a section to `DESIGN_DECISIONS.md` with:
+
 - What was chosen
 - What the alternatives were
 - Why this approach won
 - Trade-offs accepted
 
 **File entries** — When adding to `FILE_REFERENCE.md`, describe:
+
 - What the file does (behavior, not just restating the filename)
 - Key implementation details
 - How it connects to other files in the project
 
 **Use guides** — When adding a new system or integration, include practical usage examples showing:
+
 - How to use the feature as a developer
 - Common customization patterns
 - Troubleshooting for known issues

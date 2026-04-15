@@ -27,14 +27,14 @@ Crawl v1.0 is a complete frontend shell for a nightlife/bar discovery and voting
 
 ### Screens Implemented
 
-| Screen | Route | Status |
-|--------|-------|--------|
-| Explore (Map View) | `/(tabs)/` | Complete — map placeholder, search, filter chips, venue carousel |
-| Daily Hotspot Votes | `/(tabs)/voting` | Complete — vote counter, countdown timer, ranked venue list |
-| Global Rankings | `/(tabs)/global` | Placeholder |
-| Profile | `/(tabs)/profile` | Placeholder |
-| Venue Detail | `/venue/[id]` | Complete — animated score ring, highlights, vote CTA |
-| Advanced Filters | `/filters` | Complete — transparent modal with toggle switches |
+| Screen              | Route             | Status                                                           |
+| ------------------- | ----------------- | ---------------------------------------------------------------- |
+| Explore (Map View)  | `/(tabs)/`        | Complete — map placeholder, search, filter chips, venue carousel |
+| Daily Hotspot Votes | `/(tabs)/voting`  | Complete — vote counter, countdown timer, ranked venue list      |
+| Global Rankings     | `/(tabs)/global`  | Placeholder                                                      |
+| Profile             | `/(tabs)/profile` | Placeholder                                                      |
+| Venue Detail        | `/venue/[id]`     | Complete — animated score ring, highlights, vote CTA             |
+| Advanced Filters    | `/filters`        | Complete — transparent modal with toggle switches                |
 
 ### Key Features
 
@@ -52,18 +52,18 @@ Crawl v1.0 is a complete frontend shell for a nightlife/bar discovery and voting
 
 ### Tech Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Framework | Expo SDK | 54 |
-| UI Framework | React Native | 0.81.5 |
-| React | React | 19.1.0 |
-| Routing | expo-router (file-based) | 6.0.21 |
-| Styling | NativeWind (Tailwind CSS for RN) | latest |
-| Animations | react-native-reanimated | 4.1.1 |
-| SVG | react-native-svg | 15.x |
-| Icons | @expo/vector-icons (Ionicons) | bundled |
-| Language | TypeScript (strict mode) | 5.9.2 |
-| Linting | ESLint + Prettier | 9.x / 3.x |
+| Layer        | Technology                       | Version   |
+| ------------ | -------------------------------- | --------- |
+| Framework    | Expo SDK                         | 54        |
+| UI Framework | React Native                     | 0.81.5    |
+| React        | React                            | 19.1.0    |
+| Routing      | expo-router (file-based)         | 6.0.21    |
+| Styling      | NativeWind (Tailwind CSS for RN) | latest    |
+| Animations   | react-native-reanimated          | 4.1.1     |
+| SVG          | react-native-svg                 | 15.x      |
+| Icons        | @expo/vector-icons (Ionicons)    | bundled   |
+| Language     | TypeScript (strict mode)         | 5.9.2     |
+| Linting      | ESLint + Prettier                | 9.x / 3.x |
 
 ### Project Structure
 
@@ -117,60 +117,60 @@ VenueProvider (app/_layout.tsx)
 
 ### Configuration Files
 
-| File | Purpose |
-|------|---------|
-| `package.json` | Dependencies, scripts (`start`, `lint`, `format`, `prebuild`) |
-| `app.json` | Expo config — dark mode, splash screen (#0a0a0f), expo-router plugin |
-| `tsconfig.json` | TypeScript strict mode, `@/*` → `src/*` path alias |
-| `babel.config.js` | NativeWind JSX transform (`jsxImportSource: 'nativewind'`), worklets plugin |
-| `metro.config.js` | Metro bundler with NativeWind CSS processing via `withNativeWind()` |
-| `tailwind.config.js` | Custom `crawl-*` color palette, content paths for app/components/src |
-| `global.css` | Tailwind directive imports (`@tailwind base/components/utilities`) |
-| `eslint.config.js` | Expo flat config + Prettier integration |
-| `prettier.config.js` | 100 char width, single quotes, Tailwind class sorting plugin |
-| `nativewind-env.d.ts` | TypeScript type declarations for NativeWind `className` prop |
+| File                  | Purpose                                                                     |
+| --------------------- | --------------------------------------------------------------------------- |
+| `package.json`        | Dependencies, scripts (`start`, `lint`, `format`, `prebuild`)               |
+| `app.json`            | Expo config — dark mode, splash screen (#0a0a0f), expo-router plugin        |
+| `tsconfig.json`       | TypeScript strict mode, `@/*` → `src/*` path alias                          |
+| `babel.config.js`     | NativeWind JSX transform (`jsxImportSource: 'nativewind'`), worklets plugin |
+| `metro.config.js`     | Metro bundler with NativeWind CSS processing via `withNativeWind()`         |
+| `tailwind.config.js`  | Custom `crawl-*` color palette, content paths for app/components/src        |
+| `global.css`          | Tailwind directive imports (`@tailwind base/components/utilities`)          |
+| `eslint.config.js`    | Expo flat config + Prettier integration                                     |
+| `prettier.config.js`  | 100 char width, single quotes, Tailwind class sorting plugin                |
+| `nativewind-env.d.ts` | TypeScript type declarations for NativeWind `className` prop                |
 
 ### Screen Files (`app/`)
 
-| File | What It Does |
-|------|-------------|
-| `app/_layout.tsx` | Root Stack navigator. Wraps the entire app in `VenueProvider`. Defines three routes: `(tabs)` (default), `venue/[id]` (push), and `filters` (transparent modal with fade). Sets dark background (#0a0a0f) and hides all headers. Renders `StatusBar` with `style="light"`. |
-| `app/(tabs)/_layout.tsx` | Tab navigator using expo-router `Tabs`. Renders a custom `TabBar` component instead of the default. Defines four tab screens: index, voting, global, profile. |
-| `app/(tabs)/index.tsx` | **Explore screen.** Renders `SearchBar` at top with filter button that pushes `/filters`. Below it, a horizontal `ScrollView` of `FilterChip` components for quick toggles. The main area is a `MapPlaceholder` with venue pins. Bottom section is a horizontal `FlatList` carousel of `VenueCard` components with `snapToInterval` for card paging. Tapping a pin or card navigates to `/venue/{id}`. |
-| `app/(tabs)/voting.tsx` | **Voting screen.** Header with title and subtitle. `CitySelector` button (currently static). `VoteCounter` showing remaining/max votes. `CountdownTimer` with live HH:MM:SS countdown. Sorted venue list rendered as `VenueListItem` components — each has a heart button to cast/remove votes. |
-| `app/(tabs)/global.tsx` | Placeholder with globe icon and "Coming Soon" text. |
-| `app/(tabs)/profile.tsx` | Placeholder with person icon and "Coming Soon" text. |
-| `app/venue/[id].tsx` | **Venue detail screen.** Reads `id` from URL params, finds venue in mock data. Back button + share button in header. Image placeholder area. Venue name with TRENDING badge. Status row (OPEN/CLOSED badge, hours, price level). `HotspotScore` animated SVG ring showing score. Purple "Vote as Tonight's Hotspot" button. About section with description. Highlights shown as icon+text chips. Location card with address and navigate icon. |
-| `app/filters.tsx` | **Filter modal.** Semi-transparent black backdrop (tapping dismisses). Bottom sheet with drag handle. Header with title, Reset button, and close button. List of filters as rows with icon + label + `Switch` toggle. Purple "Apply Filters" button at bottom. Uses `useVenueContext()` for shared state — filter changes are immediately reflected on the Explore screen. |
+| File                     | What It Does                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/_layout.tsx`        | Root Stack navigator. Wraps the entire app in `VenueProvider`. Defines three routes: `(tabs)` (default), `venue/[id]` (push), and `filters` (transparent modal with fade). Sets dark background (#0a0a0f) and hides all headers. Renders `StatusBar` with `style="light"`.                                                                                                                                                                     |
+| `app/(tabs)/_layout.tsx` | Tab navigator using expo-router `Tabs`. Renders a custom `TabBar` component instead of the default. Defines four tab screens: index, voting, global, profile.                                                                                                                                                                                                                                                                                  |
+| `app/(tabs)/index.tsx`   | **Explore screen.** Renders `SearchBar` at top with filter button that pushes `/filters`. Below it, a horizontal `ScrollView` of `FilterChip` components for quick toggles. The main area is a `MapPlaceholder` with venue pins. Bottom section is a horizontal `FlatList` carousel of `VenueCard` components with `snapToInterval` for card paging. Tapping a pin or card navigates to `/venue/{id}`.                                         |
+| `app/(tabs)/voting.tsx`  | **Voting screen.** Header with title and subtitle. `CitySelector` button (currently static). `VoteCounter` showing remaining/max votes. `CountdownTimer` with live HH:MM:SS countdown. Sorted venue list rendered as `VenueListItem` components — each has a heart button to cast/remove votes.                                                                                                                                                |
+| `app/(tabs)/global.tsx`  | Placeholder with globe icon and "Coming Soon" text.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `app/(tabs)/profile.tsx` | Placeholder with person icon and "Coming Soon" text.                                                                                                                                                                                                                                                                                                                                                                                           |
+| `app/venue/[id].tsx`     | **Venue detail screen.** Reads `id` from URL params, finds venue in mock data. Back button + share button in header. Image placeholder area. Venue name with TRENDING badge. Status row (OPEN/CLOSED badge, hours, price level). `HotspotScore` animated SVG ring showing score. Purple "Vote as Tonight's Hotspot" button. About section with description. Highlights shown as icon+text chips. Location card with address and navigate icon. |
+| `app/filters.tsx`        | **Filter modal.** Semi-transparent black backdrop (tapping dismisses). Bottom sheet with drag handle. Header with title, Reset button, and close button. List of filters as rows with icon + label + `Switch` toggle. Purple "Apply Filters" button at bottom. Uses `useVenueContext()` for shared state — filter changes are immediately reflected on the Explore screen.                                                                     |
 
 ### Component Files
 
-| File | What It Does |
-|------|-------------|
-| `components/layout/TabBar.tsx` | Custom bottom tab bar replacing React Navigation default. Four tabs (Explore/compass, Voting/heart, Global/globe, Profile/person). Active tab gets purple highlight background, filled icon, and purple text. Inactive tabs get outline icons and muted text. Handles safe area bottom padding. |
-| `components/map/MapPlaceholder.tsx` | Dark-themed map stand-in. Renders a grid pattern (horizontal + vertical lines) to simulate a map. Places `MapPin` components at predetermined percentage positions. Includes `MapControls` overlay. **Designed as a drop-in replacement target** — swap this component with a real `react-native-maps` `MapView` later. |
-| `components/map/MapPin.tsx` | Venue pin with optional pulsing glow. Non-trending pins are static dark purple circles with a beer icon. Trending pins get an animated glow ring that scales from 1x to 1.8x and fades from 60% to 0% opacity on a 1500ms infinite loop using `react-native-reanimated`. |
-| `components/map/MapControls.tsx` | Three stacked circular buttons (zoom in, zoom out, locate) positioned absolute bottom-right. Currently decorative — no map interaction wired up. |
-| `components/ui/SearchBar.tsx` | Row with search input (left) and purple filter button (right). Input has search icon, placeholder text, and muted text color. Filter button triggers `onFilterPress` callback. |
-| `components/ui/FilterChip.tsx` | Pressable pill with optional leading icon and label. Active state: purple background, white text. Inactive state: card background, muted text. Used in the Explore screen's horizontal filter strip. |
-| `components/ui/Badge.tsx` | Small rounded pill badge. Three variants: `trending` (purple), `open` (green), `closed` (red). Renders uppercase bold white text. Used on venue cards, list items, and detail screen. |
-| `components/venue/VenueCard.tsx` | Card for the bottom carousel on Explore. Shows venue name, type, distance, trending/open badges, hotspot score in a purple circle, vote count, price level as dollar signs, up to 3 highlight tags, and a purple "View Details" CTA button. Width is parameterized for carousel snap calculations. |
-| `components/venue/HotspotScore.tsx` | Animated SVG circular progress ring. Background circle in dark card color. Foreground progress circle in purple with `strokeDashoffset` animated via `useAnimatedProps` from reanimated. Score number and "Hotspot Score" label centered inside. Animates on mount with cubic easing over 1200ms. Size is configurable (default 140px). |
-| `components/venue/VenueListItem.tsx` | Row component for the voting screen ranked list. Left: rank number in a circle. Center: venue name, HOT badge if trending, type + vote count. Right: hotspot score number, and a heart button that toggles voted state. Heart is filled purple when voted, outline when not. Button is disabled when no votes remain and venue hasn't been voted for. |
-| `components/voting/VoteCounter.tsx` | Large centered display showing remaining votes (e.g., `3 / 3`). Remaining count is in large purple-light text, max is in smaller muted text. Below: heart icon + "Votes Remaining Today" label. |
-| `components/voting/CountdownTimer.tsx` | Live countdown to midnight. Three `TimeBlock` sub-components for hours, minutes, seconds — each in a rounded card-background box with value and label (HRS/MIN/SEC). Purple colon separators between blocks. Powered by `useCountdown` hook. |
-| `components/voting/CitySelector.tsx` | Pressable button showing location pin icon, city name, and dropdown chevron. Currently triggers an `onPress` callback (no dropdown implemented). Styled as a rounded pill on card background. |
+| File                                   | What It Does                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/layout/TabBar.tsx`         | Custom bottom tab bar replacing React Navigation default. Four tabs (Explore/compass, Voting/heart, Global/globe, Profile/person). Active tab gets purple highlight background, filled icon, and purple text. Inactive tabs get outline icons and muted text. Handles safe area bottom padding.                                                       |
+| `components/map/MapPlaceholder.tsx`    | Dark-themed map stand-in. Renders a grid pattern (horizontal + vertical lines) to simulate a map. Places `MapPin` components at predetermined percentage positions. Includes `MapControls` overlay. **Designed as a drop-in replacement target** — swap this component with a real `react-native-maps` `MapView` later.                               |
+| `components/map/MapPin.tsx`            | Venue pin with optional pulsing glow. Non-trending pins are static dark purple circles with a beer icon. Trending pins get an animated glow ring that scales from 1x to 1.8x and fades from 60% to 0% opacity on a 1500ms infinite loop using `react-native-reanimated`.                                                                              |
+| `components/map/MapControls.tsx`       | Three stacked circular buttons (zoom in, zoom out, locate) positioned absolute bottom-right. Currently decorative — no map interaction wired up.                                                                                                                                                                                                      |
+| `components/ui/SearchBar.tsx`          | Row with search input (left) and purple filter button (right). Input has search icon, placeholder text, and muted text color. Filter button triggers `onFilterPress` callback.                                                                                                                                                                        |
+| `components/ui/FilterChip.tsx`         | Pressable pill with optional leading icon and label. Active state: purple background, white text. Inactive state: card background, muted text. Used in the Explore screen's horizontal filter strip.                                                                                                                                                  |
+| `components/ui/Badge.tsx`              | Small rounded pill badge. Three variants: `trending` (purple), `open` (green), `closed` (red). Renders uppercase bold white text. Used on venue cards, list items, and detail screen.                                                                                                                                                                 |
+| `components/venue/VenueCard.tsx`       | Card for the bottom carousel on Explore. Shows venue name, type, distance, trending/open badges, hotspot score in a purple circle, vote count, price level as dollar signs, up to 3 highlight tags, and a purple "View Details" CTA button. Width is parameterized for carousel snap calculations.                                                    |
+| `components/venue/HotspotScore.tsx`    | Animated SVG circular progress ring. Background circle in dark card color. Foreground progress circle in purple with `strokeDashoffset` animated via `useAnimatedProps` from reanimated. Score number and "Hotspot Score" label centered inside. Animates on mount with cubic easing over 1200ms. Size is configurable (default 140px).               |
+| `components/venue/VenueListItem.tsx`   | Row component for the voting screen ranked list. Left: rank number in a circle. Center: venue name, HOT badge if trending, type + vote count. Right: hotspot score number, and a heart button that toggles voted state. Heart is filled purple when voted, outline when not. Button is disabled when no votes remain and venue hasn't been voted for. |
+| `components/voting/VoteCounter.tsx`    | Large centered display showing remaining votes (e.g., `3 / 3`). Remaining count is in large purple-light text, max is in smaller muted text. Below: heart icon + "Votes Remaining Today" label.                                                                                                                                                       |
+| `components/voting/CountdownTimer.tsx` | Live countdown to midnight. Three `TimeBlock` sub-components for hours, minutes, seconds — each in a rounded card-background box with value and label (HRS/MIN/SEC). Purple colon separators between blocks. Powered by `useCountdown` hook.                                                                                                          |
+| `components/voting/CitySelector.tsx`   | Pressable button showing location pin icon, city name, and dropdown chevron. Currently triggers an `onPress` callback (no dropdown implemented). Styled as a rounded pill on card background.                                                                                                                                                         |
 
 ### Shared Logic (`src/`)
 
-| File | What It Does |
-|------|-------------|
-| `src/types/venue.ts` | TypeScript interfaces. `Venue`: 16 fields covering identity, location, scoring, status, and display info. `FilterOption`: id, label, icon, enabled toggle. `VoteState`: remaining votes, max votes, list of voted venue IDs. |
-| `src/data/venues.ts` | Array of 8 mock venues all located in Austin, TX. Includes a mix of cocktail bars, dive bars, nightclubs, beer gardens, speakeasies, sports bars, live music venues. Hotspot scores range from 71 to 94. 4 are marked as trending. 1 is closed. Price levels range from 1 to 4. Each has 3 highlights and a multi-sentence description. |
-| `src/data/filters.ts` | Array of 10 filter options: Trending, Open Now, Live Music, Happy Hour, Rooftop, Craft Cocktails, Dive Bar, Sports Bar, Dancing, Outdoor Patio. Each has an Ionicon name and starts disabled. |
-| `src/constants/colors.ts` | Color palette as a `const` object. Matches the Tailwind config values so components using inline `style` props can reference the same palette. |
+| File                           | What It Does                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/types/venue.ts`           | TypeScript interfaces. `Venue`: 16 fields covering identity, location, scoring, status, and display info. `FilterOption`: id, label, icon, enabled toggle. `VoteState`: remaining votes, max votes, list of voted venue IDs.                                                                                                                                                                                                                                      |
+| `src/data/venues.ts`           | Array of 8 mock venues all located in Austin, TX. Includes a mix of cocktail bars, dive bars, nightclubs, beer gardens, speakeasies, sports bars, live music venues. Hotspot scores range from 71 to 94. 4 are marked as trending. 1 is closed. Price levels range from 1 to 4. Each has 3 highlights and a multi-sentence description.                                                                                                                           |
+| `src/data/filters.ts`          | Array of 10 filter options: Trending, Open Now, Live Music, Happy Hour, Rooftop, Craft Cocktails, Dive Bar, Sports Bar, Dancing, Outdoor Patio. Each has an Ionicon name and starts disabled.                                                                                                                                                                                                                                                                     |
+| `src/constants/colors.ts`      | Color palette as a `const` object. Matches the Tailwind config values so components using inline `style` props can reference the same palette.                                                                                                                                                                                                                                                                                                                    |
 | `src/context/VenueContext.tsx` | React Context provider and `useVenueContext` hook. Manages: filter state (toggle individual, reset all), search query, city selection, vote state (cast vote decrements remaining and adds venue ID; remove vote reverses). Derives `filteredVenues` by applying search text match (name/type) and active filter checks (trending, open-now) to the full mock venue list. Provided at root layout level so all screens and the filter modal share the same state. |
-| `src/hooks/useCountdown.ts` | Custom hook returning `{ hours, minutes, seconds }` as zero-padded strings. Calculates seconds remaining until midnight using `Date` objects. Sets a 1-second `setInterval` on mount and cleans up on unmount. Used by `CountdownTimer` component. |
+| `src/hooks/useCountdown.ts`    | Custom hook returning `{ hours, minutes, seconds }` as zero-padded strings. Calculates seconds remaining until midnight using `Date` objects. Sets a 1-second `setInterval` on mount and cleans up on unmount. Used by `CountdownTimer` component.                                                                                                                                                                                                                |
 
 ---
 
@@ -427,17 +427,20 @@ When ready to replace the map placeholder with a real map, follow this path:
 ### 6.2 Step-by-Step Integration
 
 **Step 1: Install**
+
 ```bash
 npx expo install react-native-maps
 ```
 
 **Step 2: API Keys**
+
 - Google Maps: Add key to `app.json` under `android.config.googleMaps.apiKey`
 - Apple Maps: Works by default on iOS (no key needed)
 
 **Step 3: Create `components/map/VenueMap.tsx`**
 
 The new component should accept the same props as `MapPlaceholder`:
+
 ```typescript
 interface VenueMapProps {
   venues: Venue[];
@@ -448,6 +451,7 @@ interface VenueMapProps {
 ```
 
 Key implementation notes:
+
 - Use `customMapStyle` with a dark theme JSON (available from Snazzy Maps or Google's styling wizard)
 - Wrap existing `MapPin` components inside `<Marker>` elements using the `coordinate` prop from venue lat/lng
 - Add `ref` to MapView for `animateToRegion` calls when carousel selection changes
@@ -456,6 +460,7 @@ Key implementation notes:
 **Step 4: Swap in Explore screen**
 
 In `app/(tabs)/index.tsx`, change:
+
 ```typescript
 // Before
 import { MapPlaceholder } from '../../components/map/MapPlaceholder';
@@ -466,6 +471,7 @@ import { VenueMap } from '../../components/map/VenueMap';
 **Step 5: Bi-directional sync**
 
 Add a `selectedVenueId` state to coordinate map and carousel:
+
 - Tapping a map marker sets `selectedVenueId` and scrolls the carousel
 - Scrolling the carousel sets `selectedVenueId` and animates the map
 
@@ -562,26 +568,31 @@ Add a `selectedVenueId` state to coordinate map and carousel:
 The migration is designed to be incremental. Each step is independently deployable:
 
 **Phase A: Add API client layer**
+
 - Install `@tanstack/react-query`
 - Create `src/api/client.ts` with a configured fetch/axios instance
 - Create query hooks in `src/api/` that initially still return mock data
 
 **Phase B: Replace VenueContext with TanStack Query**
+
 - Replace `venues` and `filteredVenues` with `useQuery` hooks
 - Keep `voteState` in Context or Zustand for optimistic UI
 - Remove mock data imports from components
 
 **Phase C: Wire up vote mutations**
+
 - `useMutation` for castVote/removeVote with optimistic updates
 - Invalidate vote queries on mutation success
 - Add error handling and rollback
 
 **Phase D: Add authentication**
+
 - Auth context with JWT token storage (expo-secure-store)
 - Protected route wrapper
 - Login/register screens under `app/(auth)/`
 
 **Phase E: Real-time updates**
+
 - WebSocket connection for live score changes
 - Update TanStack Query cache on WS messages
 - Animated score transitions in UI (already supported by HotspotScore component)
@@ -713,12 +724,12 @@ The migration is designed to be incremental. Each step is independently deployab
 
 ### 8.2 Key Tools
 
-| Tool | Purpose |
-|------|---------|
-| **EAS Build** | Expo's cloud build service. Builds iOS/Android binaries without local Xcode/Android Studio. Configure via `eas.json` with build profiles (development, preview, production). |
-| **EAS Submit** | Automates store submission. Uploads .ipa to App Store Connect and .aab to Google Play Console. |
-| **EAS Update** | Over-the-air JS bundle updates. Bypasses app store review for JS-only changes. |
-| **GitHub Actions** | CI runner. Triggers on push/PR for validation, on merge for builds, on tag for releases. |
+| Tool               | Purpose                                                                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **EAS Build**      | Expo's cloud build service. Builds iOS/Android binaries without local Xcode/Android Studio. Configure via `eas.json` with build profiles (development, preview, production). |
+| **EAS Submit**     | Automates store submission. Uploads .ipa to App Store Connect and .aab to Google Play Console.                                                                               |
+| **EAS Update**     | Over-the-air JS bundle updates. Bypasses app store review for JS-only changes.                                                                                               |
+| **GitHub Actions** | CI runner. Triggers on push/PR for validation, on merge for builds, on tag for releases.                                                                                     |
 
 ### 8.3 Recommended `eas.json`
 
@@ -753,39 +764,39 @@ The migration is designed to be incremental. Each step is independently deployab
 
 ### Immediate (v1.1)
 
-| Priority | Task | Effort |
-|----------|------|--------|
-| High | Set up test suite (Jest + React Native Testing Library) | 1 day |
-| High | Replace MapPlaceholder with `react-native-maps` | 2 days |
-| High | Build auth screens (login, register, onboarding) | 2 days |
-| Medium | Implement city selector dropdown with list of cities | 0.5 day |
-| Medium | Add venue image support (placeholder → real images) | 1 day |
-| Medium | Implement Global Rankings screen with mock data | 1 day |
-| Medium | Implement Profile screen (avatar, stats, voting history) | 1 day |
-| Low | Add haptic feedback on vote cast | 0.5 day |
-| Low | Add pull-to-refresh on voting screen | 0.5 day |
+| Priority | Task                                                     | Effort  |
+| -------- | -------------------------------------------------------- | ------- |
+| High     | Set up test suite (Jest + React Native Testing Library)  | 1 day   |
+| High     | Replace MapPlaceholder with `react-native-maps`          | 2 days  |
+| High     | Build auth screens (login, register, onboarding)         | 2 days  |
+| Medium   | Implement city selector dropdown with list of cities     | 0.5 day |
+| Medium   | Add venue image support (placeholder → real images)      | 1 day   |
+| Medium   | Implement Global Rankings screen with mock data          | 1 day   |
+| Medium   | Implement Profile screen (avatar, stats, voting history) | 1 day   |
+| Low      | Add haptic feedback on vote cast                         | 0.5 day |
+| Low      | Add pull-to-refresh on voting screen                     | 0.5 day |
 
 ### Short Term (v1.2)
 
-| Task | Effort |
-|------|--------|
-| Set up EAS Build + CI pipeline (see section 8) | 1 day |
-| Integrate TanStack Query + API client layer | 2 days |
-| Build backend API (venues, votes, auth endpoints) | 3-5 days |
-| Add push notifications for trending alerts | 1 day |
-| Implement venue bookmarking / favorites | 1 day |
-| Add accessibility labels and screen reader support | 1 day |
+| Task                                               | Effort   |
+| -------------------------------------------------- | -------- |
+| Set up EAS Build + CI pipeline (see section 8)     | 1 day    |
+| Integrate TanStack Query + API client layer        | 2 days   |
+| Build backend API (venues, votes, auth endpoints)  | 3-5 days |
+| Add push notifications for trending alerts         | 1 day    |
+| Implement venue bookmarking / favorites            | 1 day    |
+| Add accessibility labels and screen reader support | 1 day    |
 
 ### Medium Term (v2.0)
 
-| Task | Effort |
-|------|--------|
-| Real-time vote updates via WebSocket | 2 days |
+| Task                                    | Effort |
+| --------------------------------------- | ------ |
+| Real-time vote updates via WebSocket    | 2 days |
 | Social features (friends, group crawls) | 5 days |
-| Venue check-in system | 2 days |
-| Review and rating system | 3 days |
-| Bar crawl route planning | 3 days |
-| Admin dashboard for venue owners | 5 days |
+| Venue check-in system                   | 2 days |
+| Review and rating system                | 3 days |
+| Bar crawl route planning                | 3 days |
+| Admin dashboard for venue owners        | 5 days |
 
 ---
 
@@ -798,6 +809,7 @@ The migration is designed to be incremental. Each step is independently deployab
 3. For a stack screen: add to `app/` root or a subfolder, register in `app/_layout.tsx`
 
 Example — adding a "Favorites" tab:
+
 ```bash
 # 1. Create the screen
 touch app/(tabs)/favorites.tsx
@@ -813,12 +825,14 @@ touch app/(tabs)/favorites.tsx
 ### Adding a New Component
 
 Place under `components/` in the appropriate subdirectory:
+
 - `ui/` — generic, reusable across features
 - `venue/` — venue-specific display components
 - `map/` — map-related components
 - `voting/` — voting feature components
 
 All components should:
+
 - Accept data via props (not import context directly when possible)
 - Use NativeWind `className` for styling
 - Use Ionicons from `@expo/vector-icons` for icons
@@ -827,6 +841,7 @@ All components should:
 ### Adding Shared Logic
 
 Place under `src/` using the `@/` import alias:
+
 - `src/types/` — TypeScript interfaces and type definitions
 - `src/hooks/` — custom React hooks
 - `src/api/` — API client functions (when backend exists)
@@ -837,6 +852,7 @@ Place under `src/` using the `@/` import alias:
 ### Modifying the Color Palette
 
 Colors are defined in two places that must stay in sync:
+
 1. `tailwind.config.js` — for `className` usage (e.g., `bg-crawl-purple`)
 2. `src/constants/colors.ts` — for inline `style` prop usage (e.g., `color={colors.purple}`)
 
@@ -851,6 +867,7 @@ Colors are defined in two places that must stay in sync:
 ### Code Quality Checklist
 
 Before submitting changes:
+
 ```bash
 npm run lint      # ESLint + Prettier check (must pass with 0 errors)
 npm run format    # Auto-fix formatting

@@ -9,21 +9,25 @@ How to add screens, components, and shared logic to the Crawl app while followin
 ### Tab Screen
 
 1. Create the file in `app/(tabs)/`:
+
    ```
    app/(tabs)/favorites.tsx
    ```
 
 2. Register in `app/(tabs)/_layout.tsx`:
+
    ```tsx
    <Tabs.Screen name="favorites" />
    ```
 
 3. Add to the `TabBar` component (`components/layout/TabBar.tsx`) — add an entry to the `tabs` array:
+
    ```typescript
    { name: '(tabs)/favorites', label: 'Favorites', icon: 'bookmark' as const },
    ```
 
 4. Write the screen component:
+
    ```tsx
    import React from 'react';
    import { View, Text } from 'react-native';
@@ -43,12 +47,14 @@ How to add screens, components, and shared logic to the Crawl app while followin
 ### Stack Screen (Push Navigation)
 
 1. Create the file in `app/` or a subfolder:
+
    ```
    app/settings.tsx          # → /settings
    app/venue/reviews.tsx     # → /venue/reviews
    ```
 
 2. Register in `app/_layout.tsx`:
+
    ```tsx
    <Stack.Screen name="settings" />
    ```
@@ -61,6 +67,7 @@ How to add screens, components, and shared logic to the Crawl app while followin
 ### Modal Screen
 
 1. Create the file in `app/`:
+
    ```
    app/city-picker.tsx
    ```
@@ -79,6 +86,7 @@ How to add screens, components, and shared logic to the Crawl app while followin
 ### Dynamic Route
 
 1. Create with square bracket naming:
+
    ```
    app/venue/[id]/reviews.tsx   # → /venue/123/reviews
    ```
@@ -94,13 +102,13 @@ How to add screens, components, and shared logic to the Crawl app while followin
 
 ### Where to Place It
 
-| Directory | When to Use |
-|-----------|-------------|
-| `components/ui/` | Generic, reusable across features (buttons, inputs, cards) |
-| `components/venue/` | Venue-specific display components |
-| `components/map/` | Map-related components |
-| `components/voting/` | Voting feature components |
-| `components/layout/` | Navigation chrome, layout wrappers |
+| Directory            | When to Use                                                |
+| -------------------- | ---------------------------------------------------------- |
+| `components/ui/`     | Generic, reusable across features (buttons, inputs, cards) |
+| `components/venue/`  | Venue-specific display components                          |
+| `components/map/`    | Map-related components                                     |
+| `components/voting/` | Voting feature components                                  |
+| `components/layout/` | Navigation chrome, layout wrappers                         |
 
 ### Component Conventions
 
@@ -114,18 +122,14 @@ interface MyComponentProps {
   title: string;
   isActive?: boolean;
   onPress: () => void;
-  className?: string;  // Allow style overrides
+  className?: string; // Allow style overrides
 }
 
 export function MyComponent({ title, isActive = false, onPress, className }: MyComponentProps) {
   return (
     <Pressable
       onPress={onPress}
-      className={cn(
-        'rounded-xl bg-crawl-card p-4',
-        isActive && 'bg-crawl-purple',
-        className,
-      )}>
+      className={cn('rounded-xl bg-crawl-card p-4', isActive && 'bg-crawl-purple', className)}>
       <Text className="text-white">{title}</Text>
     </Pressable>
   );
@@ -133,6 +137,7 @@ export function MyComponent({ title, isActive = false, onPress, className }: MyC
 ```
 
 **Guidelines:**
+
 - Accept data via props — avoid importing context directly when the component is presentational
 - Use `className` prop with `cn()` for composable styling
 - Use NativeWind `className` for styling (not `StyleSheet.create`)
@@ -143,6 +148,7 @@ export function MyComponent({ title, isActive = false, onPress, className }: MyC
 ### Adding an RNR Component
 
 Use the CLI:
+
 ```bash
 npx @react-native-reusables/cli add button
 ```
@@ -155,15 +161,15 @@ Or manually copy from the [RNR docs](https://reactnativereusables.com/docs/compo
 
 ### Where to Place It
 
-| Directory | What Goes Here | Import As |
-|-----------|---------------|-----------|
-| `src/types/` | TypeScript interfaces and type definitions | `@/types/venue` |
-| `src/hooks/` | Custom React hooks | `@/hooks/useCountdown` |
-| `src/api/` | API client functions (future) | `@/api/venues` |
-| `src/lib/` | Utility functions (cn, theme) | `@/lib/utils` |
-| `src/context/` | React Context providers | `@/context/VenueContext` |
-| `src/constants/` | Static configuration values | `@/constants/colors` |
-| `src/data/` | Mock/seed data | `@/data/venues` |
+| Directory        | What Goes Here                             | Import As                |
+| ---------------- | ------------------------------------------ | ------------------------ |
+| `src/types/`     | TypeScript interfaces and type definitions | `@/types/venue`          |
+| `src/hooks/`     | Custom React hooks                         | `@/hooks/useCountdown`   |
+| `src/api/`       | API client functions (future)              | `@/api/venues`           |
+| `src/lib/`       | Utility functions (cn, theme)              | `@/lib/utils`            |
+| `src/context/`   | React Context providers                    | `@/context/VenueContext` |
+| `src/constants/` | Static configuration values                | `@/constants/colors`     |
+| `src/data/`      | Mock/seed data                             | `@/data/venues`          |
 
 ### Custom Hook Convention
 
@@ -188,33 +194,33 @@ export function useMyHook(param: string) {
 
 Colors are defined in three places that must stay in sync when modified:
 
-| File | Format | Used By |
-|------|--------|---------|
-| `global.css` | HSL in CSS variables (e.g., `270 85% 50%`) | NativeWind `className` props via Tailwind |
-| `tailwind.config.js` | Hex values for `crawl-*` tokens, `hsl(var(--token))` for semantic tokens | Tailwind class generation |
-| `src/lib/theme.ts` | HSL strings (e.g., `hsl(270 85% 50%)`) | React Navigation `ThemeProvider` |
-| `src/constants/colors.ts` | Hex values (e.g., `#7f13ec`) | Inline `style` props in JS |
+| File                      | Format                                                                   | Used By                                   |
+| ------------------------- | ------------------------------------------------------------------------ | ----------------------------------------- |
+| `global.css`              | HSL in CSS variables (e.g., `270 85% 50%`)                               | NativeWind `className` props via Tailwind |
+| `tailwind.config.js`      | Hex values for `crawl-*` tokens, `hsl(var(--token))` for semantic tokens | Tailwind class generation                 |
+| `src/lib/theme.ts`        | HSL strings (e.g., `hsl(270 85% 50%)`)                                   | React Navigation `ThemeProvider`          |
+| `src/constants/colors.ts` | Hex values (e.g., `#7f13ec`)                                             | Inline `style` props in JS                |
 
 ### When to Use Which
 
-| Scenario | Use |
-|----------|-----|
-| Component `className` prop | Tailwind classes: `bg-crawl-purple` or `bg-primary` |
-| Inline `style` prop | `colors.purple` from `@/constants/colors` |
-| Reanimated animated style | Hex string directly or from `colors` constant |
-| Icon `color` prop | Hex string: `color="#a855f7"` or `color={colors.purpleLight}` |
+| Scenario                   | Use                                                           |
+| -------------------------- | ------------------------------------------------------------- |
+| Component `className` prop | Tailwind classes: `bg-crawl-purple` or `bg-primary`           |
+| Inline `style` prop        | `colors.purple` from `@/constants/colors`                     |
+| Reanimated animated style  | Hex string directly or from `colors` constant                 |
+| Icon `color` prop          | Hex string: `color="#a855f7"` or `color={colors.purpleLight}` |
 
 ---
 
 ## State Management Guidelines
 
-| State Type | Approach |
-|-----------|----------|
-| UI state (filters, toggles, selections) | React Context (`VenueContext`) |
-| Server state (venues, votes, user data) | TanStack Query (when backend exists) |
-| Form state | Local component `useState` or React Hook Form |
-| Navigation state | Managed by expo-router automatically |
-| Persistent state (auth tokens, preferences) | `expo-secure-store` or `AsyncStorage` |
+| State Type                                  | Approach                                      |
+| ------------------------------------------- | --------------------------------------------- |
+| UI state (filters, toggles, selections)     | React Context (`VenueContext`)                |
+| Server state (venues, votes, user data)     | TanStack Query (when backend exists)          |
+| Form state                                  | Local component `useState` or React Hook Form |
+| Navigation state                            | Managed by expo-router automatically          |
+| Persistent state (auth tokens, preferences) | `expo-secure-store` or `AsyncStorage`         |
 
 ### Adding to VenueContext
 
@@ -244,14 +250,14 @@ npm start         # Verify app launches and navigates correctly
 
 ### Naming Conventions
 
-| Item | Convention | Example |
-|------|-----------|---------|
-| Screen files | `lowercase.tsx` | `voting.tsx`, `profile.tsx` |
-| Component files | `PascalCase.tsx` | `VenueCard.tsx`, `SearchBar.tsx` |
-| Hook files | `camelCase.ts` | `useCountdown.ts` |
-| Type files | `camelCase.ts` | `venue.ts` |
-| Context files | `PascalCase.tsx` | `VenueContext.tsx` |
-| Constants | `camelCase.ts` | `colors.ts` |
-| Exported components | `PascalCase` | `export function VenueCard()` |
-| Exported hooks | `camelCase` with `use` prefix | `export function useCountdown()` |
-| Props interfaces | `PascalCase` + `Props` | `interface VenueCardProps` |
+| Item                | Convention                    | Example                          |
+| ------------------- | ----------------------------- | -------------------------------- |
+| Screen files        | `lowercase.tsx`               | `voting.tsx`, `profile.tsx`      |
+| Component files     | `PascalCase.tsx`              | `VenueCard.tsx`, `SearchBar.tsx` |
+| Hook files          | `camelCase.ts`                | `useCountdown.ts`                |
+| Type files          | `camelCase.ts`                | `venue.ts`                       |
+| Context files       | `PascalCase.tsx`              | `VenueContext.tsx`               |
+| Constants           | `camelCase.ts`                | `colors.ts`                      |
+| Exported components | `PascalCase`                  | `export function VenueCard()`    |
+| Exported hooks      | `camelCase` with `use` prefix | `export function useCountdown()` |
+| Props interfaces    | `PascalCase` + `Props`        | `interface VenueCardProps`       |

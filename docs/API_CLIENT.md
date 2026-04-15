@@ -68,7 +68,7 @@ src/api/
 ```typescript
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
 
-export async function apiClient<T>(path: string, options?: RequestInit): Promise<T>
+export async function apiClient<T>(path: string, options?: RequestInit): Promise<T>;
 ```
 
 - **Base URL resolution:** Reads `EXPO_PUBLIC_API_URL` from environment. Falls back to `http://localhost:3000/api/v1` during local development.
@@ -85,12 +85,12 @@ export const queryClient = new QueryClient({ defaultOptions: { queries: { ... } 
 
 Singleton `QueryClient` with these defaults:
 
-| Option | Value | Purpose |
-|--------|-------|---------|
-| `staleTime` | 30 seconds | Data considered fresh; no refetch within this window |
-| `gcTime` | 5 minutes | Unused cache entries garbage-collected after this |
-| `retry` | 2 | Automatic retries on query failure |
-| `refetchOnWindowFocus` | false | Disabled — not useful on mobile |
+| Option                 | Value      | Purpose                                              |
+| ---------------------- | ---------- | ---------------------------------------------------- |
+| `staleTime`            | 30 seconds | Data considered fresh; no refetch within this window |
+| `gcTime`               | 5 minutes  | Unused cache entries garbage-collected after this    |
+| `retry`                | 2          | Automatic retries on query failure                   |
+| `refetchOnWindowFocus` | false      | Disabled — not useful on mobile                      |
 
 ### `venues.ts` — Venue Query Hooks
 
@@ -98,28 +98,29 @@ Uses a **query key factory** pattern for consistent cache management:
 
 ```typescript
 export const venueKeys = {
-  all:    ['venues'] as const,
-  list:   (city, filters) => ['venues', 'list', city, filters] as const,
-  detail: (id) =>            ['venues', 'detail', id] as const,
+  all: ['venues'] as const,
+  list: (city, filters) => ['venues', 'list', city, filters] as const,
+  detail: (id) => ['venues', 'detail', id] as const,
 };
 ```
 
-| Hook | Query Key | Current Behavior | Future Behavior (Phase B) |
-|------|-----------|-----------------|---------------------------|
+| Hook                       | Query Key                        | Current Behavior              | Future Behavior (Phase B)                   |
+| -------------------------- | -------------------------------- | ----------------------------- | ------------------------------------------- |
 | `useVenues(city, filters)` | `['venues','list',city,filters]` | Returns `mockVenues` directly | `apiClient('/venues?city=...&filters=...')` |
-| `useVenue(id)` | `['venues','detail',id]` | Finds venue in mock array | `apiClient('/venues/${id}')` |
+| `useVenue(id)`             | `['venues','detail',id]`         | Finds venue in mock array     | `apiClient('/venues/${id}')`                |
 
 Both hooks set `staleTime: 30_000` (30 seconds). `useVenue` has `enabled: !!id` to prevent queries with empty IDs.
 
 ### `votes.ts` — Vote State & Mutation Hooks
 
-| Hook | Type | Query Key | Current Behavior | Future Behavior |
-|------|------|-----------|-----------------|-----------------|
-| `useVoteState()` | Query | `['votes','state']` | Returns hardcoded default (3 votes, empty array) | `GET /api/v1/votes` |
-| `useCastVote()` | Mutation | N/A | Reads cache, decrements `remainingVotes`, appends venue ID | `POST /api/v1/votes` with optimistic update |
-| `useRemoveVote()` | Mutation | N/A | Reads cache, increments `remainingVotes`, removes venue ID | `DELETE /api/v1/votes/:venueId` with optimistic update |
+| Hook              | Type     | Query Key           | Current Behavior                                           | Future Behavior                                        |
+| ----------------- | -------- | ------------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| `useVoteState()`  | Query    | `['votes','state']` | Returns hardcoded default (3 votes, empty array)           | `GET /api/v1/votes`                                    |
+| `useCastVote()`   | Mutation | N/A                 | Reads cache, decrements `remainingVotes`, appends venue ID | `POST /api/v1/votes` with optimistic update            |
+| `useRemoveVote()` | Mutation | N/A                 | Reads cache, increments `remainingVotes`, removes venue ID | `DELETE /api/v1/votes/:venueId` with optimistic update |
 
 Default vote state:
+
 ```typescript
 { remainingVotes: 3, maxVotes: 3, votedVenueIds: [] }
 ```
@@ -171,7 +172,7 @@ interface Venue {
   latitude: number;
   longitude: number;
   imageUrl?: string;
-  priceLevel: number;    // 1-4
+  priceLevel: number; // 1-4
   hours: string;
   description: string;
 }
@@ -191,37 +192,37 @@ These endpoints are defined in `docs/DATA_PIPELINE.md` and will be consumed by t
 
 ### Venues
 
-| Method | Path | Query Params | Response |
-|--------|------|-------------|----------|
-| GET | `/api/v1/venues` | `city`, `lat`, `lng`, `radius`, `filters`, `q`, `page`, `limit` | Paginated venue list with scores |
-| GET | `/api/v1/venues/:id` | — | Full venue detail |
+| Method | Path                 | Query Params                                                    | Response                         |
+| ------ | -------------------- | --------------------------------------------------------------- | -------------------------------- |
+| GET    | `/api/v1/venues`     | `city`, `lat`, `lng`, `radius`, `filters`, `q`, `page`, `limit` | Paginated venue list with scores |
+| GET    | `/api/v1/venues/:id` | —                                                               | Full venue detail                |
 
 ### Votes
 
-| Method | Path | Body | Response |
-|--------|------|------|----------|
-| GET | `/api/v1/votes` | — | `{ remainingVotes, maxVotes, votedVenueIds }` |
-| POST | `/api/v1/votes` | `{ venueId }` | Updated vote state |
-| DELETE | `/api/v1/votes/:venueId` | — | Updated vote state |
+| Method | Path                     | Body          | Response                                      |
+| ------ | ------------------------ | ------------- | --------------------------------------------- |
+| GET    | `/api/v1/votes`          | —             | `{ remainingVotes, maxVotes, votedVenueIds }` |
+| POST   | `/api/v1/votes`          | `{ venueId }` | Updated vote state                            |
+| DELETE | `/api/v1/votes/:venueId` | —             | Updated vote state                            |
 
 ### Trending
 
-| Method | Path | Query Params | Response |
-|--------|------|-------------|----------|
-| GET | `/api/v1/trending/:city` | `limit` | Ranked venue list for city |
+| Method | Path                     | Query Params | Response                   |
+| ------ | ------------------------ | ------------ | -------------------------- |
+| GET    | `/api/v1/trending/:city` | `limit`      | Ranked venue list for city |
 
 ### Auth (Phase D)
 
-| Method | Path | Body | Response |
-|--------|------|------|----------|
-| POST | `/api/v1/auth/register` | `{ email, password, displayName }` | `{ user, token }` |
-| POST | `/api/v1/auth/login` | `{ email, password }` | `{ user, token }` |
-| POST | `/api/v1/auth/refresh` | `{ refreshToken }` | `{ token }` |
+| Method | Path                    | Body                               | Response          |
+| ------ | ----------------------- | ---------------------------------- | ----------------- |
+| POST   | `/api/v1/auth/register` | `{ email, password, displayName }` | `{ user, token }` |
+| POST   | `/api/v1/auth/login`    | `{ email, password }`              | `{ user, token }` |
+| POST   | `/api/v1/auth/refresh`  | `{ refreshToken }`                 | `{ token }`       |
 
 ### WebSocket (Phase E)
 
-| Path | Events |
-|------|--------|
+| Path                   | Events                                                                            |
+| ---------------------- | --------------------------------------------------------------------------------- |
 | `/ws/live?city=austin` | `vote_update { venueId, newScore, newVoteCount }`, `trending_change { rankings }` |
 
 ---
@@ -275,11 +276,11 @@ Store the URL as a GitHub secret (`EXPO_PUBLIC_API_URL`) in Settings → Secrets
 
 ### Current State of CI/CD Workflows
 
-| Workflow | Trigger | Relevant Secrets |
-|----------|---------|-----------------|
-| `preview-build.yml` | Push to `main` | `EXPO_TOKEN` |
-| `release.yml` | Push tag `v*` | `EXPO_TOKEN` |
-| `ota-update.yml` | Manual dispatch | `EXPO_TOKEN` |
+| Workflow            | Trigger         | Relevant Secrets |
+| ------------------- | --------------- | ---------------- |
+| `preview-build.yml` | Push to `main`  | `EXPO_TOKEN`     |
+| `release.yml`       | Push tag `v*`   | `EXPO_TOKEN`     |
+| `ota-update.yml`    | Manual dispatch | `EXPO_TOKEN`     |
 
 None of these currently inject `EXPO_PUBLIC_API_URL`. This will need to be added when the backend goes live.
 
@@ -289,13 +290,13 @@ None of these currently inject `EXPO_PUBLIC_API_URL`. This will need to be added
 
 The API layer is in **Phase A** (client layer exists, hooks return mock data):
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **A** | Add API client layer + TanStack Query hooks returning mock data | Done |
-| **B** | Replace mock data with real `apiClient` calls in venue hooks | Not started |
-| **C** | Wire up vote mutations with optimistic updates via `apiClient` | Not started |
-| **D** | Add authentication (JWT, secure storage, auth screens) | Not started |
-| **E** | WebSocket for real-time score and trending updates | Not started |
+| Phase | Description                                                     | Status      |
+| ----- | --------------------------------------------------------------- | ----------- |
+| **A** | Add API client layer + TanStack Query hooks returning mock data | Done        |
+| **B** | Replace mock data with real `apiClient` calls in venue hooks    | Not started |
+| **C** | Wire up vote mutations with optimistic updates via `apiClient`  | Not started |
+| **D** | Add authentication (JWT, secure storage, auth screens)          | Not started |
+| **E** | WebSocket for real-time score and trending updates              | Not started |
 
 ---
 
@@ -309,9 +310,9 @@ crawl-api.postman_collection.json
 
 Import it into Postman via File → Import. Collection variables:
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `baseUrl` | `http://localhost:3000/api/v1` | API base URL |
-| `authToken` | (empty) | Auto-populated by Login/Register requests |
-| `venueId` | `venue-001` | Reusable venue ID for testing |
-| `city` | `Austin, TX` | Default city for queries |
+| Variable    | Default                        | Purpose                                   |
+| ----------- | ------------------------------ | ----------------------------------------- |
+| `baseUrl`   | `http://localhost:3000/api/v1` | API base URL                              |
+| `authToken` | (empty)                        | Auto-populated by Login/Register requests |
+| `venueId`   | `venue-001`                    | Reusable venue ID for testing             |
+| `city`      | `Austin, TX`                   | Default city for queries                  |

@@ -11,12 +11,12 @@ updates:
     groups:
       expo:
         patterns:
-          - "expo*"
-          - "@expo/*"
+          - 'expo*'
+          - '@expo/*'
       react-native:
         patterns:
-          - "react-native*"
-          - "@react-native*"
+          - 'react-native*'
+          - '@react-native*'
       dev-dependencies:
         dependency-type: development
 

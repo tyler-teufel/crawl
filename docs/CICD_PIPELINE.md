@@ -117,35 +117,35 @@ Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Action
 
 ## Workflow Files
 
-| File | Trigger | Purpose |
-|------|---------|---------|
-| `.github/workflows/ci.yml` | `pull_request → main` | Lint, typecheck, expo-doctor, fingerprint |
-| `.github/workflows/preview-build.yml` | `push → main` | EAS preview build (iOS + Android) |
-| `.github/workflows/ota-update.yml` | Manual dispatch | OTA JS bundle update via EAS Update |
-| `.github/workflows/release.yml` | `push tag v*` | Production build → approval → store submit → GitHub Release |
-| `.github/workflows/dependabot-auto.yml` | Dependabot PRs | Auto-merge minor/patch dependency updates |
+| File                                    | Trigger               | Purpose                                                     |
+| --------------------------------------- | --------------------- | ----------------------------------------------------------- |
+| `.github/workflows/ci.yml`              | `pull_request → main` | Lint, typecheck, expo-doctor, fingerprint                   |
+| `.github/workflows/preview-build.yml`   | `push → main`         | EAS preview build (iOS + Android)                           |
+| `.github/workflows/ota-update.yml`      | Manual dispatch       | OTA JS bundle update via EAS Update                         |
+| `.github/workflows/release.yml`         | `push tag v*`         | Production build → approval → store submit → GitHub Release |
+| `.github/workflows/dependabot-auto.yml` | Dependabot PRs        | Auto-merge minor/patch dependency updates                   |
 
 ### Supporting Files
 
-| File | Purpose |
-|------|---------|
-| `.github/dependabot.yml` | Weekly dependency updates, grouped by ecosystem (Expo, RN, dev) |
-| `.github/CODEOWNERS` | Requires `@tyler-teufel` review on all PRs |
-| `.github/pull_request_template.md` | Structured PR description (what, why, type, testing, screenshots) |
-| `eas.json` | EAS Build profiles (development, preview, production) and submit config |
+| File                               | Purpose                                                                 |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `.github/dependabot.yml`           | Weekly dependency updates, grouped by ecosystem (Expo, RN, dev)         |
+| `.github/CODEOWNERS`               | Requires `@tyler-teufel` review on all PRs                              |
+| `.github/pull_request_template.md` | Structured PR description (what, why, type, testing, screenshots)       |
+| `eas.json`                         | EAS Build profiles (development, preview, production) and submit config |
 
 ---
 
 ## Key Tools
 
-| Tool | Purpose |
-|------|---------|
-| **EAS Build** | Expo's cloud build service. Builds iOS and Android binaries without local Xcode or Android Studio. Configure via `eas.json` with build profiles (development, preview, production). |
-| **EAS Submit** | Automates store submission. Uploads `.ipa` to App Store Connect and `.aab` to Google Play Console. |
-| **EAS Update** | Over-the-air JavaScript bundle updates. Bypasses app store review for JS-only changes. Users receive the update on next app launch. |
-| **GitHub Actions** | CI runner. Triggers on PR for validation, on merge to main for preview builds, on git tag for production releases. |
-| **Dependabot** | Automated dependency update PRs with auto-merge for minor/patch versions. |
-| **@expo/fingerprint** | Detects native dependency changes to determine OTA eligibility. |
+| Tool                  | Purpose                                                                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **EAS Build**         | Expo's cloud build service. Builds iOS and Android binaries without local Xcode or Android Studio. Configure via `eas.json` with build profiles (development, preview, production). |
+| **EAS Submit**        | Automates store submission. Uploads `.ipa` to App Store Connect and `.aab` to Google Play Console.                                                                                  |
+| **EAS Update**        | Over-the-air JavaScript bundle updates. Bypasses app store review for JS-only changes. Users receive the update on next app launch.                                                 |
+| **GitHub Actions**    | CI runner. Triggers on PR for validation, on merge to main for preview builds, on git tag for production releases.                                                                  |
+| **Dependabot**        | Automated dependency update PRs with auto-merge for minor/patch versions.                                                                                                           |
+| **@expo/fingerprint** | Detects native dependency changes to determine OTA eligibility.                                                                                                                     |
 
 ---
 
@@ -185,11 +185,11 @@ The `eas.json` file at the project root defines three build profiles:
 
 ### Build Profiles Explained
 
-| Profile | When | Output | Distribution |
-|---------|------|--------|-------------|
-| `development` | Daily development | Dev client app | Internal (TestFlight / Firebase) |
-| `preview` | PR merge to main | Production-like build | Internal (QA team testing) |
-| `production` | Git tag `v1.x.x` | Store-ready binary | App Store / Google Play |
+| Profile       | When              | Output                | Distribution                     |
+| ------------- | ----------------- | --------------------- | -------------------------------- |
+| `development` | Daily development | Dev client app        | Internal (TestFlight / Firebase) |
+| `preview`     | PR merge to main  | Production-like build | Internal (QA team testing)       |
+| `production`  | Git tag `v1.x.x`  | Store-ready binary    | App Store / Google Play          |
 
 ---
 
@@ -197,21 +197,21 @@ The `eas.json` file at the project root defines three build profiles:
 
 Each workflow uses concurrency groups to prevent wasted resources:
 
-| Workflow | Concurrency Group | Behavior |
-|----------|-------------------|----------|
-| `ci.yml` | `ci-<pr-branch>` | Cancels stale CI runs when new commits push to same PR |
-| `preview-build.yml` | `preview-build` | Only one preview build runs at a time |
+| Workflow            | Concurrency Group | Behavior                                               |
+| ------------------- | ----------------- | ------------------------------------------------------ |
+| `ci.yml`            | `ci-<pr-branch>`  | Cancels stale CI runs when new commits push to same PR |
+| `preview-build.yml` | `preview-build`   | Only one preview build runs at a time                  |
 
 ---
 
 ## OTA Updates vs Binary Releases
 
-| Change Type | Deploy Method | Review Required | User Gets It |
-|-------------|--------------|-----------------|--------------|
-| JS code, styles, images | `eas update` (OTA) | No | Next app launch |
-| New native module | `eas build` + submit | Yes (App Store / Google Play) | Store update |
-| Expo SDK upgrade | `eas build` + submit | Yes | Store update |
-| Config changes (`app.json`) | `eas build` + submit | Yes | Store update |
+| Change Type                 | Deploy Method        | Review Required               | User Gets It    |
+| --------------------------- | -------------------- | ----------------------------- | --------------- |
+| JS code, styles, images     | `eas update` (OTA)   | No                            | Next app launch |
+| New native module           | `eas build` + submit | Yes (App Store / Google Play) | Store update    |
+| Expo SDK upgrade            | `eas build` + submit | Yes                           | Store update    |
+| Config changes (`app.json`) | `eas build` + submit | Yes                           | Store update    |
 
 ### OTA Update via GitHub Actions
 
@@ -238,22 +238,22 @@ eas update --branch production --message "Hotfix: score animation timing"
 
 ### GitHub Actions Secrets
 
-| Secret | Purpose |
-|--------|---------|
-| `EXPO_TOKEN` | Authenticates `eas` CLI in all workflows |
-| `SLACK_WEBHOOK` | (Future) Build notification to Slack |
+| Secret          | Purpose                                  |
+| --------------- | ---------------------------------------- |
+| `EXPO_TOKEN`    | Authenticates `eas` CLI in all workflows |
+| `SLACK_WEBHOOK` | (Future) Build notification to Slack     |
 
 ### GitHub Environments
 
-| Environment | Used By | Requires Approval |
-|-------------|---------|-------------------|
+| Environment  | Used By                                                          | Requires Approval              |
+| ------------ | ---------------------------------------------------------------- | ------------------------------ |
 | `production` | `release.yml` (submit job), `ota-update.yml` (production branch) | Yes — manual reviewer approval |
 
 ### Other Credentials
 
-| Credential | Location | Purpose |
-|------------|----------|---------|
-| Apple ID + ASC App ID | `eas.json` submit config | App Store Connect submission |
+| Credential                 | Location                                   | Purpose                        |
+| -------------------------- | ------------------------------------------ | ------------------------------ |
+| Apple ID + ASC App ID      | `eas.json` submit config                   | App Store Connect submission   |
 | Google service account key | `google-service-account.json` (gitignored) | Google Play Console submission |
 
 ---
@@ -275,12 +275,12 @@ Configure these rules on the `main` branch:
 
 Dependabot is configured to open weekly PRs grouped by ecosystem:
 
-| Group | Patterns | Auto-merge |
-|-------|----------|------------|
-| `expo` | `expo*`, `@expo/*` | Minor & patch only |
-| `react-native` | `react-native*`, `@react-native*` | Minor & patch only |
-| `dev-dependencies` | All dev deps | Minor & patch only |
-| `github-actions` | All actions | Minor & patch only |
+| Group              | Patterns                          | Auto-merge         |
+| ------------------ | --------------------------------- | ------------------ |
+| `expo`             | `expo*`, `@expo/*`                | Minor & patch only |
+| `react-native`     | `react-native*`, `@react-native*` | Minor & patch only |
+| `dev-dependencies` | All dev deps                      | Minor & patch only |
+| `github-actions`   | All actions                       | Minor & patch only |
 
 Major version bumps require manual review.
 

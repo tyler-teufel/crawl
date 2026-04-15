@@ -6,19 +6,19 @@ Every file in the Crawl project with detailed descriptions of its purpose and be
 
 ## Configuration Files
 
-| File | Purpose |
-|------|---------|
-| `package.json` | Project dependencies and npm scripts. Entry point is `expo-router/entry`. Key scripts: `start` (dev server), `lint` (ESLint + Prettier check), `format` (auto-fix), `prebuild` (native build prep). |
-| `app.json` | Expo app configuration. Dark mode UI (`userInterfaceStyle: "dark"`), dark splash background (#0a0a0f), expo-router plugin, portrait orientation. iOS tablet support enabled, Android adaptive icon configured. |
-| `tsconfig.json` | TypeScript configuration. Extends `expo/tsconfig.base`. Strict mode enabled. Path alias `@/*` → `src/*`. |
-| `babel.config.js` | Babel preset configuration. Uses `babel-preset-expo` with `jsxImportSource: 'nativewind'` (enables `className` on JSX), `nativewind/babel` for CSS processing, and `react-native-worklets/plugin` for worklet thread support. |
-| `metro.config.js` | Metro bundler configuration. Wraps the default Expo config with `withNativeWind()` which processes `global.css` and sets `inlineRem: 16` (converts rem units to 16px base for React Native). |
-| `tailwind.config.js` | Tailwind CSS configuration with NativeWind preset. Defines two color systems: the `crawl-*` custom palette (hardcoded hex) and semantic tokens mapped from CSS variables (`bg-primary`, etc.). Includes `borderWidth: hairline` utility, accordion keyframes/animations, and `tailwindcss-animate` plugin. Content array scans `app/`, `components/`, `src/`, and `@rnr` node_modules. Dark mode set to `class`. |
-| `global.css` | Tailwind directives and CSS variable definitions. Defines light and dark theme tokens using `@layer base` with `:root` and `.dark:root` selectors. Dark mode values are themed to match the Crawl palette (purple primary, dark navy backgrounds). |
-| `eslint.config.js` | ESLint flat config extending `eslint-config-expo`. Ignores `dist/*`. Disables `react/display-name` rule. |
-| `prettier.config.js` | Prettier formatting rules. 100 character line width, 2-space tabs, single quotes, bracket same line, trailing commas (ES5). Integrates `prettier-plugin-tailwindcss` for automatic class sorting on `className` attributes. |
-| `nativewind-env.d.ts` | TypeScript type reference for NativeWind. Enables type checking on `className` props for React Native components. |
-| `components.json` | React Native Reusables CLI configuration. Specifies component style (`new-york`), output paths, and Tailwind settings. The CLI reads this to scaffold components into the correct directories. |
+| File                  | Purpose                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `package.json`        | Project dependencies and npm scripts. Entry point is `expo-router/entry`. Key scripts: `start` (dev server), `lint` (ESLint + Prettier check), `format` (auto-fix), `prebuild` (native build prep).                                                                                                                                                                                                              |
+| `app.json`            | Expo app configuration. Dark mode UI (`userInterfaceStyle: "dark"`), dark splash background (#0a0a0f), expo-router plugin, portrait orientation. iOS tablet support enabled, Android adaptive icon configured.                                                                                                                                                                                                   |
+| `tsconfig.json`       | TypeScript configuration. Extends `expo/tsconfig.base`. Strict mode enabled. Path alias `@/*` → `src/*`.                                                                                                                                                                                                                                                                                                         |
+| `babel.config.js`     | Babel preset configuration. Uses `babel-preset-expo` with `jsxImportSource: 'nativewind'` (enables `className` on JSX), `nativewind/babel` for CSS processing, and `react-native-worklets/plugin` for worklet thread support.                                                                                                                                                                                    |
+| `metro.config.js`     | Metro bundler configuration. Wraps the default Expo config with `withNativeWind()` which processes `global.css` and sets `inlineRem: 16` (converts rem units to 16px base for React Native).                                                                                                                                                                                                                     |
+| `tailwind.config.js`  | Tailwind CSS configuration with NativeWind preset. Defines two color systems: the `crawl-*` custom palette (hardcoded hex) and semantic tokens mapped from CSS variables (`bg-primary`, etc.). Includes `borderWidth: hairline` utility, accordion keyframes/animations, and `tailwindcss-animate` plugin. Content array scans `app/`, `components/`, `src/`, and `@rnr` node_modules. Dark mode set to `class`. |
+| `global.css`          | Tailwind directives and CSS variable definitions. Defines light and dark theme tokens using `@layer base` with `:root` and `.dark:root` selectors. Dark mode values are themed to match the Crawl palette (purple primary, dark navy backgrounds).                                                                                                                                                               |
+| `eslint.config.js`    | ESLint flat config extending `eslint-config-expo`. Ignores `dist/*`. Disables `react/display-name` rule.                                                                                                                                                                                                                                                                                                         |
+| `prettier.config.js`  | Prettier formatting rules. 100 character line width, 2-space tabs, single quotes, bracket same line, trailing commas (ES5). Integrates `prettier-plugin-tailwindcss` for automatic class sorting on `className` attributes.                                                                                                                                                                                      |
+| `nativewind-env.d.ts` | TypeScript type reference for NativeWind. Enables type checking on `className` props for React Native components.                                                                                                                                                                                                                                                                                                |
+| `components.json`     | React Native Reusables CLI configuration. Specifies component style (`new-york`), output paths, and Tailwind settings. The CLI reads this to scaffold components into the correct directories.                                                                                                                                                                                                                   |
 
 ---
 
@@ -76,6 +76,7 @@ Centered placeholder with person icon, "Your Profile" title, and "Coming Soon" s
 Full venue detail screen accessed by tapping a venue card or list item. Reads the `id` URL parameter to find the venue in mock data.
 
 Layout:
+
 1. **Header** — back button (navigates back) and share button
 2. **Image placeholder** — dark card area with image icon
 3. **Name + badges** — venue name with TRENDING badge if applicable
@@ -105,12 +106,12 @@ Filter changes are immediate — toggling a switch updates the context, which up
 
 Custom bottom tab bar replacing React Navigation's default. Renders four tabs with Ionicons:
 
-| Tab | Icon (Active) | Icon (Inactive) |
-|-----|--------------|-----------------|
+| Tab     | Icon (Active)      | Icon (Inactive)   |
+| ------- | ------------------ | ----------------- |
 | Explore | `compass` (filled) | `compass-outline` |
-| Voting | `heart` (filled) | `heart-outline` |
-| Global | `globe` (filled) | `globe-outline` |
-| Profile | `person` (filled) | `person-outline` |
+| Voting  | `heart` (filled)   | `heart-outline`   |
+| Global  | `globe` (filled)   | `globe-outline`   |
+| Profile | `person` (filled)  | `person-outline`  |
 
 Active tabs get a purple highlight background (`bg-crawl-purple/20`), filled icon colored purple-light, and semibold purple-light text. Inactive tabs get outline icons and muted text. Safe area bottom inset is applied for notched devices.
 
@@ -134,12 +135,14 @@ Three stacked circular buttons (zoom in, zoom out, locate) positioned absolute b
 ### `components/ui/SearchBar.tsx`
 
 Row layout with two elements:
+
 - **Search input** — rounded card-background container with search icon, text input, and placeholder text
 - **Filter button** — purple circular button with options icon, triggers `onFilterPress` callback
 
 ### `components/ui/FilterChip.tsx`
 
 Pressable pill-shaped chip with optional leading Ionicon and text label. Two visual states:
+
 - **Active:** Purple background, white text/icon
 - **Inactive:** Card background, muted text/icon
 
@@ -149,11 +152,11 @@ Used in the Explore screen's horizontal filter strip.
 
 Small rounded pill badge for status indicators. Three variants:
 
-| Variant | Background | Use Case |
-|---------|-----------|----------|
-| `trending` | Purple | "TRENDING", "HOT" labels |
-| `open` | Green | "OPEN" status |
-| `closed` | Red | "CLOSED" status |
+| Variant    | Background | Use Case                 |
+| ---------- | ---------- | ------------------------ |
+| `trending` | Purple     | "TRENDING", "HOT" labels |
+| `open`     | Green      | "OPEN" status            |
+| `closed`   | Red        | "CLOSED" status          |
 
 All variants render uppercase bold white text.
 
@@ -215,16 +218,16 @@ TypeScript interfaces:
 
 Array of 8 mock venues in Austin, TX:
 
-| Venue | Type | Score | Trending | Open |
-|-------|------|-------|----------|------|
-| Whiskey Tango | Cocktail Bar | 92 | Yes | Yes |
-| The Rustic Tap | Dive Bar | 87 | Yes | Yes |
-| Neon Lounge | Nightclub | 78 | No | Yes |
-| Brewski Garden | Beer Garden | 85 | No | Yes |
-| Midnight Cowboy | Speakeasy | 94 | Yes | No |
-| Lavaca Street Bar | Sports Bar | 71 | No | Yes |
-| Hotel Vegas | Live Music | 88 | Yes | Yes |
-| Roosevelt Room | Cocktail Bar | 90 | No | Yes |
+| Venue             | Type         | Score | Trending | Open |
+| ----------------- | ------------ | ----- | -------- | ---- |
+| Whiskey Tango     | Cocktail Bar | 92    | Yes      | Yes  |
+| The Rustic Tap    | Dive Bar     | 87    | Yes      | Yes  |
+| Neon Lounge       | Nightclub    | 78    | No       | Yes  |
+| Brewski Garden    | Beer Garden  | 85    | No       | Yes  |
+| Midnight Cowboy   | Speakeasy    | 94    | Yes      | No   |
+| Lavaca Street Bar | Sports Bar   | 71    | No       | Yes  |
+| Hotel Vegas       | Live Music   | 88    | Yes      | Yes  |
+| Roosevelt Room    | Cocktail Bar | 90    | No       | Yes  |
 
 ### `src/data/filters.ts`
 

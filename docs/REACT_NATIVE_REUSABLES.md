@@ -36,16 +36,16 @@ Components are built on `@rn-primitives/*` packages (headless, accessible primit
 
 All manual installation steps are complete:
 
-| Step | File(s) | Status |
-|------|---------|--------|
-| 1. NativeWind setup | `babel.config.js`, `metro.config.js` | Done |
-| 2. Metro `inlineRem: 16` | `metro.config.js` | Done |
-| 3. Install dependencies | `package.json` | Done — `tailwindcss-animate`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@rn-primitives/portal` |
-| 4. Add PortalHost | `app/_layout.tsx` | Done — `<PortalHost />` as last child |
-| 5. Path aliases | `tsconfig.json` | Done — `@/*` → `src/*` |
-| 6. Configure styles | `global.css`, `tailwind.config.js` | Done — CSS variables themed with Crawl palette |
-| 7. cn() helper | `src/lib/utils.ts` | Done |
-| 8. components.json | `components.json` | Done |
+| Step                     | File(s)                              | Status                                                                                                      |
+| ------------------------ | ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| 1. NativeWind setup      | `babel.config.js`, `metro.config.js` | Done                                                                                                        |
+| 2. Metro `inlineRem: 16` | `metro.config.js`                    | Done                                                                                                        |
+| 3. Install dependencies  | `package.json`                       | Done — `tailwindcss-animate`, `class-variance-authority`, `clsx`, `tailwind-merge`, `@rn-primitives/portal` |
+| 4. Add PortalHost        | `app/_layout.tsx`                    | Done — `<PortalHost />` as last child                                                                       |
+| 5. Path aliases          | `tsconfig.json`                      | Done — `@/*` → `src/*`                                                                                      |
+| 6. Configure styles      | `global.css`, `tailwind.config.js`   | Done — CSS variables themed with Crawl palette                                                              |
+| 7. cn() helper           | `src/lib/utils.ts`                   | Done                                                                                                        |
+| 8. components.json       | `components.json`                    | Done                                                                                                        |
 
 ### Validate Setup
 
@@ -61,25 +61,26 @@ The default shadcn/ui theme uses neutral grays. We've remapped the CSS variables
 
 The CSS variables in `global.css` and the TypeScript values in `src/lib/theme.ts` are kept in sync. Here's how the semantic tokens map to Crawl's design:
 
-| Semantic Token | Dark Mode HSL | Crawl Equivalent | Hex |
-|----------------|---------------|-------------------|-----|
-| `--background` | `240 33% 3%` | crawl-bg | #0a0a0f |
-| `--foreground` | `0 0% 98%` | white text | #fafafa |
-| `--card` | `240 28% 14%` | crawl-card | #1a1a2e |
-| `--popover` | `240 28% 14%` | crawl-card | #1a1a2e |
-| `--primary` | `270 85% 50%` | crawl-purple | #7f13ec |
-| `--secondary` | `240 33% 12%` | crawl-surface | #16162a |
-| `--muted` | `240 33% 12%` | crawl-surface | #16162a |
-| `--muted-foreground` | `220 9% 64%` | crawl-text-muted | #9ca3af |
-| `--accent` | `270 85% 50%` | crawl-purple | #7f13ec |
-| `--destructive` | `0 70.9% 59.4%` | red/error | #ef4444 |
-| `--border` | `240 28% 14%` | crawl-card | #1a1a2e |
-| `--input` | `240 28% 14%` | crawl-card | #1a1a2e |
-| `--ring` | `270 72% 65%` | crawl-purple-light | #a855f7 |
+| Semantic Token       | Dark Mode HSL   | Crawl Equivalent   | Hex     |
+| -------------------- | --------------- | ------------------ | ------- |
+| `--background`       | `240 33% 3%`    | crawl-bg           | #0a0a0f |
+| `--foreground`       | `0 0% 98%`      | white text         | #fafafa |
+| `--card`             | `240 28% 14%`   | crawl-card         | #1a1a2e |
+| `--popover`          | `240 28% 14%`   | crawl-card         | #1a1a2e |
+| `--primary`          | `270 85% 50%`   | crawl-purple       | #7f13ec |
+| `--secondary`        | `240 33% 12%`   | crawl-surface      | #16162a |
+| `--muted`            | `240 33% 12%`   | crawl-surface      | #16162a |
+| `--muted-foreground` | `220 9% 64%`    | crawl-text-muted   | #9ca3af |
+| `--accent`           | `270 85% 50%`   | crawl-purple       | #7f13ec |
+| `--destructive`      | `0 70.9% 59.4%` | red/error          | #ef4444 |
+| `--border`           | `240 28% 14%`   | crawl-card         | #1a1a2e |
+| `--input`            | `240 28% 14%`   | crawl-card         | #1a1a2e |
+| `--ring`             | `270 72% 65%`   | crawl-purple-light | #a855f7 |
 
 ### What This Means in Practice
 
 When you add an RNR `Button` component, it will automatically:
+
 - Use `bg-primary` → crawl purple (#7f13ec) for the default variant
 - Use `bg-secondary` → crawl surface (#16162a) for the secondary variant
 - Use `bg-destructive` → red for the destructive variant
@@ -93,10 +94,10 @@ No per-component color overrides needed — it all flows from the CSS variables.
 
 The project has two color systems that coexist:
 
-| System | Usage | Example |
-|--------|-------|---------|
+| System            | Usage                   | Example                                    |
+| ----------------- | ----------------------- | ------------------------------------------ |
 | `crawl-*` classes | Custom Crawl components | `bg-crawl-purple`, `text-crawl-text-muted` |
-| Semantic tokens | RNR components | `bg-primary`, `text-muted-foreground` |
+| Semantic tokens   | RNR components          | `bg-primary`, `text-muted-foreground`      |
 
 Both are defined in `tailwind.config.js`. The `crawl-*` classes use hardcoded hex values. The semantic tokens use `hsl(var(--token))` and adapt to light/dark mode via `global.css`.
 
@@ -180,6 +181,7 @@ function MyButton({ className, ...props }) {
 ```
 
 **How it works:**
+
 1. `clsx(inputs)` handles conditional logic (booleans, arrays, objects)
 2. `twMerge(result)` resolves Tailwind class conflicts (e.g., `p-2` vs `p-4`)
 
@@ -208,13 +210,15 @@ Navigation chrome (headers, tab bars, etc.)
 To change a color across the entire app:
 
 **Step 1:** Update the CSS variable in `global.css`
+
 ```css
 .dark:root {
-  --primary: 270 85% 50%;  /* Change this HSL value */
+  --primary: 270 85% 50%; /* Change this HSL value */
 }
 ```
 
 **Step 2:** Update the matching value in `src/lib/theme.ts`
+
 ```typescript
 dark: {
   primary: 'hsl(270 85% 50%)',  /* Keep in sync */
@@ -222,6 +226,7 @@ dark: {
 ```
 
 **Step 3:** If you also use `crawl-*` classes for the same color, update `tailwind.config.js`:
+
 ```javascript
 crawl: {
   purple: '#7f13ec',  /* Keep hex in sync with HSL above */
@@ -256,15 +261,15 @@ This provides themed colors to any React Navigation components (headers, tab bar
 
 ## 7. File Reference
 
-| File | Purpose |
-|------|---------|
-| `global.css` | CSS variable definitions for light and dark themes. The single source of truth for the color palette that RNR components consume. |
+| File                 | Purpose                                                                                                                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `global.css`         | CSS variable definitions for light and dark themes. The single source of truth for the color palette that RNR components consume.                                                                                                                                 |
 | `tailwind.config.js` | Maps CSS variables to Tailwind utility classes (e.g., `--primary` → `bg-primary`). Also includes the `crawl-*` custom palette, border radius tokens, accordion animations, and the `tailwindcss-animate` plugin. Content array includes `@rnr` node_modules path. |
-| `src/lib/utils.ts` | Exports `cn()` — the class merging utility used by every RNR component. Combines `clsx` (conditional logic) with `tailwind-merge` (conflict resolution). |
-| `src/lib/theme.ts` | Exports `THEME` (light/dark color objects with HSL strings) and `NAV_THEME` (React Navigation theme objects). Values must stay in sync with `global.css`. |
-| `components.json` | Configuration for the RNR CLI. Specifies component output paths, Tailwind config location, and path aliases. The CLI reads this to know where to scaffold components. |
-| `app/_layout.tsx` | Root layout — wraps app in `ThemeProvider` with `NAV_THEME`, forces dark mode via `useColorScheme`, renders `PortalHost` for overlay components. |
-| `metro.config.js` | Metro bundler config with `inlineRem: 16` in the `withNativeWind` call — converts rem units to 16px base for consistent sizing on native. |
+| `src/lib/utils.ts`   | Exports `cn()` — the class merging utility used by every RNR component. Combines `clsx` (conditional logic) with `tailwind-merge` (conflict resolution).                                                                                                          |
+| `src/lib/theme.ts`   | Exports `THEME` (light/dark color objects with HSL strings) and `NAV_THEME` (React Navigation theme objects). Values must stay in sync with `global.css`.                                                                                                         |
+| `components.json`    | Configuration for the RNR CLI. Specifies component output paths, Tailwind config location, and path aliases. The CLI reads this to know where to scaffold components.                                                                                             |
+| `app/_layout.tsx`    | Root layout — wraps app in `ThemeProvider` with `NAV_THEME`, forces dark mode via `useColorScheme`, renders `PortalHost` for overlay components.                                                                                                                  |
+| `metro.config.js`    | Metro bundler config with `inlineRem: 16` in the `withNativeWind` call — converts rem units to 16px base for consistent sizing on native.                                                                                                                         |
 
 ## 8. Customizing Components
 
@@ -279,7 +284,7 @@ Edit the component's `cva()` call:
 const buttonVariants = cva('...base classes...', {
   variants: {
     variant: {
-      default: 'bg-primary text-primary-foreground',      // ← edit these
+      default: 'bg-primary text-primary-foreground', // ← edit these
       secondary: 'bg-secondary text-secondary-foreground',
       outline: 'border border-input bg-background',
       ghost: 'hover:bg-accent',
@@ -352,6 +357,7 @@ npx @react-native-reusables/cli doctor
 ```
 
 Common fixes:
+
 - Missing dependency → `npx expo install <package>`
 - Wrong path alias → check `components.json` aliases match `tsconfig.json`
 - Missing `inlineRem` → add `inlineRem: 16` to `withNativeWind()` call in `metro.config.js`

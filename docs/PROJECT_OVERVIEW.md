@@ -14,14 +14,14 @@ Crawl is a nightlife and bar discovery app that lets users explore venues on a m
 
 ### Screens
 
-| Screen | Route | Status |
-|--------|-------|--------|
-| Explore (Map View) | `/(tabs)/` | Complete — map placeholder, search, filter chips, venue carousel |
-| Daily Hotspot Votes | `/(tabs)/voting` | Complete — vote counter, countdown timer, ranked venue list |
-| Global Rankings | `/(tabs)/global` | Placeholder |
-| Profile | `/(tabs)/profile` | Placeholder |
-| Venue Detail | `/venue/[id]` | Complete — animated score ring, highlights, vote CTA |
-| Advanced Filters | `/filters` | Complete — transparent modal with toggle switches |
+| Screen              | Route             | Status                                                           |
+| ------------------- | ----------------- | ---------------------------------------------------------------- |
+| Explore (Map View)  | `/(tabs)/`        | Complete — map placeholder, search, filter chips, venue carousel |
+| Daily Hotspot Votes | `/(tabs)/voting`  | Complete — vote counter, countdown timer, ranked venue list      |
+| Global Rankings     | `/(tabs)/global`  | Placeholder                                                      |
+| Profile             | `/(tabs)/profile` | Placeholder                                                      |
+| Venue Detail        | `/venue/[id]`     | Complete — animated score ring, highlights, vote CTA             |
+| Advanced Filters    | `/filters`        | Complete — transparent modal with toggle switches                |
 
 ### Key Features
 
@@ -40,29 +40,29 @@ Crawl is a nightlife and bar discovery app that lets users explore venues on a m
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Framework | Expo SDK | 54 |
-| UI Framework | React Native | 0.81.5 |
-| React | React | 19.1.0 |
-| Routing | expo-router (file-based) | 6.0.21 |
-| Styling | NativeWind (Tailwind CSS for RN) | latest |
-| Component Library | React Native Reusables | latest |
-| Animations | react-native-reanimated | 4.1.1 |
-| SVG | react-native-svg | 15.x |
-| Icons | @expo/vector-icons (Ionicons) | bundled |
-| Language | TypeScript (strict mode) | 5.9.2 |
-| Linting | ESLint + Prettier | 9.x / 3.x |
+| Layer             | Technology                       | Version   |
+| ----------------- | -------------------------------- | --------- |
+| Framework         | Expo SDK                         | 54        |
+| UI Framework      | React Native                     | 0.81.5    |
+| React             | React                            | 19.1.0    |
+| Routing           | expo-router (file-based)         | 6.0.21    |
+| Styling           | NativeWind (Tailwind CSS for RN) | latest    |
+| Component Library | React Native Reusables           | latest    |
+| Animations        | react-native-reanimated          | 4.1.1     |
+| SVG               | react-native-svg                 | 15.x      |
+| Icons             | @expo/vector-icons (Ionicons)    | bundled   |
+| Language          | TypeScript (strict mode)         | 5.9.2     |
+| Linting           | ESLint + Prettier                | 9.x / 3.x |
 
 ### Supporting Libraries
 
-| Package | Purpose |
-|---------|---------|
-| `class-variance-authority` | Component variant management (used by RNR) |
-| `clsx` | Conditional class name merging |
-| `tailwind-merge` | Tailwind class conflict resolution |
-| `tailwindcss-animate` | CSS animation utilities for Tailwind |
-| `@rn-primitives/portal` | Portal rendering for modals/overlays (used by RNR) |
+| Package                    | Purpose                                            |
+| -------------------------- | -------------------------------------------------- |
+| `class-variance-authority` | Component variant management (used by RNR)         |
+| `clsx`                     | Conditional class name merging                     |
+| `tailwind-merge`           | Tailwind class conflict resolution                 |
+| `tailwindcss-animate`      | CSS animation utilities for Tailwind               |
+| `@rn-primitives/portal`    | Portal rendering for modals/overlays (used by RNR) |
 
 ## Quick Start
 

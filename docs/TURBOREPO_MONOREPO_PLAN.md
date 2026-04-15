@@ -57,6 +57,7 @@ Turborepo hashes every input to a task — source files, environment variables, 
 The most immediate benefit is **shared TypeScript types between the mobile app and the backend API**. Right now, types like `Venue`, `Vote`, `VoteState`, and API response shapes are defined only in `src/types/` for the mobile app. When the backend is built, these same types will need to exist on the server — describing request/response bodies, database row shapes, and validation schemas.
 
 Without a monorepo, there are three bad options:
+
 1. **Duplicate the types** in both the mobile app and the API. They immediately diverge.
 2. **Publish a types package to npm**. Requires a publish step on every change; painful in active development.
 3. **Copy-paste on change**. Manual, error-prone, not scalable.
@@ -140,15 +141,15 @@ crawl/
 
 ### What Moves vs What's New
 
-| Item | Action |
-|------|--------|
-| `app/`, `components/`, `src/`, `assets/` | Move into `apps/mobile/` |
+| Item                                            | Action                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------- |
+| `app/`, `components/`, `src/`, `assets/`        | Move into `apps/mobile/`                                            |
 | `app.json`, `babel.config.js`, `eas.json`, etc. | Move into `apps/mobile/` (most are already there in `apps/mobile/`) |
-| Root `package.json` | Converted to workspace root — no app dependencies |
-| `apps/api/` | Created new (backend implementation) |
-| `packages/shared-types/` | Created new — extract types from `src/types/` |
-| `packages/eslint-config/` | Created new — extract shared ESLint rules |
-| `turbo.json` | Created new |
+| Root `package.json`                             | Converted to workspace root — no app dependencies                   |
+| `apps/api/`                                     | Created new (backend implementation)                                |
+| `packages/shared-types/`                        | Created new — extract types from `src/types/`                       |
+| `packages/eslint-config/`                       | Created new — extract shared ESLint rules                           |
+| `turbo.json`                                    | Created new                                                         |
 
 > **Note:** The `apps/mobile/` directory already contains some config files from a prior restructure commit. The migration completes what was started there.
 
@@ -188,10 +189,7 @@ Update the root `package.json` to declare workspaces. The root package should no
   "name": "crawl-monorepo",
   "version": "0.0.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
@@ -215,10 +213,7 @@ Create `turbo.json` at the repository root. This defines the task dependency gra
 ```json
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": [
-    "NODE_ENV",
-    "EXPO_PUBLIC_API_URL"
-  ],
+  "globalEnv": ["NODE_ENV", "EXPO_PUBLIC_API_URL"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -330,7 +325,7 @@ export type Venue = z.infer<typeof VenueSchema>;
 export * from './venue';
 export * from './vote';
 export * from './user';
-export * from './api';  // API request/response shapes
+export * from './api'; // API request/response shapes
 ```
 
 Using Zod schemas here gives you double value: the types are valid TypeScript types (`z.infer<typeof VenueSchema>`), and the same schema validates runtime data on the API server. The mobile app uses the types for compile-time checks; the API uses the schema to validate request bodies.
@@ -476,6 +471,7 @@ assets/        ──► apps/mobile/assets/
 The config files (babel.config.js, metro.config.js, tailwind.config.js, etc.) are already in `apps/mobile/` from the prior restructure — verify each one is present and correct before removing the root copies.
 
 After moving, update any paths that reference the old location:
+
 - `.github/workflows` — update working directory references
 - `eas.json` — ensure it references the correct app directory
 - `app.json` — no path changes needed (it's self-referential)
@@ -571,15 +567,15 @@ Update CI workflow files to pass the cache token:
 
 Once migration is complete, these are the primary commands run from the repository root:
 
-| Command | What it does |
-|---------|-------------|
-| `npm run dev` | Starts both `apps/mobile` (Expo) and `apps/api` (tsx watch) in parallel |
-| `npm run build` | Builds `shared-types`, then builds `mobile` and `api` in parallel |
-| `npm run typecheck` | Type-checks all packages in dependency order |
-| `npm run lint` | Lints all packages in parallel |
-| `npx turbo run dev --filter=mobile` | Run dev server for mobile only |
-| `npx turbo run build --filter=api...` | Build `api` and all its local dependencies |
-| `npx turbo run lint --filter=...shared-types` | Lint everything that depends on `shared-types` |
+| Command                                       | What it does                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------- |
+| `npm run dev`                                 | Starts both `apps/mobile` (Expo) and `apps/api` (tsx watch) in parallel |
+| `npm run build`                               | Builds `shared-types`, then builds `mobile` and `api` in parallel       |
+| `npm run typecheck`                           | Type-checks all packages in dependency order                            |
+| `npm run lint`                                | Lints all packages in parallel                                          |
+| `npx turbo run dev --filter=mobile`           | Run dev server for mobile only                                          |
+| `npx turbo run build --filter=api...`         | Build `api` and all its local dependencies                              |
+| `npx turbo run lint --filter=...shared-types` | Lint everything that depends on `shared-types`                          |
 
 ### Dependency Graph
 

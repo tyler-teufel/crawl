@@ -20,14 +20,14 @@ Crawl has two applications — a React Native mobile app and a Fastify API serve
 
 ### Benefits for this project
 
-| Benefit | How it applies to Crawl |
-|---------|------------------------|
-| **Shared types** | The `Venue`, `VoteState`, and `FilterOption` interfaces are defined once in `packages/shared-types` and imported by both `apps/mobile` and `apps/api`. Changes propagate instantly — no publish/install cycle. |
-| **Single dependency tree** | npm workspaces hoists shared dependencies (TypeScript, Zod, ESLint, Prettier) to the root `node_modules/`, reducing disk usage and ensuring version consistency. |
-| **Unified task runner** | `turbo typecheck` type-checks all four packages in the correct order. `turbo dev --parallel` starts both the mobile app and API server simultaneously. One command, full-stack development. |
-| **Task caching** | Turbo caches build and typecheck outputs. If `packages/shared-types` hasn't changed, its build is replayed from cache in milliseconds instead of recompiled. |
-| **Dependency graph awareness** | Turbo knows that `@crawl/api` depends on `@crawl/shared-types`. When you run `turbo build --filter=@crawl/api`, it automatically builds shared-types first. |
-| **Atomic commits** | A change to a shared type and the corresponding API route and mobile screen can be a single commit and a single PR. No cross-repo coordination needed. |
+| Benefit                        | How it applies to Crawl                                                                                                                                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Shared types**               | The `Venue`, `VoteState`, and `FilterOption` interfaces are defined once in `packages/shared-types` and imported by both `apps/mobile` and `apps/api`. Changes propagate instantly — no publish/install cycle. |
+| **Single dependency tree**     | npm workspaces hoists shared dependencies (TypeScript, Zod, ESLint, Prettier) to the root `node_modules/`, reducing disk usage and ensuring version consistency.                                               |
+| **Unified task runner**        | `turbo typecheck` type-checks all four packages in the correct order. `turbo dev --parallel` starts both the mobile app and API server simultaneously. One command, full-stack development.                    |
+| **Task caching**               | Turbo caches build and typecheck outputs. If `packages/shared-types` hasn't changed, its build is replayed from cache in milliseconds instead of recompiled.                                                   |
+| **Dependency graph awareness** | Turbo knows that `@crawl/api` depends on `@crawl/shared-types`. When you run `turbo build --filter=@crawl/api`, it automatically builds shared-types first.                                                    |
+| **Atomic commits**             | A change to a shared type and the corresponding API route and mobile screen can be a single commit and a single PR. No cross-repo coordination needed.                                                         |
 
 ### Why Turborepo specifically
 
@@ -166,35 +166,35 @@ The `typecheck` task has `"dependsOn": ["^build"]`, which means:
 
 ### Task reference
 
-| Command | What it does |
-|---------|-------------|
-| `turbo dev --parallel` | Starts mobile dev server + API dev server simultaneously |
-| `turbo dev --filter=@crawl/api` | Starts only the API server |
-| `turbo build` | Builds shared-types, then API and mobile in parallel |
-| `turbo typecheck` | Type-checks all packages respecting dependency order |
-| `turbo lint` | Runs ESLint in every workspace that has a `lint` script |
-| `turbo test` | Runs test suites across all workspaces |
+| Command                         | What it does                                             |
+| ------------------------------- | -------------------------------------------------------- |
+| `turbo dev --parallel`          | Starts mobile dev server + API dev server simultaneously |
+| `turbo dev --filter=@crawl/api` | Starts only the API server                               |
+| `turbo build`                   | Builds shared-types, then API and mobile in parallel     |
+| `turbo typecheck`               | Type-checks all packages respecting dependency order     |
+| `turbo lint`                    | Runs ESLint in every workspace that has a `lint` script  |
+| `turbo test`                    | Runs test suites across all workspaces                   |
 
 ---
 
 ## 5. What Changed Per File
 
-| File | Action | Why |
-|------|--------|-----|
-| `package.json` | Added `packageManager`, `test` script | Turbo requires `packageManager`; `test` was missing |
-| `turbo.json` | Added `test` task | Enables `turbo test` across workspaces |
-| `eslint.config.js` (root) | Replaced with minimal config | Previous config was Expo-specific, broke API linting |
-| `prettier.config.js` (root) | Removed Tailwind plugin | Tailwind plugin is mobile-only |
-| `apps/mobile/package.json` | Renamed to `@crawl/mobile`, removed `turbo` dep | Scoped name required; turbo is root-only |
-| `apps/mobile/package-lock.json` | Deleted | Nested lockfiles break workspace hoisting |
-| `apps/mobile/eslint.config.js` | Created (from root) | Expo-specific rules scoped to mobile |
-| `apps/mobile/prettier.config.js` | Created (from root) | Tailwind plugin scoped to mobile |
-| `apps/mobile/src/types/venue.ts` | Created | Re-exports from `@crawl/shared-types` to preserve `@/types/venue` imports |
-| `apps/api/package.json` | Added `type: module`, Fastify deps, test scripts | ESM support, Fastify framework, Vitest testing |
-| `apps/api/tsconfig.json` | Added `esModuleInterop`, `skipLibCheck` | Clean Fastify interop |
-| `apps/api/tsconfig.build.json` | Created | Production builds excluding tests |
-| `apps/api/eslint.config.js` | Created | Node.js/TypeScript linting without React rules |
-| `packages/shared-types/package.json` | Moved from `packages/` | Correct workspace directory placement |
-| `packages/shared-types/tsconfig.json` | Moved from `packages/` | Correct workspace directory placement |
-| `packages/shared-types/tsconfig.build.json` | Created | Missing file referenced by build script |
-| `packages/shared-types/src/index.ts` | Created | Barrel export so imports resolve |
+| File                                        | Action                                           | Why                                                                       |
+| ------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `package.json`                              | Added `packageManager`, `test` script            | Turbo requires `packageManager`; `test` was missing                       |
+| `turbo.json`                                | Added `test` task                                | Enables `turbo test` across workspaces                                    |
+| `eslint.config.js` (root)                   | Replaced with minimal config                     | Previous config was Expo-specific, broke API linting                      |
+| `prettier.config.js` (root)                 | Removed Tailwind plugin                          | Tailwind plugin is mobile-only                                            |
+| `apps/mobile/package.json`                  | Renamed to `@crawl/mobile`, removed `turbo` dep  | Scoped name required; turbo is root-only                                  |
+| `apps/mobile/package-lock.json`             | Deleted                                          | Nested lockfiles break workspace hoisting                                 |
+| `apps/mobile/eslint.config.js`              | Created (from root)                              | Expo-specific rules scoped to mobile                                      |
+| `apps/mobile/prettier.config.js`            | Created (from root)                              | Tailwind plugin scoped to mobile                                          |
+| `apps/mobile/src/types/venue.ts`            | Created                                          | Re-exports from `@crawl/shared-types` to preserve `@/types/venue` imports |
+| `apps/api/package.json`                     | Added `type: module`, Fastify deps, test scripts | ESM support, Fastify framework, Vitest testing                            |
+| `apps/api/tsconfig.json`                    | Added `esModuleInterop`, `skipLibCheck`          | Clean Fastify interop                                                     |
+| `apps/api/tsconfig.build.json`              | Created                                          | Production builds excluding tests                                         |
+| `apps/api/eslint.config.js`                 | Created                                          | Node.js/TypeScript linting without React rules                            |
+| `packages/shared-types/package.json`        | Moved from `packages/`                           | Correct workspace directory placement                                     |
+| `packages/shared-types/tsconfig.json`       | Moved from `packages/`                           | Correct workspace directory placement                                     |
+| `packages/shared-types/tsconfig.build.json` | Created                                          | Missing file referenced by build script                                   |
+| `packages/shared-types/src/index.ts`        | Created                                          | Barrel export so imports resolve                                          |
