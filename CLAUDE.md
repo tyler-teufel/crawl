@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## External Knowledge Base (Crawl Wiki)
+
+An LLM-maintained knowledge base lives at `C:\Users\tyler\Coding Projects\crawl\wiki\`. It is a structured second brain for the Crawl nightlife app: cross-referenced **source summaries** (one per `docs/*.md`), **entity pages** (Fastify, Turborepo, VenueContext, apps/mobile, apps/api, shared-types, TanStack Query, NativeWind, React Native Reusables, expo-router, Zod, EAS Build, GitHub Actions Workflows, Hotspot Score, Crawl App), **concept pages** (File-Based Routing, Controller-Service-Repository Pattern, Monorepo Workspace Scoping, Query Key Factory Pattern, Optimistic Updates, OTA vs Binary Releases, PostGIS Geo Queries, Semantic vs Crawl Color Tokens, etc.), **syntheses**, and filed **queries**. Pages are markdown with YAML frontmatter (`type: source|entity|concept|synthesis|query`) and use Obsidian-style `[[wikilinks]]`.
+
+### When to consult it
+
+- Before answering non-trivial research or synthesis questions about Crawl's architecture, tech choices, or decision history.
+- When the user references prior research or asks "what did we decide about X".
+- When working on code that touches systems documented there — backend plan, monorepo scoping, state/data flow, styling pipeline.
+
+### How to consult it
+
+1. **Always read `wiki/index.md` first** to locate candidate pages.
+2. If you need schema details (page types, linking rules, ingest workflow), read `wiki/CLAUDE.md` — it is the authority for anything beyond passive reads.
+3. Follow `[[wikilinks]]` to connected pages; pages are designed to be traversed, not read in isolation.
+
+### Boundaries
+
+- **Treat the wiki as read-only from this directory.** This CLAUDE.md's directory is not the wiki's home — do not create, modify, or reorganize wiki pages from here. Wiki maintenance (ingest, lint, restructuring) happens in the Crawl repo where `wiki/CLAUDE.md` is the authority.
+- If insights from work done here should be filed into the wiki, tell the user to switch into the Crawl repo and run an ingest there.
+- **The wiki may lag reality.** If a wiki claim conflicts with the current working directory's source code, trust the local code and flag the discrepancy to the user so the wiki can be refreshed.
+
 ## Commands
 
 ```bash
@@ -247,3 +269,21 @@ docs/
 ### The `/docs` Skill
 
 Run `/docs` (or `/docs <description of what changed>`) to trigger a comprehensive documentation update pass. This scans recent changes, determines which docs are affected, reads the source files and existing docs, and applies targeted updates.
+
+## Wiki / Knowledge Base (`wiki/`)
+
+The repository also contains an **LLM-maintained knowledge base** at `wiki/`, distinct from `docs/`. Where `docs/` is human-facing project documentation that you update alongside code changes, `wiki/` is a structured second brain — entity pages, concept pages, source summaries, and cross-referenced syntheses — owned and maintained entirely by the LLM agent.
+
+**When to use the wiki:**
+
+- The user asks a research/synthesis question that spans multiple docs or sources ("how does the voting flow connect to the backend plan?", "what's the rationale behind X decision?").
+- The user references prior research, ingested articles, or wants to recall something filed previously.
+- The user explicitly says "check the wiki", "ingest this", "lint the wiki", or "file this answer".
+- You're about to answer a non-trivial question and the wiki may already contain a relevant synthesis — read `wiki/index.md` first to check.
+
+**How to use the wiki:**
+
+1. Load `wiki/CLAUDE.md` for the schema and operating rules — it governs all wiki operations.
+2. Always read `wiki/index.md` before answering a wiki query.
+3. Follow the ingest / query / lint workflows defined in the schema. Never edit `wiki/raw/` or pages outside the schema's conventions.
+4. Wiki operations are **separate from `docs/` maintenance**. Updating the wiki does not satisfy the doc-update mandate above, and updating docs does not auto-update the wiki.

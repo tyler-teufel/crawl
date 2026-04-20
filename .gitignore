@@ -27,5 +27,10 @@ android
 # .claude
 # .claude/settings.local.json
 
-# Turbo 
+# Turbo
 .turbo
+
+# Wiki (LLM-maintained knowledge base, not source code)
+wiki/
+
+.obsidian
