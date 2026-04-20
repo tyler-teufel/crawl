@@ -9,51 +9,107 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  # ── Mobile app validation ─────────────────────────────────────────
+  mobile-validate:
+    name: Mobile — Lint & TypeCheck
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       - run: npm ci
 
       - name: Lint & format check
+        working-directory: apps/mobile
         run: npm run lint
 
       - name: TypeScript check
+        working-directory: apps/mobile
         run: npx tsc --noEmit
 
       - name: Expo doctor
+        working-directory: apps/mobile
         run: npx expo-doctor
 
-      # Uncomment when Jest is configured (v1.1 roadmap):
-      # - name: Unit tests
-      #   run: npm test -- --coverage --ci
-      # - name: Upload coverage
-      #   uses: codecov/codecov-action@v4
+  # ── API validation ─────────────────────────────────────────────────
+  api-validate:
+    name: API — Lint, TypeCheck & Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        working-directory: apps/api
+        run: npm run lint
+
+      - name: TypeScript check
+        working-directory: apps/api
+        run: npm run typecheck
+
+      - name: Unit & integration tests
+        working-directory: apps/api
+        run: npm run test
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+          retention-days: 7
+
+  # ── Shared types validation ────────────────────────────────────────
+  shared-types-validate:
+    name: shared-types — TypeCheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeScript check
+        working-directory: packages/shared-types
+        run: npx tsc --noEmit
+
+  # ── Native fingerprint (Expo OTA eligibility) ─────────────────────
   fingerprint:
+    name: Mobile — Native Fingerprint
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       fingerprint-hash: ${{ steps.fingerprint.outputs.hash }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       - run: npm ci
 
       - name: Generate native fingerprint
         id: fingerprint
+        working-directory: apps/mobile
         run: |
           HASH=$(npx @expo/fingerprint . --hash-only 2>/dev/null || echo "unknown")
           echo "hash=$HASH" >> "$GITHUB_OUTPUT"

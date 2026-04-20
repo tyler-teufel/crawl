@@ -138,3 +138,114 @@ Expo-router maps the file system to the navigation tree. `app/(tabs)/voting.tsx`
 **Chosen over:** Manual class ordering, ESLint rules
 
 **Why:** Tailwind class strings can become long. Without consistent ordering, the same styles look different in every file. `prettier-plugin-tailwindcss` auto-sorts classes on save in a canonical order (layout → spacing → sizing → typography → colors → etc.), eliminating all formatting debates and making className strings scannable.
+
+---
+
+## API Framework: Fastify
+
+**Chosen over:** Express, Hono, NestJS
+
+**Why:**
+- **Performance** — Fastify is 2-3× faster than Express on identical benchmarks. This matters for the vote and trending endpoints that will be called frequently.
+- **Schema-first validation** — Fastify's built-in JSON Schema validation runs before route handlers, rejecting bad requests before they touch business logic. Paired with `fastify-type-provider-zod`, Zod schemas double as runtime validators and TypeScript types — no duplication.
+- **Plugin system** — `fastify-plugin` makes decorators (like `fastify.authenticate`) available across the whole app without awkward middleware chains.
+- **First-class TypeScript** — the `withTypeProvider<ZodTypeProvider>()` pattern gives typed `request.params`, `request.query`, and `request.body` inside every handler.
+- **Testability** — `fastify.inject()` lets you make real HTTP requests against the Fastify instance without starting a TCP listener. Tests are fully isolated and fast.
+
+**Trade-off:** Smaller ecosystem than Express. Some middleware packages don't exist for Fastify. In practice, the Fastify ecosystem covers all Crawl's needs (`@fastify/jwt`, `@fastify/cors`, `@fastify/sensible`).
+
+---
+
+## API Architecture: Controller-Service-Repository
+
+**Chosen over:** Fat route handlers, Active Record pattern, direct DB access in routes
+
+**Why:**
+- **Testability** — services are plain TypeScript classes with no HTTP coupling. Unit tests call `voteService.castVote(userId, venueId)` without mocking Fastify.
+- **Swappable repositories** — Phase 1 uses in-memory repositories. Phase 2 swaps them for Drizzle-backed implementations behind the same interface. No route handler changes required.
+- **Separation of concerns** — routes handle HTTP translation (params, headers, status codes); services handle business rules (max votes, duplicate checks); repositories handle persistence.
+
+**Pattern:**
+```
+Route handler (HTTP)  →  Service (business logic)  →  Repository (persistence)
+```
+
+---
+
+## ORM: Drizzle
+
+**Chosen over:** Prisma, Kysely, raw pg
+
+**Why:**
+- **SQL-like syntax** — Drizzle queries read like SQL. `db.select().from(venues).where(eq(venues.city, city))` maps directly to developer mental models.
+- **Lightweight** — no code generation step, no Prisma Engine binary. The library is pure TypeScript.
+- **Inferred types** — schema defined once in `src/db/schema.ts`; `$inferSelect` and `$inferInsert` produce correct TypeScript types automatically.
+- **Drizzle Kit migrations** — `drizzle-kit generate` diffs the schema and produces versioned SQL migration files.
+- **Runs everywhere** — works with node-postgres, Neon serverless, Bun, and edge runtimes without configuration changes.
+
+**Trade-off:** Less mature than Prisma; fewer generated helpers (no `findMany` with nested include). In practice Drizzle's query builder covers all Crawl's query patterns.
+
+---
+
+## Validation: Zod (shared with mobile)
+
+**Chosen over:** Joi, AJV, Yup, TypeBox
+
+**Why:**
+- **Shared schemas** — the same Zod schemas used in the API (`apps/api/src/schemas/`) can be imported by the mobile app via `@crawl/shared-types`. One definition governs both request validation and TypeScript types across the full stack.
+- **fastify-type-provider-zod** — integrates Zod with Fastify's validation and serialization pipeline with zero custom glue code.
+- **TypeScript-first** — `z.infer<typeof schema>` derives the TypeScript type. No separate type definitions.
+- **Composable** — `.extend()`, `.pick()`, `.omit()` let schemas be composed without duplication.
+
+---
+
+## Phase 1: In-Memory Repositories
+
+**Chosen over:** Requiring a database for local development / testing
+
+**Why:**
+- **Zero setup** — the API boots and all tests pass with no database. Developers can run `npm run dev` immediately after cloning.
+- **Fast tests** — no network I/O in unit or integration tests. The full test suite completes in under a second.
+- **Interface contract** — the `VenueRepository`, `VoteRepository`, and `UserRepository` interfaces guarantee that swapping to Drizzle-backed implementations (Phase 2) requires no changes to services or routes.
+
+**Migration path (Phase 2):**
+1. Provision PostgreSQL with PostGIS (Supabase/Neon/Railway).
+2. Set `DATABASE_URL` in `.env`.
+3. Run `npm run db:migrate` to apply schema.
+4. Implement `DrizzleVenueRepository`, `DrizzleVoteRepository`, `DrizzleUserRepository` behind the existing interfaces.
+5. Swap repository construction in `src/app.ts`.
+
+---
+
+## Cron Jobs: node-cron
+
+**Chosen over:** BullMQ, platform-native crons, pg_cron
+
+**Why:**
+- **Zero infrastructure** — node-cron runs in-process. No Redis, no separate worker, no external scheduler.
+- **Two jobs only** — Crawl has exactly two scheduled tasks (midnight vote reset, hourly score recalculation). This is far below the threshold where a job queue adds value.
+- **Simple migration path** — when the API scales horizontally, the cron calls can be moved to a dedicated worker service or a platform cron (Railway Cron Jobs, GitHub Actions scheduled workflow) with minimal code changes.
+
+**Trade-off:** In-process crons don't survive crashes or restarts without re-schedule. Acceptable for Phase 1; revisit when deploying multiple API instances.
+
+---
+
+## Deployment Target: Railway (planned)
+
+**Chosen over:** Render, Fly.io, AWS ECS, Vercel, Supabase Edge Functions
+
+**Why:**
+- **Simplest DX** — Railway deploys from GitHub on merge to `main`. No Kubernetes, no IAM, no YAML manifests.
+- **Integrated addons** — Postgres and Redis are Railway services that can be attached to the API with one click. `DATABASE_URL` and `REDIS_URL` are injected automatically.
+- **PostGIS support** — Railway's Postgres service supports the PostGIS extension out of the box.
+- **Pay-per-use** — billed by actual CPU/memory usage, not reserved capacity. Zero idle cost.
+- **Container support** — the Dockerfile builds a production image that Railway can deploy directly, enabling future migration to Fly.io or AWS without application changes.
+
+**Trade-off:** Less control than AWS. No egress to private VPCs. Acceptable for a startup-stage product; migrate to AWS ECS or Fly.io when Railway's limits are hit.
+
+**Status:** Not yet configured. Steps:
+1. Create Railway project at railway.app.
+2. Add PostgreSQL and Redis services.
+3. Connect GitHub repo and set deploy environment to `main`.
+4. Set environment variables in Railway dashboard.
+5. Uncomment the deploy step in `.github/workflows/api-deploy.yml`.

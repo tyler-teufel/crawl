@@ -1,0 +1,64 @@
+version: '3.9'
+
+# Local development stack: API + PostgreSQL (with PostGIS) + Redis
+# Usage:
+#   docker-compose up -d        # Start all services
+#   docker-compose logs -f api  # Stream API logs
+#   docker-compose down -v      # Stop and remove volumes
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: builder  # Use builder stage for hot-reload in dev
+    command: npm run dev --workspace=apps/api
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgresql://crawl:crawl@db:5432/crawl_dev
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: local-dev-secret-not-for-production
+      JWT_REFRESH_SECRET: local-dev-refresh-secret-not-for-production
+      CORS_ORIGIN: http://localhost:8081
+    volumes:
+      - ./apps/api/src:/app/apps/api/src:ro
+      - ./packages/shared-types/src:/app/packages/shared-types/src:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: crawl_dev
+      POSTGRES_USER: crawl
+      POSTGRES_PASSWORD: crawl
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U crawl -d crawl_dev']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

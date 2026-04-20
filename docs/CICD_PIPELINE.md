@@ -323,3 +323,78 @@ Before the pipeline is fully operational:
 - [ ] Update `eas.json` submit config with real Apple ID and ASC App ID
 - [ ] Add `google-service-account.json` to `.gitignore` and store securely
 - [ ] (Optional) Add `SLACK_WEBHOOK` secret and uncomment notification step
+
+---
+
+## API CI/CD Pipeline
+
+The API has its own deploy pipeline separate from the mobile app.
+
+### Workflow Files
+
+| File                                    | Trigger                          | Purpose                                          |
+| --------------------------------------- | -------------------------------- | ------------------------------------------------ |
+| `.github/workflows/ci.yml`              | `pull_request → main`            | Lint, typecheck, tests for mobile **and** API    |
+| `.github/workflows/api-deploy.yml`      | `push → main` (api paths only)   | Build Docker image, deploy to staging + prod     |
+
+### API Deploy Flow
+
+```
+push to main (apps/api/** changed)
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  JOB: test                                                  │
+│  TypeScript check + Vitest suite                            │
+│  ✗ failure → block deploy                                   │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  JOB: build                                                 │
+│  docker/build-push-action → ghcr.io/repo/api:sha-abc123     │
+│  Cache: GitHub Actions cache for fast layer reuse           │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  JOB: deploy-staging                                        │
+│  Deploy image to Railway/Render staging environment         │
+│  Environment: "staging"                                     │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+               APPROVAL GATE
+               (GitHub Environment: "production")
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  JOB: deploy-production                                     │
+│  Deploy image to Railway/Render production environment      │
+│  Environment: "production"                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### API Secrets Required
+
+| Secret / Variable     | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `GITHUB_TOKEN`        | Automatic — used to push Docker image to GHCR    |
+| `RAILWAY_TOKEN`       | Railway deploy (add when hosting is configured)  |
+| `STAGING_URL`         | Environment variable — staging API URL           |
+| `PRODUCTION_URL`      | Environment variable — production API URL        |
+
+### API Environments
+
+| Environment  | Trigger                          | Approval Required |
+| ------------ | -------------------------------- | ----------------- |
+| `staging`    | Every merge to `main`            | No                |
+| `production` | After staging deploy, from `main`| Yes               |
+
+### Connecting to Railway
+
+1. Create a Railway project at [railway.app](https://railway.app)
+2. Add a PostgreSQL service (PostGIS extension is supported)
+3. Add a Redis service
+4. Connect the GitHub repo to the Railway project
+5. Set environment variables in the Railway dashboard (see `.env.example`)
+6. In `.github/workflows/api-deploy.yml`, uncomment the Railway deploy step and set `RAILWAY_TOKEN` as a GitHub secret
