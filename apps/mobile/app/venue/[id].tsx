@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useVenue } from '@/api/venues';
+import { useCastVote, useVoteState } from '@/api/votes';
 import { HotspotScore } from '../../components/venue/HotspotScore';
 import { Badge } from '../../components/ui/Badge';
 
@@ -13,6 +14,16 @@ export default function VenueDetailScreen() {
   const insets = useSafeAreaInsets();
 
   const { data: venue, isLoading } = useVenue(id!);
+  const { data: voteState } = useVoteState();
+  const castVote = useCastVote();
+
+  const hasVoted = voteState?.votedVenueIds.includes(id!) ?? false;
+  const canVote = (voteState?.remainingVotes ?? 0) > 0 && !hasVoted;
+
+  function handleVote() {
+    if (!canVote || castVote.isPending) return;
+    castVote.mutate(id!);
+  }
 
   if (isLoading) {
     return (
@@ -85,12 +96,37 @@ export default function VenueDetailScreen() {
 
         {/* Vote button */}
         <View className="mt-6 px-4">
-          <Pressable className="flex-row items-center justify-center rounded-full bg-crawl-purple py-4">
-            <Ionicons name="heart" size={20} color="#fff" />
-            <Text className="ml-2 text-base font-bold text-white">
-              Vote as Tonight&apos;s Hotspot
-            </Text>
+          <Pressable
+            onPress={handleVote}
+            disabled={!canVote || castVote.isPending}
+            className={`flex-row items-center justify-center rounded-full py-4 ${
+              hasVoted
+                ? 'bg-crawl-card'
+                : canVote
+                  ? 'bg-crawl-purple'
+                  : 'bg-crawl-card opacity-50'
+            }`}>
+            {castVote.isPending ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons
+                  name={hasVoted ? 'heart' : 'heart-outline'}
+                  size={20}
+                  color={hasVoted ? '#a855f7' : '#fff'}
+                />
+                <Text
+                  className={`ml-2 text-base font-bold ${hasVoted ? 'text-crawl-purple' : 'text-white'}`}>
+                  {hasVoted ? 'Voted!' : "Vote as Tonight's Hotspot"}
+                </Text>
+              </>
+            )}
           </Pressable>
+          {!canVote && !hasVoted && (
+            <Text className="mt-2 text-center text-xs text-crawl-text-muted">
+              No votes remaining today
+            </Text>
+          )}
         </View>
 
         {/* Description */}

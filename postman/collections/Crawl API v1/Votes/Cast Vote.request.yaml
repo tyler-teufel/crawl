@@ -1,0 +1,22 @@
+$kind: http-request
+description: "Cast a vote for a venue. Max 3 votes per user per day, one per venue. Error codes: 404 VENUE_NOT_FOUND, 409 ALREADY_VOTED, 422 NO_VOTES_REMAINING."
+url: "{{baseUrl}}/votes"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "venueId": "{{venueId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      const json = pm.response.json();
+      pm.test('vote recorded', () => {
+          pm.expect(json.votedVenueIds).to.include(pm.collectionVariables.get('venueId'));
+      });
+    language: text/javascript
+order: 2000

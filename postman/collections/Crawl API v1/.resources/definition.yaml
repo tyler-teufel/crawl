@@ -1,0 +1,24 @@
+$kind: collection
+description: |-
+  Postman collection for the Crawl venue discovery API (Fastify + Zod).
+
+  **Setup**
+  1. Start the API: `turbo dev --filter=api` (default `http://localhost:3000`).
+  2. Override `baseUrl` if needed.
+  3. Run **Auth → Register** once to create a user. Subsequent runs use **Auth → Login**.
+  4. Access + refresh tokens are saved to collection variables automatically via test scripts.
+  5. Protected endpoints (`/votes`) use the `{{accessToken}}` via the collection-level bearer auth.
+variables:
+  baseUrl: http://localhost:3000/api/v1
+  accessToken: ""
+  refreshToken: ""
+  userId: ""
+  userEmail: ""
+  venueId: 11111111-1111-1111-1111-111111111111
+  city: Austin, TX
+auth:
+  - id: 02e3bf66-efd1-4dc8-b010-32aa7868917b
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{accessToken}}"

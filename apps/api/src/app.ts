@@ -17,6 +17,10 @@ import { authRoutes } from './routes/auth.js';
 import { InMemoryVenueRepository } from './repositories/venue.repository.js';
 import { InMemoryVoteRepository } from './repositories/vote.repository.js';
 import { InMemoryUserRepository } from './repositories/user.repository.js';
+import { DrizzleVenueRepository } from './repositories/drizzle-venue.repository.js';
+import { DrizzleVoteRepository } from './repositories/drizzle-vote.repository.js';
+import { DrizzleUserRepository } from './repositories/drizzle-user.repository.js';
+import { getDb } from './db/index.js';
 import { VenueService } from './services/venue.service.js';
 import { VoteService } from './services/vote.service.js';
 import { AuthService } from './services/auth.service.js';
@@ -44,10 +48,17 @@ export function buildApp(opts: { logger?: boolean | object } = {}): FastifyInsta
   fastify.register(corsPlugin);
   fastify.register(jwtPlugin);
 
-  // Wire up dependency graph
-  const venueRepository = new InMemoryVenueRepository();
-  const voteRepository = new InMemoryVoteRepository();
-  const userRepository = new InMemoryUserRepository();
+  // Wire up dependency graph — real DB when USE_REAL_DB=true
+  const useRealDb = process.env.USE_REAL_DB === 'true';
+  const venueRepository = useRealDb
+    ? new DrizzleVenueRepository(getDb())
+    : new InMemoryVenueRepository();
+  const voteRepository = useRealDb
+    ? new DrizzleVoteRepository(getDb())
+    : new InMemoryVoteRepository();
+  const userRepository = useRealDb
+    ? new DrizzleUserRepository(getDb())
+    : new InMemoryUserRepository();
 
   const venueService = new VenueService(venueRepository);
   const voteService = new VoteService(voteRepository, venueRepository);
