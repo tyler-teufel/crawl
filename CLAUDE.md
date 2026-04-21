@@ -303,3 +303,11 @@ The repository also contains an **LLM-maintained knowledge base** at `wiki/`, di
 2. Always read `wiki/index.md` before answering a wiki query.
 3. Follow the ingest / query / lint workflows defined in the schema. Never edit `wiki/raw/` or pages outside the schema's conventions.
 4. Wiki operations are **separate from `docs/` maintenance**. Updating the wiki does not satisfy the doc-update mandate above, and updating docs does not auto-update the wiki.
+
+## Git Workflow
+
+- At session start, run `git branch --show-current` and `pwd` once to orient — then stay in that directory for the entire session. Do not cd around.
+- Commit with: `git commit -m "..."` from wherever you are — never cd out of your worktree
+- Push with: `git push --no-verify origin HEAD:feature-backend`
+- After any push attempt, verify with `git log origin/feature-backend --oneline -3` before assuming it failed or succeeded
+- If push hangs, skip it and commit locally — do not block on push
