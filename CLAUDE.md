@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Behavioral Guidelines
+
+These apply to all tasks. Bias toward caution over speed; use judgment on trivial tasks.
+
+**Think before coding.** State assumptions explicitly — don't pick silently between interpretations. If something is unclear, name what's confusing and ask before starting. Surface tradeoffs rather than hiding them.
+
+**Simplicity first.** Write the minimum code that solves the problem. No speculative features, no abstractions for single-use code, no "flexibility" that wasn't requested. If it could be 50 lines, don't write 200.
+
+**Surgical changes.** Touch only what the task requires. Don't improve adjacent code, comments, or formatting. Match existing style. If you notice unrelated dead code, mention it — don't delete it. Do remove imports, variables, and functions that *your* changes made unused.
+
+**Goal-driven execution.** For multi-step tasks, state a brief plan with verifiable steps before starting. Prefer test-first for bug fixes ("write a test that reproduces it, then make it pass"). Strong success criteria let you loop independently; weak criteria require constant clarification.
+
 ## External Knowledge Base (Crawl Wiki)
 
 An LLM-maintained knowledge base lives at `C:\Users\tyler\Coding Projects\crawl\wiki\`. It is a structured second brain for the Crawl nightlife app: cross-referenced **source summaries** (one per `docs/*.md`), **entity pages** (Fastify, Turborepo, VenueContext, apps/mobile, apps/api, shared-types, TanStack Query, NativeWind, React Native Reusables, expo-router, Zod, EAS Build, GitHub Actions Workflows, Hotspot Score, Crawl App), **concept pages** (File-Based Routing, Controller-Service-Repository Pattern, Monorepo Workspace Scoping, Query Key Factory Pattern, Optimistic Updates, OTA vs Binary Releases, PostGIS Geo Queries, Semantic vs Crawl Color Tokens, etc.), **syntheses**, and filed **queries**. Pages are markdown with YAML frontmatter (`type: source|entity|concept|synthesis|query`) and use Obsidian-style `[[wikilinks]]`.
@@ -44,13 +56,10 @@ npm run lint         # Lint and format check
 npm run format       # Auto-fix lint and formatting issues
 
 # ── API (apps/api) ───────────────────────────────────────
-# (Not yet scaffolded — see docs/BACKEND_IMPLEMENTATION_PLAN.md)
-# npm run dev         # Start API with hot-reload (tsx watch)
-# npm run build       # Compile TypeScript
-# npm run test        # Run Vitest suite
+npm run dev          # Start API with hot-reload (tsx watch)
+npm run build        # Compile TypeScript
+npm run test         # Run Vitest suite
 ```
-
-There is no test suite configured yet.
 
 ## Monorepo Structure
 
@@ -170,13 +179,13 @@ Route handler (HTTP layer)
             └── Repository (DB queries — one per entity)
 ```
 
-### Key Technology Decisions (pending — see plan)
+### Key Technology Decisions
 
-- **Framework**: Express / Fastify / Hono (undecided — document choice in `DESIGN_DECISIONS.md` when made)
+- **Framework**: Fastify with `fastify-type-provider-zod`
 - **Database**: Postgres with PostGIS; hosting TBD (Supabase / Neon / Railway)
-- **ORM**: Drizzle / Prisma / Kysely (undecided)
-- **Auth**: Custom JWT or Supabase Auth (undecided)
-- **Validation**: Zod (strongly preferred — shares types with mobile app)
+- **ORM**: Drizzle ORM (`drizzle-kit` for migrations)
+- **Auth**: Custom JWT (`@fastify/jwt`, access + refresh tokens)
+- **Validation**: Zod (shared with mobile app via `packages/shared-types`)
 - **Testing**: Vitest
 
 ### Environment Variables
