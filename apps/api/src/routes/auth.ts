@@ -26,10 +26,11 @@ export async function authRoutes(
       { sub: user.id, email: user.email },
       { expiresIn: env.JWT_ACCESS_EXPIRY },
     );
-    const refreshToken = fastify.jwt.sign(
-      { sub: user.id, email: user.email, type: 'refresh' },
-      { secret: env.JWT_REFRESH_SECRET, expiresIn: env.JWT_REFRESH_EXPIRY },
-    );
+    const refreshToken = fastify.jwt.refresh.sign({
+      sub: user.id,
+      email: user.email,
+      type: 'refresh',
+    });
     return { accessToken, refreshToken, expiresIn: 900 };
   };
 
@@ -129,10 +130,11 @@ export async function authRoutes(
     },
     async (request, reply) => {
       try {
-        const payload = fastify.jwt.verify<{ sub: string; email: string; type?: string }>(
-          request.body.refreshToken,
-          { secret: env.JWT_REFRESH_SECRET },
-        );
+        const payload = fastify.jwt.refresh.verify<{
+          sub: string;
+          email: string;
+          type?: string;
+        }>(request.body.refreshToken);
 
         if (payload.type !== 'refresh') {
           return reply.code(401).send({

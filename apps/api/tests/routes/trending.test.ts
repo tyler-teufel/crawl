@@ -17,7 +17,7 @@ describe('GET /api/v1/trending/:city', () => {
   it('returns trending venues for a known city', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/trending/Austin%2C+TX',
+      url: '/api/v1/trending/Austin%2C%20TX',
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
@@ -28,7 +28,7 @@ describe('GET /api/v1/trending/:city', () => {
   it('returns venues sorted by hotspot score descending', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/trending/Austin%2C+TX',
+      url: '/api/v1/trending/Austin%2C%20TX',
     });
     const venues = res.json() as { hotspotScore: number }[];
     for (let i = 1; i < venues.length; i++) {
@@ -39,7 +39,7 @@ describe('GET /api/v1/trending/:city', () => {
   it('respects the limit query param', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/v1/trending/Austin%2C+TX?limit=1',
+      url: '/api/v1/trending/Austin%2C%20TX?limit=1',
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toHaveLength(1);

@@ -123,7 +123,8 @@ export class InMemoryVenueRepository implements VenueRepository {
   }
 
   async findById(id: string): Promise<Venue | null> {
-    return this.venues.get(id) ?? null;
+    const venue = this.venues.get(id);
+    return venue ? { ...venue } : null;
   }
 
   async findTrendingByCity(city: string, limit: number): Promise<Venue[]> {

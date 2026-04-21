@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AuthService, AuthError } from '../../src/services/auth.service.js';
+import { AuthService } from '../../src/services/auth.service.js';
 import { InMemoryUserRepository } from '../../src/repositories/user.repository.js';
 
 describe('AuthService', () => {

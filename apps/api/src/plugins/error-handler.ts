@@ -1,5 +1,4 @@
 import type { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
-import { ZodError } from 'zod';
 
 export function errorHandler(
   error: FastifyError,

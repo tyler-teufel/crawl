@@ -37,7 +37,12 @@
       "Bash(npx turbo:*)",
       "Bash(echo '{\"\"\"\"tool_input\"\"\"\":{\"\"\"\"file_path\"\"\"\":\"\"\"\"C:\\\\\\\\Users\\\\\\\\tyler\\\\\\\\Coding Projects\\\\\\\\crawl\\\\\\\\apps\\\\\\\\api\\\\\\\\src\\\\\\\\routes\\\\\\\\health.ts\"\"\"\"}}')",
       "Bash(bash \"C:\\\\Users\\\\tyler\\\\Coding Projects\\\\crawl\\\\.claude\\\\hooks\\\\check-docs.sh\")",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(turbo lint *)",
+      "Bash(npm ci *)",
+      "Bash(npm audit *)",
+      "Bash(npm view *)",
+      "Bash(npx tsx *)"
     ]
   }
 }

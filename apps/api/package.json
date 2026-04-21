@@ -20,7 +20,7 @@
   "dependencies": {
     "@crawl/shared-types": "*",
     "@fastify/cors": "^11.0.0",
-    "@fastify/jwt": "^9.1.0",
+    "@fastify/jwt": "^10.0.0",
     "@fastify/sensible": "^6.0.1",
     "bcryptjs": "^3.0.2",
     "drizzle-orm": "^0.45.2",

@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import {
   voteStateSchema,
@@ -13,11 +12,10 @@ interface VoteRoutesOptions {
   voteService: VoteService;
 }
 
-const VOTE_ERROR_STATUS: Record<string, number> = {
+const CAST_VOTE_ERROR_STATUS: Record<string, 404 | 409 | 422> = {
   NO_VOTES_REMAINING: 422,
   ALREADY_VOTED: 409,
   VENUE_NOT_FOUND: 404,
-  VOTE_NOT_FOUND: 404,
 };
 
 export async function voteRoutes(
@@ -79,7 +77,7 @@ export async function voteRoutes(
         return await opts.voteService.castVote(request.user.sub, request.body.venueId);
       } catch (err) {
         if (err instanceof VoteError) {
-          const status = VOTE_ERROR_STATUS[err.code] ?? 400;
+          const status = CAST_VOTE_ERROR_STATUS[err.code] ?? 404;
           return reply.code(status).send({
             error: err.code,
             message: err.message,
@@ -117,11 +115,10 @@ export async function voteRoutes(
         return await opts.voteService.removeVote(request.user.sub, request.params.venueId);
       } catch (err) {
         if (err instanceof VoteError) {
-          const status = VOTE_ERROR_STATUS[err.code] ?? 400;
-          return reply.code(status).send({
+          return reply.code(404).send({
             error: err.code,
             message: err.message,
-            statusCode: status,
+            statusCode: 404,
           });
         }
         throw err;

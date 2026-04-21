@@ -13,7 +13,7 @@ export const errorResponse = z.object({
   error: z.string(),
   message: z.string(),
   statusCode: z.number(),
-  details: z.record(z.unknown()).optional(),
+  details: z.unknown().optional(),
 });
 
 export type PaginationQuery = z.infer<typeof paginationQuery>;
