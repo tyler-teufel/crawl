@@ -5,16 +5,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVenueContext } from '@/context/VenueContext';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { FilterChip } from '../../components/ui/FilterChip';
+import { CrawlMapView } from '../../components/map/CrawlMapView';
 import { MapPlaceholder } from '../../components/map/MapPlaceholder';
 import { VenueCard } from '../../components/venue/VenueCard';
 
 const CARD_WIDTH = Dimensions.get('window').width * 0.8;
+
+// Use the real map when the native module is available (after prebuild + npm install)
+let hasNativeMaps = false;
+try {
+  require('react-native-maps');
+  hasNativeMaps = true;
+} catch {
+  hasNativeMaps = false;
+}
 
 export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { filteredVenues, filters, toggleFilter, searchQuery, setSearchQuery } = useVenueContext();
   const flatListRef = useRef<FlatList>(null);
+
+  const handleVenuePress = (venue: { id: string }) => router.push(`/venue/${venue.id}`);
 
   return (
     <View className="flex-1 bg-crawl-bg" style={{ paddingTop: insets.top }}>
@@ -42,10 +54,11 @@ export default function ExploreScreen() {
 
       {/* Map */}
       <View className="flex-1">
-        <MapPlaceholder
-          venues={filteredVenues}
-          onPinPress={(venue) => router.push(`/venue/${venue.id}`)}
-        />
+        {hasNativeMaps ? (
+          <CrawlMapView venues={filteredVenues} onVenuePress={handleVenuePress} />
+        ) : (
+          <MapPlaceholder venues={filteredVenues} onPinPress={handleVenuePress} />
+        )}
       </View>
 
       {/* Bottom venue carousel */}
@@ -63,7 +76,7 @@ export default function ExploreScreen() {
             <VenueCard
               venue={item}
               width={CARD_WIDTH}
-              onPress={() => router.push(`/venue/${item.id}`)}
+              onPress={() => handleVenuePress(item)}
             />
           )}
         />
