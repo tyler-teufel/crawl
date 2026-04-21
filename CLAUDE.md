@@ -14,6 +14,13 @@ These apply to all tasks. Bias toward caution over speed; use judgment on trivia
 
 **Goal-driven execution.** For multi-step tasks, state a brief plan with verifiable steps before starting. Prefer test-first for bug fixes ("write a test that reproduces it, then make it pass"). Strong success criteria let you loop independently; weak criteria require constant clarification.
 
+## Git Workflow
+
+- Always check which worktree/branch you're in at the start of a session: `git branch --show-current`
+- Push with: `git push --no-verify origin HEAD:feature-backend`
+- Never cd out of your worktree to commit — commit from wherever you are
+- After a push attempt, verify with `git log origin/feature-backend --oneline -3` before assuming it failed
+
 ## External Knowledge Base (Crawl Wiki)
 
 An LLM-maintained knowledge base lives at `C:\Users\tyler\Coding Projects\crawl\wiki\`. It is a structured second brain for the Crawl nightlife app: cross-referenced **source summaries** (one per `docs/*.md`), **entity pages** (Fastify, Turborepo, VenueContext, apps/mobile, apps/api, shared-types, TanStack Query, NativeWind, React Native Reusables, expo-router, Zod, EAS Build, GitHub Actions Workflows, Hotspot Score, Crawl App), **concept pages** (File-Based Routing, Controller-Service-Repository Pattern, Monorepo Workspace Scoping, Query Key Factory Pattern, Optimistic Updates, OTA vs Binary Releases, PostGIS Geo Queries, Semantic vs Crawl Color Tokens, etc.), **syntheses**, and filed **queries**. Pages are markdown with YAML frontmatter (`type: source|entity|concept|synthesis|query`) and use Obsidian-style `[[wikilinks]]`.
