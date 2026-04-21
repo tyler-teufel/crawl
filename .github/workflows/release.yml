@@ -24,6 +24,7 @@ jobs:
       - run: npm ci
 
       - name: Build production binaries
+        working-directory: apps/mobile
         run: eas build --platform all --profile production --non-interactive
 
   submit:
@@ -47,6 +48,7 @@ jobs:
       - run: npm ci
 
       - name: Submit to app stores
+        working-directory: apps/mobile
         run: eas submit --platform all --non-interactive
 
   github-release:

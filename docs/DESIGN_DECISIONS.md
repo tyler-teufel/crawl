@@ -249,3 +249,16 @@ Route handler (HTTP)  →  Service (business logic)  →  Repository (persistenc
 3. Connect GitHub repo and set deploy environment to `main`.
 4. Set environment variables in Railway dashboard.
 5. Uncomment the deploy step in `.github/workflows/api-deploy.yml`.
+
+## Two-Secret JWT via `@fastify/jwt` Namespaces
+
+**Chosen over:** single-secret JWT, signing refresh tokens with a separate library (`jsonwebtoken`, raw `fast-jwt`), or encoding the access/refresh distinction only in the payload.
+
+**Why:**
+- Access and refresh tokens are signed with **different secrets** (`JWT_SECRET` vs `JWT_REFRESH_SECRET`) so that a leak of the access secret — which is present in many more code paths — does not let an attacker mint refresh tokens.
+- `@fastify/jwt`'s `namespace` option registers a second plugin instance under `fastify.jwt.refresh`, giving its own `sign()` / `verify()` with an independent secret. This keeps all JWT logic inside one battle-tested plugin instead of introducing a second signing library.
+- In v10 of `@fastify/jwt`, per-call `{ secret }` overrides on `sign` / `verify` were removed, so a single-registration approach with two secrets is no longer possible — namespacing is the supported path.
+
+**Trade-off:** Two JWT instances mean two plugin registrations and a module augmentation (`interface JWT { refresh: JWT }`) so TypeScript sees `fastify.jwt.refresh`. The extra ~10 lines are the cost of keeping the security boundary between access and refresh tokens.
+
+**Version note:** `@fastify/jwt` was upgraded from `^9.1.0` to `^10.0.0` in this change to resolve critical CVEs in `fast-jwt` (algorithm confusion — GHSA-mvf2-f6gm-w987 CVSS 9.1; cacheKey collision identity mixup — GHSA-rp9m-7r4c-75qg CVSS 9.1). Staying on v9 is not an option.

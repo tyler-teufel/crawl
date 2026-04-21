@@ -21,7 +21,7 @@ The key distinction: plugins add **capabilities** to the Fastify instance (decor
 | File | What it adds |
 |---|---|
 | `cors.ts` | Registers `@fastify/cors` — allows requests from `CORS_ORIGIN` (env var). Supports comma-separated origins for multiple frontends. |
-| `jwt.ts` | Registers `@fastify/jwt`, augments `FastifyJWT` with `{ sub, email }` payload shape, and adds `fastify.authenticate` as a preHandler decorator for protected routes. |
+| `jwt.ts` | Registers `@fastify/jwt` **twice** — once as the default instance (access tokens, `JWT_SECRET`) and once with `namespace: 'refresh'` (refresh tokens, `JWT_REFRESH_SECRET`). Refresh tokens are signed/verified via `fastify.jwt.refresh.sign()` / `fastify.jwt.refresh.verify()`. Augments `FastifyJWT` with `{ sub, email, type?: 'refresh' }` payload shape and adds `fastify.authenticate` as a preHandler decorator for protected routes. |
 | `error-handler.ts` | Exported as a plain function (not a plugin). Attached via `fastify.setErrorHandler()`. Normalizes Fastify validation errors, HTTP errors, and uncaught errors into a consistent `{ error, message, statusCode, details? }` envelope. |
 
 ## Adding a new plugin

@@ -2,7 +2,13 @@
   "expo": {
     "name": "crawl",
     "slug": "crawl",
+    "owner": "crawl-app",
     "version": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "77d64449-a6b3-4da1-8562-228fa8bfb501"
+      }
+    },
     "web": {
       "favicon": "./assets/favicon.png"
     },
