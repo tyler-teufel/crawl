@@ -1,406 +1,196 @@
 # Dev/Staging E2E Readiness Plan
 
-**Goal:** Get Crawl running end-to-end tonight — mobile app → local API server → Supabase database — so you can run a real smoke test of the full flow.
+**Goal:** Get Crawl running end-to-end — mobile app → API server → Supabase database — for a real smoke test of the full flow.
 
-**Current state snapshot (2026-04-21):**
-- API Phase 1 is complete: all 10 endpoints implemented, auth works, tests pass
-- All repositories are **in-memory** — no database connection wired yet
-- Mobile TanStack Query hooks exist but **return mock data** — not wired to the API
-- Mobile has **no auth UI** (no login/register screens, no token storage)
-- CI/CD pipelines exist but API deployment target (Railway) is a placeholder
-
-**Two tiers of E2E testing:**
-- **Partial E2E** (no auth): venue listing, trending — achievable after Phases 1–3 (~2 hrs)
-- **Full E2E** (auth required): vote casting, vote state — requires Phase 4 (~4 hrs total)
+**Updated state (2026-04-21):**
+- Drizzle repositories implemented and wired (toggled by `USE_REAL_DB=true`)
+- Supabase JWT verification wired; user upsert on every authenticated request
+- Mobile TanStack Query hooks wired to real API (with mock fallback when `EXPO_PUBLIC_API_URL` not set)
+- Map screen upgraded: uses `react-native-maps` when native module is available, falls back to `MapPlaceholder`
+- Vote button in VenueDetail wired with optimistic update
+- Cron jobs wired to Drizzle DB when `USE_REAL_DB=true`
 
 ---
 
-## Phase 0 — Prerequisites (5 min)
+## Phase 0 — Prerequisites
 
-Verify these are in hand before starting:
-
-- [ ] Supabase project URL (looks like `https://xxxx.supabase.co`)
-- [ ] Supabase DB connection string — from **Settings → Database → Connection string → URI**
-  - Use the **pooler (Transaction mode)** string if the direct one has issues from a local machine
-  - Format: `postgresql://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres`
-- [ ] Node 20+ installed (`node -v`)
-- [ ] `npm install` run at monorepo root
+- [ ] **[YOUR ACTION]** Supabase project created and URL in hand (`https://xxxx.supabase.co`)
+- [ ] **[YOUR ACTION]** Node 20+ installed (`node -v`)
+- [ ] **[YOUR ACTION]** `npm install` run at monorepo root
 
 ---
 
-## Phase 1 — Database & Supabase wiring (45–60 min)
+## Phase 1 — Database & Supabase wiring
 
-**What's done:**
-- ✅ Drizzle ORM installed and configured (`apps/api/drizzle.config.ts`)
-- ✅ Schema defined in `apps/api/src/db/schema.ts` (venues, users, votes tables)
-- ✅ Repository interfaces defined and used throughout services
-- ✅ `db:generate`, `db:migrate`, `db:studio` scripts exist in `apps/api/package.json`
+### Implemented in code ✅
 
-**What's missing:** Drizzle repo implementations, DB connection wired up, migrations run.
+| What | File |
+|---|---|
+| Drizzle ORM schema (venues, users, votes) | `apps/api/src/db/schema.ts` |
+| DB connection via `getDb()` | `apps/api/src/db/index.ts` |
+| Drizzle venue repository | `apps/api/src/repositories/drizzle-venue.repository.ts` |
+| Drizzle vote repository | `apps/api/src/repositories/drizzle-vote.repository.ts` |
+| Drizzle user repository | `apps/api/src/repositories/drizzle-user.repository.ts` |
+| Conditional repo swap in app bootstrap | `apps/api/src/app.ts` (checks `USE_REAL_DB`) |
+| Conditional repo swap in cron jobs | `apps/api/src/jobs/index.ts` (checks `USE_REAL_DB`) |
+| Seed script (Charlotte NC + Patchogue/Sayville NY) | `apps/api/src/db/seed.ts` |
+| `.env.example` with all required keys | `apps/api/.env.example` |
 
-### 1.1 — Enable PostGIS on Supabase
+### Your actions
 
-PostGIS is already available on Supabase. Enable it in **Database → Extensions → postgis → Enable**.
+- [ ] **[YOUR ACTION]** Enable PostGIS: Supabase Dashboard → **Database** → **Extensions** → search "postgis" → **Enable**
 
-Alternatively, run in the Supabase SQL editor:
+- [ ] **[YOUR ACTION]** Create `apps/api/.env` (copy from `.env.example` and fill in real values):
+  ```bash
+  cp apps/api/.env.example apps/api/.env
+  # Then edit: add SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY,
+  # SUPABASE_JWT_SECRET, DATABASE_URL, and set USE_REAL_DB=true
+  ```
 
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-```
+- [ ] **[YOUR ACTION]** Run migrations and seed:
+  ```bash
+  cd apps/api
+  npm run db:migrate   # creates tables in Supabase
+  npm run db:seed      # inserts venue data
+  ```
 
-The schema uses `geography(Point, 4326)` for the `location` column on venues. Without PostGIS the migration will fail.
-
-### 1.2 — Create `apps/api/.env`
-
-```bash
-cp apps/api/.env.example apps/api/.env
-```
-
-Then fill in:
-
-```env
-NODE_ENV=development
-HOST=0.0.0.0
-PORT=3000
-CORS_ORIGIN=http://localhost:8081
-
-# From Supabase → Settings → Database → Connection string (URI mode)
-DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
-
-# Generate two secure random strings (e.g. openssl rand -hex 32)
-JWT_SECRET=<strong-random-secret-min-32-chars>
-JWT_REFRESH_SECRET=<different-strong-random-secret>
-
-JWT_ACCESS_EXPIRY=15m
-JWT_REFRESH_EXPIRY=7d
-LOG_LEVEL=info
-```
-
-> **Do not commit `.env`** — it's already in `.gitignore`.
-
-### 1.3 — Wire the database connection
-
-**File: `apps/api/src/db/index.ts`** — currently exports a placeholder. Replace with a real Drizzle + postgres client:
-
-```ts
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import * as schema from './schema.js';
-import { config } from '../config.js';
-
-const pool = new Pool({ connectionString: config.DATABASE_URL });
-export const db = drizzle(pool, { schema });
-export type DB = typeof db;
-```
-
-### 1.4 — Run migrations
-
-```bash
-cd apps/api
-npm run db:generate   # generates SQL from schema.ts → drizzle/ folder
-npm run db:migrate    # applies migrations to Supabase
-```
-
-Verify in Supabase **Table Editor** that `venues`, `users`, `votes` tables appeared.
-
-### 1.5 — Implement Drizzle repositories
-
-Three in-memory repository files need Drizzle equivalents. The interfaces are already in place — create these files alongside the existing in-memory ones:
-
-**`apps/api/src/repositories/drizzle-venue.repository.ts`**
-- `listVenues(filters)` → `db.select().from(venues).where(...)` with city/type/search filters; Haversine or PostGIS `ST_DWithin` for radius
-- `getVenue(id)` → `db.select().from(venues).where(eq(venues.id, id))`
-- `getTrending(city, limit)` → order by `hotspot_score DESC`
-- `updateVoteCounts / updateHotspotScores` for cron job integration
-
-**`apps/api/src/repositories/drizzle-user.repository.ts`**
-- `create(data)` → `db.insert(users).values(...).returning()`
-- `findByEmail(email)` → `db.select().from(users).where(eq(users.email, email))`
-- `findById(id)` → by primary key
-
-**`apps/api/src/repositories/drizzle-vote.repository.ts`**
-- `getVoteState(userId, date)` → count today's votes, get votedVenueIds
-- `castVote(userId, venueId)` → insert into votes + increment venues.vote_count atomically (transaction)
-- `removeVote(userId, venueId)` → delete from votes + decrement venues.vote_count
-
-### 1.6 — Register Drizzle repos in the app
-
-**`apps/api/src/app.ts`** constructs the repository instances passed to services. Swap the InMemory constructors for Drizzle ones when `DATABASE_URL` is set:
-
-```ts
-const useDB = !!config.DATABASE_URL;
-const venueRepo = useDB ? new DrizzleVenueRepository(db) : new InMemoryVenueRepository();
-const userRepo  = useDB ? new DrizzleUserRepository(db)  : new InMemoryUserRepository();
-const voteRepo  = useDB ? new DrizzleVoteRepository(db)  : new InMemoryVoteRepository();
-```
-
-This preserves the ability to run tests without a database.
-
-### 1.7 — Seed venue data
-
-Insert at least 10–15 real venues into Supabase so the explore screen has real content. The in-memory repository already seeds Charlotte, NC and Patchogue/Sayville, NY venues — mirror those for a consistent dev baseline. Options:
-
-**Option A — SQL seed file** (fastest):
-```sql
-INSERT INTO venues (id, name, type, city, latitude_e6, longitude_e6, hotspot_score, vote_count, is_open, price_level, description)
-VALUES
-  (gen_random_uuid(), 'Whiskey Warehouse', 'bar', 'Charlotte, NC', 35209400, -80857100, 85, 0, true, 2, 'Massive whiskey bar in South End'),
-  (gen_random_uuid(), 'The Tap Room', 'bar', 'Patchogue, NY', 40765700, -73015500, 83, 0, true, 2, 'Craft beer bar on Main Street Patchogue'),
-  ...;
-```
-
-Run in the Supabase SQL editor.
-
-**Option B — API seed route** (more durable):
-Add a `POST /api/v1/__seed` route behind a `NODE_ENV !== 'production'` guard that inserts fixture venues.
+- [ ] **[YOUR ACTION]** Verify in Supabase **Table Editor** that `venues`, `users`, `votes` tables exist and `venues` has rows
 
 ---
 
-## Phase 2 — API local dev sanity check (15 min)
+## Phase 2 — Supabase JWT auth
 
-With Phase 1 done, verify the API works against real Supabase data.
+### Implemented in code ✅
+
+| What | File |
+|---|---|
+| Supabase JWT verification (`SUPABASE_JWT_SECRET`) | `apps/api/src/plugins/jwt.ts` |
+| User upsert on every authenticated request (uses `sub` claim) | `apps/api/src/plugins/jwt.ts` |
+| `SUPABASE_JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `USE_REAL_DB` added to config schema | `apps/api/src/config.ts` |
+
+### Your actions
+
+- [ ] **[YOUR ACTION]** Copy `SUPABASE_JWT_SECRET` from Supabase Dashboard → **Settings** → **API** → **JWT Secret** into `apps/api/.env`
+- [ ] **[YOUR ACTION]** Confirm mobile app authenticates via Supabase Auth (not local JWT) — no login UI is built yet; use Supabase Dashboard → **Authentication** → **Users** to create a test user, then generate a token via Supabase JS SDK for manual API testing
+
+---
+
+## Phase 3 — API local dev sanity check
+
+### Your actions
 
 ```bash
-# From monorepo root
-turbo dev --filter=api
+# Start API with real DB
+cd apps/api && USE_REAL_DB=true npm run dev
 
-# In another terminal — sanity checks
+# In another terminal:
 curl http://localhost:3000/api/v1/health
 curl http://localhost:3000/api/v1/venues
 curl "http://localhost:3000/api/v1/trending/Charlotte,%20NC"
-
-# Auth flow
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"test@example.com","password":"password123","displayName":"Test User"}'
-
-# Should return { user, tokens } — save the accessToken for Phase 4 testing
 ```
 
-**Success criteria:** Health returns `"status": "ok"` with `"database": "connected"`, venues returns real Supabase data, register returns a JWT pair.
+- [ ] **[YOUR ACTION]** Health returns `{"status":"ok"}`
+- [ ] **[YOUR ACTION]** `/venues` returns real Supabase rows
+- [ ] **[YOUR ACTION]** `/trending/Charlotte,%20NC` returns ranked venues
 
 ---
 
-## Phase 3 — Mobile API wiring (30–45 min)
+## Phase 4 — Mobile API wiring
 
-**What's done:**
-- ✅ `apps/mobile/src/api/client.ts` — fetch wrapper ready, reads `EXPO_PUBLIC_API_URL`
-- ✅ TanStack Query set up with QueryClient
-- ✅ Hook structure in place (`useVenues`, `useVoteState`, `useCastVote`, `useRemoveVote`)
+### Implemented in code ✅
 
-**What's missing:** `queryFn` bodies still return mock data.
+| What | File |
+|---|---|
+| `getVenues()` and `castVote()` in API client | `apps/mobile/src/api/client.ts` |
+| `setAuthToken()` for attaching Bearer token | `apps/mobile/src/api/client.ts` |
+| `useVenues` / `useVenue` wired to real API (fallback to mock when `EXPO_PUBLIC_API_URL` unset) | `apps/mobile/src/api/venues.ts` |
+| `useCastVote` wired to `POST /votes` with optimistic vote count update | `apps/mobile/src/api/votes.ts` |
+| `useVoteState` wired to `GET /votes` | `apps/mobile/src/api/votes.ts` |
+| Vote button in VenueDetail wired — shows voted state, disables when no votes remain | `apps/mobile/app/venue/[id].tsx` |
+| `CrawlMapView` with `react-native-maps` Markers + Callouts | `apps/mobile/components/map/CrawlMapView.tsx` |
+| Map screen uses `CrawlMapView` when native module available, `MapPlaceholder` otherwise | `apps/mobile/app/(tabs)/index.tsx` |
 
-### 3.1 — Create `apps/mobile/.env`
+### Your actions
 
-```env
-EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
-```
+- [ ] **[YOUR ACTION]** Create `apps/mobile/.env`:
+  ```env
+  EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
+  # For physical device use your machine's LAN IP: http://192.168.x.x:3000/api/v1
+  ```
 
-> For device testing (physical iOS/Android), use your machine's LAN IP instead of `localhost`:
-> `EXPO_PUBLIC_API_URL=http://192.168.x.x:3000/api/v1`
+- [ ] **[YOUR ACTION]** Install and link `react-native-maps` (required for real map; app falls back to placeholder if skipped):
+  ```bash
+  cd apps/mobile
+  npx expo install react-native-maps
+  npm run prebuild   # generates native iOS/Android code
+  ```
 
-### 3.2 — Wire `useVenues`
-
-**`apps/mobile/src/api/venues.ts`** — replace mock queryFn:
-
-```ts
-export function useVenues(city: string, filters?: VenueFilters) {
-  return useQuery({
-    queryKey: venueKeys.list(city, filters),
-    queryFn: async () => {
-      const params = new URLSearchParams({ city, ...filters });
-      return apiClient.get<Venue[]>(`/venues?${params}`);
-    },
-  });
-}
-```
-
-### 3.3 — Wire `useVotesState`
-
-```ts
-export function useVoteState() {
-  return useQuery({
-    queryKey: voteKeys.state(),
-    queryFn: () => apiClient.get<VoteState>('/votes'),
-    // Will return 401 until auth is wired — handle gracefully
-  });
-}
-```
-
-For Phase 3 only (before auth), you can temporarily skip vote hooks or return the default state on 401.
-
-### 3.4 — Verify partial E2E
-
-Start the Expo dev server:
-
-```bash
-turbo dev --filter=mobile
-```
-
-- Open the Explore tab — venue list should load from Supabase via the local API
-- Open Trending — ranking should reflect seeded hotspot scores
-- Filter panel should filter results (city, type)
-
-**This is Partial E2E. If this works, you have the core data path wired end-to-end.**
+- [ ] **[YOUR ACTION]** Start dev server and verify Explore tab loads venues from Supabase:
+  ```bash
+  turbo dev --filter=mobile
+  ```
 
 ---
 
-## Phase 4 — Auth integration on mobile (45–60 min)
+## Phase 5 — Railway deployment
 
-Required for vote casting and any authenticated flow.
+See `docs/RAILWAY_SETUP.md` for the full step-by-step guide.
 
-**What's done:**
-- ✅ API auth endpoints implemented and tested (register, login, refresh)
-- ✅ JWT issued with correct expiry
+### Your actions (summary)
 
-**What's missing:** Token storage, auth headers, auth context, login/register screens.
-
-### 4.1 — Install `expo-secure-store`
-
-```bash
-cd apps/mobile
-npx expo install expo-secure-store
-```
-
-### 4.2 — Add auth context
-
-Create `apps/mobile/src/context/AuthContext.tsx`:
-
-```ts
-type AuthContextValue = {
-  user: User | null;
-  tokens: { accessToken: string; refreshToken: string } | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName: string) => Promise<void>;
-  logout: () => Promise<void>;
-};
-```
-
-Persist tokens with `SecureStore.setItemAsync('tokens', JSON.stringify(tokens))` on login, read on mount.
-
-### 4.3 — Add auth header to API client
-
-Update `apps/mobile/src/api/client.ts` to read the access token from the auth context or SecureStore and attach it:
-
-```ts
-const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-const stored = await SecureStore.getItemAsync('tokens');
-if (stored) {
-  const { accessToken } = JSON.parse(stored);
-  headers['Authorization'] = `Bearer ${accessToken}`;
-}
-```
-
-Add a 401 interceptor that calls `POST /auth/refresh` with the stored refresh token and retries once.
-
-### 4.4 — Build minimal auth screens
-
-For tonight, two screens are sufficient:
-
-**`app/login.tsx`** — email + password fields, login button, link to register  
-**`app/register.tsx`** — email + password + display name, register button
-
-Wire to `AuthContext.login` / `AuthContext.register`. On success, navigate to `(tabs)/`.
-
-Update `app/_layout.tsx` to check for a stored token on mount — redirect to `/login` if not present, `(tabs)/` if present.
-
-### 4.5 — Wire vote mutations
-
-Update `apps/mobile/src/api/votes.ts`:
-
-```ts
-export function useCastVote() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (venueId: string) => apiClient.post('/votes', { venueId }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: voteKeys.state() }),
-  });
-}
-
-export function useRemoveVote() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (venueId: string) => apiClient.delete(`/votes/${venueId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: voteKeys.state() }),
-  });
-}
-```
+- [ ] **[YOUR ACTION]** Follow `docs/RAILWAY_SETUP.md` steps 1–8 to deploy API to Railway
+- [ ] **[YOUR ACTION]** Smoke test: `GET https://<railway-url>/api/v1/health` → `{"status":"ok"}`
+- [ ] **[YOUR ACTION]** Update `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to Railway URL
 
 ---
 
-## Phase 5 — E2E Smoke Test (15 min)
+## Phase 6 — Full E2E Smoke Test
 
-Run this checklist manually to verify the full stack.
+Run manually after Phases 1–5 complete.
 
-### Unauthenticated flows (no login required)
+### Unauthenticated flows
 
 - [ ] Open app → Explore tab loads venue list from Supabase
 - [ ] Search by name filters the list
-- [ ] Tap a venue → Venue detail screen populates
-- [ ] Trending tab loads top venues by score
+- [ ] Tap a venue → Venue detail screen populates with real data
+- [ ] Trending tab loads top venues by hotspot score
 
-### Auth flows
+### Auth flows (requires auth UI — not yet built)
 
-- [ ] Register a new user → receive access + refresh tokens, navigate to Explore
-- [ ] Logout and log back in → tokens refresh correctly
-- [ ] Access token expires → refresh interceptor fires, new token issued transparently
+- [ ] **[YOUR ACTION]** Build minimal login screen or test auth via direct Supabase token injection
 
 ### Authenticated flows
 
-- [ ] Voting tab shows remaining votes (3)
-- [ ] Cast a vote → remaining votes decrements to 2
-- [ ] Cast a second vote on a different venue → decrements to 1
-- [ ] Attempt to vote on same venue → rejected (handled gracefully in UI)
-- [ ] Remove a vote → remaining votes increments back
+- [ ] Vote button visible on Venue Detail
+- [ ] Casting a vote optimistically increments vote count
+- [ ] Voting on same venue disabled after first vote
+- [ ] Remove vote re-enables button
 
-### API-side verification (curl or Postman)
+### API-side verification
 
 ```bash
-# Confirm DB is persisting
-curl "http://localhost:3000/api/v1/trending/Charlotte,%20NC"
-# Kill API server, restart, confirm data still there
+curl "https://<railway-url>/api/v1/trending/Charlotte,%20NC"
+# Kill and restart — confirm data persists in Supabase
 ```
 
 ---
 
-## What's Already Done — Skip These
-
-| Item | Status |
-|------|--------|
-| Fastify server setup | ✅ Done |
-| All 10 API endpoints | ✅ Done |
-| Auth (register/login/refresh JWT) | ✅ Done |
-| Protected route middleware | ✅ Done |
-| Vote business logic (3/day, 1/venue) | ✅ Done |
-| Drizzle schema definition | ✅ Done |
-| Drizzle config + migration scripts | ✅ Done |
-| Scheduled jobs (reset at midnight, score recalc) | ✅ Done |
-| Vitest test suite (30 tests, all passing) | ✅ Done |
-| CI/CD pipeline configuration | ✅ Done |
-| Docker build for API | ✅ Done |
-| Mobile TanStack Query setup | ✅ Done |
-| API client shell (`src/api/client.ts`) | ✅ Done |
-| EAS Build configuration | ✅ Done |
-
----
-
-## Not Needed Tonight — Defer These
+## Not Needed Yet — Defer These
 
 | Item | Why it can wait |
 |------|----------------|
-| PostGIS geo queries (radius search) | City filter works without it; geo queries are Phase 2+ |
-| Redis caching | Not required for dev/staging; node-cron jobs run in-process |
-| API deployment to Railway | Run locally against Supabase for E2E — deploy to Railway when the app is stable |
-| Rate limiting | Not a blocker for personal E2E testing |
-| OAuth (Apple/Google) | Email/password auth is sufficient for testing |
-| Email verification | Skip for test accounts |
+| Auth UI (login/register screens) | Can test with token injected manually |
+| `expo-secure-store` token persistence | Not blocking for initial E2E |
+| PostGIS radius queries | City filter works without it |
+| Redis caching | Not required for dev/staging |
+| Rate limiting | Not blocking for personal testing |
+| OAuth (Apple/Google) | Email/password or Supabase Dashboard is sufficient |
 | Real-time WebSocket updates | Phase 6 feature |
-| Real map (replace MapPlaceholder) | Map is cosmetic; venue list E2E works without it |
-| `packages/shared-types` unification | Types are duplicated in mobile/API but functional |
+| `packages/shared-types` unification | Types duplicated but functional |
 
 ---
 
-## Environment Variable Checklist
+## Environment Variable Reference
 
 ### `apps/api/.env`
 
@@ -409,11 +199,21 @@ NODE_ENV=development
 HOST=0.0.0.0
 PORT=3000
 CORS_ORIGIN=http://localhost:8081
-DATABASE_URL=<supabase-connection-string>
-JWT_SECRET=<32-char-random>
-JWT_REFRESH_SECRET=<different-32-char-random>
-JWT_ACCESS_EXPIRY=15m
-JWT_REFRESH_EXPIRY=7d
+
+# Supabase (Settings → API)
+SUPABASE_URL=https://your-ref.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...
+SUPABASE_JWT_SECRET=your-jwt-secret
+
+# Supabase (Settings → Database → Connection string → Transaction mode port 6543)
+DATABASE_URL=postgresql://postgres.your-ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+
+USE_REAL_DB=true
+
+# Local-dev JWT fallback (only used when USE_REAL_DB=false)
+JWT_SECRET=local-dev-secret-min-32-chars-long
+JWT_REFRESH_SECRET=local-dev-refresh-secret-min-32-chars-long
 LOG_LEVEL=info
 ```
 
@@ -421,40 +221,6 @@ LOG_LEVEL=info
 
 ```
 EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
-```
-(Use LAN IP for physical device)
-
----
-
-## Time Estimate
-
-| Phase | Est. Time |
-|-------|-----------|
-| Phase 0: Prerequisites | 5 min |
-| Phase 1: Database wiring | 45–60 min |
-| Phase 2: API sanity check | 15 min |
-| Phase 3: Mobile API wiring | 30–45 min |
-| **→ Partial E2E (venues)** | **~2 hrs from start** |
-| Phase 4: Auth on mobile | 45–60 min |
-| Phase 5: Full E2E smoke test | 15 min |
-| **→ Full E2E (votes)** | **~3.5–4 hrs from start** |
-
----
-
-## Critical Path Summary
-
-The single dependency chain blocking full E2E:
-
-```
-Enable PostGIS on Supabase
-    → Create apps/api/.env with DATABASE_URL
-        → Implement Drizzle repositories
-            → Run db:generate + db:migrate
-                → Seed venue data
-                    → Wire mobile useVenues to real API
-                        → ✅ Partial E2E (venues/trending)
-                            → Add expo-secure-store + AuthContext
-                                → Build login/register screens
-                                    → Wire vote mutations
-                                        → ✅ Full E2E (auth + votes)
+# Use LAN IP for physical device: http://192.168.x.x:3000/api/v1
+# Use Railway URL for staging: https://<your-railway-url>/api/v1
 ```
