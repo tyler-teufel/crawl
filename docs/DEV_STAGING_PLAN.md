@@ -138,13 +138,14 @@ This preserves the ability to run tests without a database.
 
 ### 1.7 — Seed venue data
 
-Insert at least 10–15 real venues (or more Austin bars) into Supabase so the explore screen has real content. Options:
+Insert at least 10–15 real venues into Supabase so the explore screen has real content. The in-memory repository already seeds Charlotte, NC and Patchogue/Sayville, NY venues — mirror those for a consistent dev baseline. Options:
 
 **Option A — SQL seed file** (fastest):
 ```sql
 INSERT INTO venues (id, name, type, city, latitude_e6, longitude_e6, hotspot_score, vote_count, is_open, price_level, description)
 VALUES
-  (gen_random_uuid(), 'Rainey Street Brewing', 'bar', 'austin', 30267160, -97738040, 72, 0, true, 2, 'Craft brews on Rainey St'),
+  (gen_random_uuid(), 'Whiskey Warehouse', 'bar', 'Charlotte, NC', 35209400, -80857100, 85, 0, true, 2, 'Massive whiskey bar in South End'),
+  (gen_random_uuid(), 'The Tap Room', 'bar', 'Patchogue, NY', 40765700, -73015500, 83, 0, true, 2, 'Craft beer bar on Main Street Patchogue'),
   ...;
 ```
 
@@ -166,7 +167,7 @@ turbo dev --filter=api
 # In another terminal — sanity checks
 curl http://localhost:3000/api/v1/health
 curl http://localhost:3000/api/v1/venues
-curl http://localhost:3000/api/v1/trending/austin
+curl "http://localhost:3000/api/v1/trending/Charlotte,%20NC"
 
 # Auth flow
 curl -X POST http://localhost:3000/api/v1/auth/register \
@@ -356,7 +357,7 @@ Run this checklist manually to verify the full stack.
 
 ```bash
 # Confirm DB is persisting
-curl http://localhost:3000/api/v1/trending/austin
+curl "http://localhost:3000/api/v1/trending/Charlotte,%20NC"
 # Kill API server, restart, confirm data still there
 ```
 
