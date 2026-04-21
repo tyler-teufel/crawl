@@ -1,0 +1,14 @@
+$kind: http-request
+description: Remove today's vote for a venue. Returns updated vote state.
+url: "{{baseUrl}}/votes/{{venueId}}"
+method: DELETE
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      const json = pm.response.json();
+      pm.test('vote removed', () => {
+          pm.expect(json.votedVenueIds).to.not.include(pm.collectionVariables.get('venueId'));
+      });
+    language: text/javascript
+order: 3000

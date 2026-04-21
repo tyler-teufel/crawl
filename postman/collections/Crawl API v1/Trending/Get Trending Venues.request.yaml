@@ -1,0 +1,23 @@
+$kind: http-request
+description: Returns venues for the city sorted by hotspot score descending. City segment is URL-encoded automatically by Postman.
+url: "{{baseUrl}}/trending/{{city}}?limit=10"
+method: GET
+queryParams:
+  - key: limit
+    value: "10"
+    description: Number of ranked venues (1-50, default 10)
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      const json = pm.response.json();
+      pm.test('response is array', () => pm.expect(json).to.be.an('array'));
+      pm.test('sorted by hotspotScore desc', () => {
+          for (let i = 1; i < json.length; i++) {
+              pm.expect(json[i - 1].hotspotScore).to.be.at.least(json[i].hotspotScore);
+          }
+      });
+    language: text/javascript
+order: 1000

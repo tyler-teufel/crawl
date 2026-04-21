@@ -1,0 +1,43 @@
+$kind: http-request
+description: Create a new user account. Email is auto-generated per run via a pre-request script so re-runs don't conflict. Stores `accessToken`, `refreshToken`, `userId`, and `userEmail` in collection variables.
+url: "{{baseUrl}}/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "{{userEmail}}",
+      "password": "securePassword123",
+      "displayName": "Test User"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Generate a unique email per run so re-registering doesn't 409.
+      const ts = Date.now();
+      const email = `test-${ts}@example.com`;
+      pm.collectionVariables.set('userEmail', email);
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('status 201', () => pm.response.to.have.status(201));
+      const json = pm.response.json();
+      pm.test('response has user + tokens', () => {
+          pm.expect(json).to.have.property('user');
+          pm.expect(json).to.have.property('tokens');
+          pm.expect(json.tokens).to.have.property('accessToken');
+          pm.expect(json.tokens).to.have.property('refreshToken');
+      });
+      if (json.tokens) {
+          pm.collectionVariables.set('accessToken', json.tokens.accessToken);
+          pm.collectionVariables.set('refreshToken', json.tokens.refreshToken);
+      }
+      if (json.user) {
+          pm.collectionVariables.set('userId', json.user.id);
+      }
+    language: text/javascript
+order: 1000

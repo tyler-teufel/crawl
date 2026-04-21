@@ -1,0 +1,18 @@
+$kind: http-request
+description: Get full venue detail by UUID. Uses `{{venueId}}` captured from List Venues.
+url: "{{baseUrl}}/venues/{{venueId}}"
+method: GET
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      const json = pm.response.json();
+      pm.test('response is a venue', () => {
+          pm.expect(json).to.have.property('id');
+          pm.expect(json).to.have.property('name');
+          pm.expect(json).to.have.property('hotspotScore');
+      });
+    language: text/javascript
+order: 2000
