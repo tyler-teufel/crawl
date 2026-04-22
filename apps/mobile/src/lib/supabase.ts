@@ -9,7 +9,7 @@ const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    'Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_KEY. Set them in apps/mobile/.env.',
+    'Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_KEY. Set them in apps/mobile/.env.'
   );
 }
 

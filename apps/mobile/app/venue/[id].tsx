@@ -100,11 +100,7 @@ export default function VenueDetailScreen() {
             onPress={handleVote}
             disabled={!canVote || castVote.isPending}
             className={`flex-row items-center justify-center rounded-full py-4 ${
-              hasVoted
-                ? 'bg-crawl-card'
-                : canVote
-                  ? 'bg-crawl-purple'
-                  : 'bg-crawl-card opacity-50'
+              hasVoted ? 'bg-crawl-card' : canVote ? 'bg-crawl-purple' : 'bg-crawl-card opacity-50'
             }`}>
             {castVote.isPending ? (
               <ActivityIndicator color="#fff" size="small" />

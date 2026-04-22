@@ -33,10 +33,8 @@ export function useCastVote() {
   return useMutation<VoteState, Error, string>({
     mutationFn: async (venueId: string) => {
       if (!USE_REAL_API) {
-        const current =
-          queryClient.getQueryData<VoteState>(voteKeys.state) ?? DEFAULT_VOTE_STATE;
-        if (current.remainingVotes <= 0 || current.votedVenueIds.includes(venueId))
-          return current;
+        const current = queryClient.getQueryData<VoteState>(voteKeys.state) ?? DEFAULT_VOTE_STATE;
+        if (current.remainingVotes <= 0 || current.votedVenueIds.includes(venueId)) return current;
         return {
           ...current,
           remainingVotes: current.remainingVotes - 1,
@@ -50,7 +48,7 @@ export function useCastVote() {
       await queryClient.cancelQueries({ queryKey: venueKeys.detail(venueId) });
       const previous = queryClient.getQueryData(venueKeys.detail(venueId));
       queryClient.setQueryData(venueKeys.detail(venueId), (old: any) =>
-        old ? { ...old, voteCount: (old.voteCount ?? 0) + 1 } : old,
+        old ? { ...old, voteCount: (old.voteCount ?? 0) + 1 } : old
       );
       return { previous };
     },
@@ -72,8 +70,7 @@ export function useRemoveVote() {
   return useMutation<VoteState, Error, string>({
     mutationFn: async (venueId: string) => {
       if (!USE_REAL_API) {
-        const current =
-          queryClient.getQueryData<VoteState>(voteKeys.state) ?? DEFAULT_VOTE_STATE;
+        const current = queryClient.getQueryData<VoteState>(voteKeys.state) ?? DEFAULT_VOTE_STATE;
         if (!current.votedVenueIds.includes(venueId)) return current;
         return {
           ...current,

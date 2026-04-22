@@ -11,9 +11,13 @@ import { VenueCard } from '../../components/venue/VenueCard';
 
 const CARD_WIDTH = Dimensions.get('window').width * 0.8;
 
-// Use the real map when the native module is available (after prebuild + npm install)
+// Use the real map when the native module is available (after prebuild + npm install).
+// `require()` is intentional here — it lets us probe for the module at runtime
+// without crashing when react-native-maps isn't installed yet (e.g. Expo Go).
+// ESM `import` would throw at module load.
 let hasNativeMaps = false;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('react-native-maps');
   hasNativeMaps = true;
 } catch {
@@ -73,11 +77,7 @@ export default function ExploreScreen() {
           contentContainerStyle={{ paddingHorizontal: 16 }}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <VenueCard
-              venue={item}
-              width={CARD_WIDTH}
-              onPress={() => handleVenuePress(item)}
-            />
+            <VenueCard venue={item} width={CARD_WIDTH} onPress={() => handleVenuePress(item)} />
           )}
         />
       </View>

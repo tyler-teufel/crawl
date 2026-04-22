@@ -17,7 +17,7 @@ export function useVenues(city: string, filters: string[]) {
     queryFn: async () => {
       if (!USE_REAL_API) return mockVenues;
       const res = await apiClient<{ data: Venue[] }>(
-        `/venues?city=${encodeURIComponent(city)}${filters.length ? `&filters=${filters.join(',')}` : ''}`,
+        `/venues?city=${encodeURIComponent(city)}${filters.length ? `&filters=${filters.join(',')}` : ''}`
       );
       return res.data;
     },
