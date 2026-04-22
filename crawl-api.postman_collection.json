@@ -1,0 +1,478 @@
+{
+  "info": {
+    "name": "Crawl API v1",
+    "description": "Postman collection for the Crawl venue discovery API (Fastify + Zod).\n\n**Setup**\n1. Start the API: `turbo dev --filter=api` (default `http://localhost:3000`).\n2. Override `baseUrl` if needed.\n3. Run **Auth → Register** once to create a user. Subsequent runs use **Auth → Login**.\n4. Access + refresh tokens are saved to collection variables automatically via test scripts.\n5. Protected endpoints (`/votes`) use the `{{accessToken}}` via the collection-level bearer auth.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "venueId",
+      "value": "11111111-1111-1111-1111-111111111111",
+      "type": "string"
+    },
+    {
+      "key": "city",
+      "value": "Austin, TX",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status is ok or degraded', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.be.oneOf(['ok', 'degraded']);",
+                  "    pm.expect(json.checks).to.have.property('database');",
+                  "    pm.expect(json.checks.memory).to.have.property('heapUsedMb');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Returns API health status, database connectivity, and memory usage. Use as a readiness probe."
+          }
+        }
+      ],
+      "description": "Liveness / readiness endpoint."
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate a unique email per run so re-registering doesn't 409.",
+                  "const ts = Date.now();",
+                  "const email = `test-${ts}@example.com`;",
+                  "pm.collectionVariables.set('userEmail', email);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('response has user + tokens', () => {",
+                  "    pm.expect(json).to.have.property('user');",
+                  "    pm.expect(json).to.have.property('tokens');",
+                  "    pm.expect(json.tokens).to.have.property('accessToken');",
+                  "    pm.expect(json.tokens).to.have.property('refreshToken');",
+                  "});",
+                  "if (json.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', json.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', json.tokens.refreshToken);",
+                  "}",
+                  "if (json.user) {",
+                  "    pm.collectionVariables.set('userId', json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"securePassword123\",\n  \"displayName\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Create a new user account. Email is auto-generated per run via a pre-request script so re-runs don't conflict. Stores `accessToken`, `refreshToken`, `userId`, and `userEmail` in collection variables."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('response has tokens', () => {",
+                  "    pm.expect(json.tokens).to.have.property('accessToken');",
+                  "    pm.expect(json.tokens).to.have.property('refreshToken');",
+                  "});",
+                  "if (json.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', json.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', json.tokens.refreshToken);",
+                  "}",
+                  "if (json.user) {",
+                  "    pm.collectionVariables.set('userId', json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"securePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate with email + password. Uses the `userEmail` captured from Register. Saves new access + refresh tokens."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('response has rotated tokens', () => {",
+                  "    pm.expect(json.tokens).to.have.property('accessToken');",
+                  "    pm.expect(json.tokens).to.have.property('refreshToken');",
+                  "});",
+                  "if (json.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', json.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', json.tokens.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Exchange the current refresh token for a new access + refresh token pair. The old refresh token is invalidated (rotation)."
+          }
+        }
+      ],
+      "description": "Authentication — register, login, and refresh. Tokens are stored via test scripts."
+    },
+    {
+      "name": "Venues",
+      "item": [
+        {
+          "name": "List Venues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('response is paginated', () => {",
+                  "    pm.expect(json).to.have.property('data');",
+                  "    pm.expect(json).to.have.property('total');",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "});",
+                  "if (json.data && json.data.length > 0) {",
+                  "    pm.collectionVariables.set('venueId', json.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/venues?city={{city}}&limit=20&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["venues"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "{{city}}",
+                  "description": "City name (e.g., 'Austin, TX')"
+                },
+                {
+                  "key": "lat",
+                  "value": "30.2672",
+                  "description": "Latitude for geo search",
+                  "disabled": true
+                },
+                {
+                  "key": "lng",
+                  "value": "-97.7431",
+                  "description": "Longitude for geo search",
+                  "disabled": true
+                },
+                {
+                  "key": "radius",
+                  "value": "5000",
+                  "description": "Search radius in meters",
+                  "disabled": true
+                },
+                {
+                  "key": "filters",
+                  "value": "Bar,Club",
+                  "description": "Comma-separated venue types (matches venue.type field)",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": "Free-text search (name, type, description)",
+                  "disabled": true
+                },
+                { "key": "page", "value": "1", "description": "Page number (1-indexed)" },
+                { "key": "limit", "value": "20", "description": "Results per page (1-100)" }
+              ]
+            },
+            "description": "Paginated venue list. Captures the first venue's ID into `{{venueId}}` for use in downstream requests."
+          }
+        },
+        {
+          "name": "Get Venue Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('response is a venue', () => {",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('name');",
+                  "    pm.expect(json).to.have.property('hotspotScore');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/venues/{{venueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["venues", "{{venueId}}"]
+            },
+            "description": "Get full venue detail by UUID. Uses `{{venueId}}` captured from List Venues."
+          }
+        }
+      ],
+      "description": "Public venue endpoints — no auth required."
+    },
+    {
+      "name": "Votes",
+      "item": [
+        {
+          "name": "Get Vote State",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('returns vote state', () => {",
+                  "    pm.expect(json).to.have.property('remainingVotes');",
+                  "    pm.expect(json).to.have.property('maxVotes');",
+                  "    pm.expect(json).to.have.property('votedVenueIds');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/votes",
+              "host": ["{{baseUrl}}"],
+              "path": ["votes"]
+            },
+            "description": "Authenticated. Returns the current user's vote state for today (remaining, max, and voted venue IDs)."
+          }
+        },
+        {
+          "name": "Cast Vote",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('vote recorded', () => {",
+                  "    pm.expect(json.votedVenueIds).to.include(pm.collectionVariables.get('venueId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venueId\": \"{{venueId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/votes",
+              "host": ["{{baseUrl}}"],
+              "path": ["votes"]
+            },
+            "description": "Cast a vote for a venue. Max 3 votes per user per day, one per venue. Error codes: 404 VENUE_NOT_FOUND, 409 ALREADY_VOTED, 422 NO_VOTES_REMAINING."
+          }
+        },
+        {
+          "name": "Remove Vote",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('vote removed', () => {",
+                  "    pm.expect(json.votedVenueIds).to.not.include(pm.collectionVariables.get('venueId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/votes/{{venueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["votes", "{{venueId}}"]
+            },
+            "description": "Remove today's vote for a venue. Returns updated vote state."
+          }
+        }
+      ],
+      "description": "Vote management — all endpoints require a valid access token."
+    },
+    {
+      "name": "Trending",
+      "item": [
+        {
+          "name": "Get Trending Venues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('response is array', () => pm.expect(json).to.be.an('array'));",
+                  "pm.test('sorted by hotspotScore desc', () => {",
+                  "    for (let i = 1; i < json.length; i++) {",
+                  "        pm.expect(json[i - 1].hotspotScore).to.be.at.least(json[i].hotspotScore);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/trending/{{city}}?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["trending", "{{city}}"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of ranked venues (1-50, default 10)"
+                }
+              ]
+            },
+            "description": "Returns venues for the city sorted by hotspot score descending. City segment is URL-encoded automatically by Postman."
+          }
+        }
+      ],
+      "description": "City-level ranking endpoint — no auth required."
+    }
+  ]
+}

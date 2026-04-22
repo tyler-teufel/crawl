@@ -1,0 +1,54 @@
+name: Sync Venues
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: 'City name (e.g. "Charlotte")'
+        required: true
+        type: string
+      state:
+        description: 'State/region code (e.g. "NC")'
+        required: true
+        type: string
+      radius:
+        description: 'Search radius in meters (default 8000)'
+        required: false
+        type: string
+        default: '8000'
+      max_per_type:
+        description: 'Max places per type, 1-20 (default 20)'
+        required: false
+        type: string
+        default: '20'
+
+concurrency:
+  group: sync-venues-${{ inputs.city }}-${{ inputs.state }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync ${{ inputs.city }}, ${{ inputs.state }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Sync venues
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+        run: |
+          npm run sync:venues -- \
+            --city "${{ inputs.city }}" \
+            --state "${{ inputs.state }}" \
+            --radius "${{ inputs.radius }}" \
+            --max-per-type "${{ inputs.max_per_type }}"

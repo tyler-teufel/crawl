@@ -1,0 +1,31 @@
+name: Preview Build
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: preview-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Build iOS & Android (preview)
+        run: eas build --platform all --profile preview --non-interactive

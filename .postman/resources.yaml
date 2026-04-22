@@ -1,0 +1,11 @@
+# Use this workspace to collaborate
+workspace:
+  id: 025bdcf4-4218-4b76-814d-181ee5d66f71
+
+localResources:
+  collections:
+    - ..\crawl-api.postman_collection.json
+
+cloudResources:
+  collections:
+    ..\postman\collections\Crawl API v1: 97fdc5b8-544b-4ed8-8a15-63d07fc546a9

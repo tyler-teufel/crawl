@@ -1,0 +1,33 @@
+$kind: http-request
+description: Authenticate with email + password. Uses the `userEmail` captured from Register. Saves new access + refresh tokens.
+url: "{{baseUrl}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "{{userEmail}}",
+      "password": "securePassword123"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      const json = pm.response.json();
+      pm.test('response has tokens', () => {
+          pm.expect(json.tokens).to.have.property('accessToken');
+          pm.expect(json.tokens).to.have.property('refreshToken');
+      });
+      if (json.tokens) {
+          pm.collectionVariables.set('accessToken', json.tokens.accessToken);
+          pm.collectionVariables.set('refreshToken', json.tokens.refreshToken);
+      }
+      if (json.user) {
+          pm.collectionVariables.set('userId', json.user.id);
+      }
+    language: text/javascript
+order: 2000

@@ -1,0 +1,51 @@
+$kind: http-request
+description: Paginated venue list. Captures the first venue's ID into `{{venueId}}` for use in downstream requests.
+url: "{{baseUrl}}/venues?city={{city}}&page=1&limit=20"
+method: GET
+queryParams:
+  - key: city
+    value: "{{city}}"
+    description: City name (e.g., 'Austin, TX')
+  - key: lat
+    value: "30.2672"
+    disabled: true
+    description: Latitude for geo search
+  - key: lng
+    value: "-97.7431"
+    disabled: true
+    description: Longitude for geo search
+  - key: radius
+    value: "5000"
+    disabled: true
+    description: Search radius in meters
+  - key: filters
+    value: Bar,Club
+    disabled: true
+    description: Comma-separated venue types (matches venue.type field)
+  - key: q
+    value: ""
+    disabled: true
+    description: Free-text search (name, type, description)
+  - key: page
+    value: "1"
+    description: Page number (1-indexed)
+  - key: limit
+    value: "20"
+    description: Results per page (1-100)
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      const json = pm.response.json();
+      pm.test('response is paginated', () => {
+          pm.expect(json).to.have.property('data');
+          pm.expect(json).to.have.property('total');
+          pm.expect(json.data).to.be.an('array');
+      });
+      if (json.data && json.data.length > 0) {
+          pm.collectionVariables.set('venueId', json.data[0].id);
+      }
+    language: text/javascript
+order: 1000

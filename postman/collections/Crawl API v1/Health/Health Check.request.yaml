@@ -1,0 +1,18 @@
+$kind: http-request
+description: Returns API health status, database connectivity, and memory usage. Use as a readiness probe.
+url: "{{baseUrl}}/health"
+method: GET
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      pm.test('status is ok or degraded', () => {
+          const json = pm.response.json();
+          pm.expect(json.status).to.be.oneOf(['ok', 'degraded']);
+          pm.expect(json.checks).to.have.property('database');
+          pm.expect(json.checks.memory).to.have.property('heapUsedMb');
+      });
+    language: text/javascript
+order: 1000

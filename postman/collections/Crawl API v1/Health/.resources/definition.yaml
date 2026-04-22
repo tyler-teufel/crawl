@@ -1,0 +1,3 @@
+$kind: collection
+description: Liveness / readiness endpoint.
+order: 1000

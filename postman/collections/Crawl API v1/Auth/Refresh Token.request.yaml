@@ -1,0 +1,29 @@
+$kind: http-request
+description: Exchange the current refresh token for a new access + refresh token pair. The old refresh token is invalidated (rotation).
+url: "{{baseUrl}}/auth/refresh"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "refreshToken": "{{refreshToken}}"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('status 200', () => pm.response.to.have.status(200));
+      const json = pm.response.json();
+      pm.test('response has rotated tokens', () => {
+          pm.expect(json.tokens).to.have.property('accessToken');
+          pm.expect(json.tokens).to.have.property('refreshToken');
+      });
+      if (json.tokens) {
+          pm.collectionVariables.set('accessToken', json.tokens.accessToken);
+          pm.collectionVariables.set('refreshToken', json.tokens.refreshToken);
+      }
+    language: text/javascript
+order: 3000

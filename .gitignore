@@ -23,3 +23,18 @@ android
 .metro-health-check*
 
 .env
+
+# .claude — commit team-shared config (settings.json, hooks/, agents/,
+# commands/, skills/) but keep personal state local.
+.claude/settings.local.json
+.claude/worktrees/
+.claude/memory/
+.claude/projects/
+
+# Turbo
+.turbo
+
+# Wiki (LLM-maintained knowledge base, not source code)
+wiki/
+
+.obsidian

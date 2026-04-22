@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "crawl",
+    "slug": "crawl",
+    "owner": "crawl-app",
+    "version": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "77d64449-a6b3-4da1-8562-228fa8bfb501"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "scheme": "crawl",
+    "plugins": ["expo-router"],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0f"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0a0f"
+      },
+      "package": "com.tylerteufel.crawl"
+    }
+  }
+}
