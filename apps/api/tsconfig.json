@@ -7,10 +7,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": "src",
     "paths": {
       "@crawl/shared-types": ["../../packages/shared-types/src/index.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "drizzle.config.ts"]
 }

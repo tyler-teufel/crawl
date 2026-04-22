@@ -16,7 +16,9 @@
       "tsconfigPaths": true
     },
     "scheme": "crawl",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -25,7 +27,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0a0a0f"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
@@ -33,7 +37,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0a0a0f"
-      }
+      },
+      "package": "com.tylerteufel.crawl"
     }
   }
 }

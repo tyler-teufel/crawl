@@ -45,7 +45,9 @@
       "Bash(npx tsx *)",
       "WebFetch(domain:supabase.com)",
       "WebSearch",
-      "Bash(npx expo *)"
+      "Bash(npx expo *)",
+      "WebFetch(domain:orm.drizzle.team)",
+      "Bash(npx dotenv *)"
     ]
   }
 }
