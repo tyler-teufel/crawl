@@ -13,6 +13,10 @@ concurrency:
   group: api-deploy-${{ github.ref }}
   cancel-in-progress: false # Never cancel in-flight deploys
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   # ── Lint + Test gate before deploy ────────────────────────────────
   test:
