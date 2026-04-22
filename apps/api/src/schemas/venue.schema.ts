@@ -14,7 +14,7 @@ export const venueSchema = z.object({
   isOpen: z.boolean(),
   isTrending: z.boolean(),
   highlights: z.array(z.string()),
-  priceLevel: z.number().int().min(1).max(4),
+  priceLevel: z.number().int().min(0).max(4).nullable(),
   hours: z.string(),
   description: z.string(),
   imageUrl: z.string().url().optional(),
