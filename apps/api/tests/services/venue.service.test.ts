@@ -18,14 +18,15 @@ describe('VenueService', () => {
     });
 
     it('filters by city', async () => {
-      const result = await service.listVenues({ city: 'Austin' }, 1, 20);
-      result.data.forEach((v) => expect(v.city).toContain('Austin'));
+      const result = await service.listVenues({ city: 'Charlotte' }, 1, 20);
+      expect(result.data.length).toBeGreaterThan(0);
+      result.data.forEach((v) => expect(v.city).toContain('Charlotte'));
     });
 
     it('filters by text query', async () => {
-      const result = await service.listVenues({ q: 'Rainey' }, 1, 20);
+      const result = await service.listVenues({ q: 'Brickhouse' }, 1, 20);
       expect(result.data.length).toBeGreaterThan(0);
-      expect(result.data[0].name).toContain('Rainey');
+      expect(result.data[0].name).toContain('Brickhouse');
     });
 
     it('paginates results', async () => {
@@ -55,14 +56,14 @@ describe('VenueService', () => {
 
   describe('getTrendingVenues', () => {
     it('returns venues sorted by hotspot score', async () => {
-      const venues = await service.getTrendingVenues('Austin', 10);
+      const venues = await service.getTrendingVenues('Charlotte', 10);
       for (let i = 1; i < venues.length; i++) {
         expect(venues[i - 1].hotspotScore).toBeGreaterThanOrEqual(venues[i].hotspotScore);
       }
     });
 
     it('respects limit', async () => {
-      const venues = await service.getTrendingVenues('Austin', 1);
+      const venues = await service.getTrendingVenues('Charlotte', 1);
       expect(venues.length).toBeLessThanOrEqual(1);
     });
   });

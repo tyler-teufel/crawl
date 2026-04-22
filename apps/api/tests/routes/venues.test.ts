@@ -27,25 +27,25 @@ describe('Venues routes', () => {
     it('filters venues by city', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/v1/venues?city=Austin',
+        url: '/api/v1/venues?city=Charlotte',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.data.length).toBeGreaterThan(0);
       body.data.forEach((v: { city: string }) => {
-        expect(v.city.toLowerCase()).toContain('austin');
+        expect(v.city.toLowerCase()).toContain('charlotte');
       });
     });
 
     it('filters venues by search query', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/v1/venues?q=Stubb',
+        url: '/api/v1/venues?q=Brickhouse',
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.data.length).toBeGreaterThan(0);
-      expect(body.data[0].name).toContain("Stubb");
+      expect(body.data[0].name).toContain('Brickhouse');
     });
 
     it('returns empty data for unknown city', async () => {
