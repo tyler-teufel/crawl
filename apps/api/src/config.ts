@@ -9,10 +9,11 @@ const envSchema = z.object({
   // Postgres (Supabase Transaction Pooler, port 6543)
   DATABASE_URL: z.string().optional(),
 
-  // Supabase project credentials
+  // Supabase project URL — used to derive the JWKS endpoint for verifying
+  // user access tokens issued by Supabase Auth.
   SUPABASE_URL: z.string().optional(),
-  SUPABASE_ANON_KEY: z.string().optional(),
-  SUPABASE_SERVICE_KEY: z.string().optional(),
+  // Only needed for legacy projects still issuing HS256-signed tokens. Once
+  // the project is migrated to asymmetric JWT signing keys, omit this.
   SUPABASE_JWT_SECRET: z.string().optional(),
 
   // Set to "true" to swap in-memory repos for Drizzle/Postgres repos

@@ -3,6 +3,7 @@
 **Goal:** Get Crawl running end-to-end — mobile app → API server → Supabase database — for a real smoke test of the full flow.
 
 **Updated state (2026-04-21):**
+
 - Drizzle repositories implemented and wired (toggled by `USE_REAL_DB=true`)
 - Supabase JWT verification wired; user upsert on every authenticated request
 - Mobile TanStack Query hooks wired to real API (with mock fallback when `EXPO_PUBLIC_API_URL` not set)
@@ -24,30 +25,33 @@
 
 ### Implemented in code ✅
 
-| What | File |
-|---|---|
-| Drizzle ORM schema (venues, users, votes) | `apps/api/src/db/schema.ts` |
-| DB connection via `getDb()` | `apps/api/src/db/index.ts` |
-| Drizzle venue repository | `apps/api/src/repositories/drizzle-venue.repository.ts` |
-| Drizzle vote repository | `apps/api/src/repositories/drizzle-vote.repository.ts` |
-| Drizzle user repository | `apps/api/src/repositories/drizzle-user.repository.ts` |
-| Conditional repo swap in app bootstrap | `apps/api/src/app.ts` (checks `USE_REAL_DB`) |
-| Conditional repo swap in cron jobs | `apps/api/src/jobs/index.ts` (checks `USE_REAL_DB`) |
-| Seed script (Charlotte NC + Patchogue/Sayville NY) | `apps/api/src/db/seed.ts` |
-| `.env.example` with all required keys | `apps/api/.env.example` |
+| What                                               | File                                                    |
+| -------------------------------------------------- | ------------------------------------------------------- |
+| Drizzle ORM schema (venues, users, votes)          | `apps/api/src/db/schema.ts`                             |
+| DB connection via `getDb()`                        | `apps/api/src/db/index.ts`                              |
+| Drizzle venue repository                           | `apps/api/src/repositories/drizzle-venue.repository.ts` |
+| Drizzle vote repository                            | `apps/api/src/repositories/drizzle-vote.repository.ts`  |
+| Drizzle user repository                            | `apps/api/src/repositories/drizzle-user.repository.ts`  |
+| Conditional repo swap in app bootstrap             | `apps/api/src/app.ts` (checks `USE_REAL_DB`)            |
+| Conditional repo swap in cron jobs                 | `apps/api/src/jobs/index.ts` (checks `USE_REAL_DB`)     |
+| Seed script (Charlotte NC + Patchogue/Sayville NY) | `apps/api/src/db/seed.ts`                               |
+| `.env.example` with all required keys              | `apps/api/.env.example`                                 |
 
 ### Your actions
 
-- [ ] **[YOUR ACTION]** Enable PostGIS: Supabase Dashboard → **Database** → **Extensions** → search "postgis" → **Enable**
+- [x] **[YOUR ACTION]** Enable PostGIS: Supabase Dashboard → **Database** → **Extensions** → search "postgis" → **Enable**
 
 - [ ] **[YOUR ACTION]** Create `apps/api/.env` (copy from `.env.example` and fill in real values):
+
   ```bash
   cp apps/api/.env.example apps/api/.env
-  # Then edit: add SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY,
-  # SUPABASE_JWT_SECRET, DATABASE_URL, and set USE_REAL_DB=true
+  # Then edit: add SUPABASE_URL, DATABASE_URL, and set USE_REAL_DB=true.
+  # SUPABASE_JWT_SECRET is only needed for legacy projects that have not
+  # migrated to asymmetric JWT signing keys.
   ```
 
 - [ ] **[YOUR ACTION]** Run migrations and seed:
+
   ```bash
   cd apps/api
   npm run db:migrate   # creates tables in Supabase
@@ -62,15 +66,16 @@
 
 ### Implemented in code ✅
 
-| What | File |
-|---|---|
-| Supabase JWT verification (`SUPABASE_JWT_SECRET`) | `apps/api/src/plugins/jwt.ts` |
-| User upsert on every authenticated request (uses `sub` claim) | `apps/api/src/plugins/jwt.ts` |
-| `SUPABASE_JWT_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `USE_REAL_DB` added to config schema | `apps/api/src/config.ts` |
+| What                                                                                      | File                          |
+| ----------------------------------------------------------------------------------------- | ----------------------------- |
+| Supabase JWT verification via JWKS (with HS256 fallback for legacy projects)              | `apps/api/src/plugins/jwt.ts` |
+| User upsert on every authenticated request (uses `sub` claim)                             | `apps/api/src/plugins/jwt.ts` |
+| `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (legacy-only), `USE_REAL_DB` added to config schema | `apps/api/src/config.ts`      |
 
 ### Your actions
 
-- [ ] **[YOUR ACTION]** Copy `SUPABASE_JWT_SECRET` from Supabase Dashboard → **Settings** → **API** → **JWT Secret** into `apps/api/.env`
+- [ ] **[YOUR ACTION]** In the Supabase Dashboard, go to **Project Settings** → **JWT Keys** and click **Migrate JWT secret** if it hasn't been done yet. After migration the API verifies user tokens via the JWKS endpoint at `${SUPABASE_URL}/auth/v1/.well-known/jwks.json` — no shared secret required.
+- [ ] **[YOUR ACTION]** Only if the project has not been migrated: copy the **Legacy JWT Secret** into `apps/api/.env` as `SUPABASE_JWT_SECRET`. Remove it after migrating.
 - [ ] **[YOUR ACTION]** Confirm mobile app authenticates via Supabase Auth (not local JWT) — no login UI is built yet; use Supabase Dashboard → **Authentication** → **Users** to create a test user, then generate a token via Supabase JS SDK for manual API testing
 
 ---
@@ -99,26 +104,28 @@ curl "http://localhost:3000/api/v1/trending/Charlotte,%20NC"
 
 ### Implemented in code ✅
 
-| What | File |
-|---|---|
-| `getVenues()` and `castVote()` in API client | `apps/mobile/src/api/client.ts` |
-| `setAuthToken()` for attaching Bearer token | `apps/mobile/src/api/client.ts` |
-| `useVenues` / `useVenue` wired to real API (fallback to mock when `EXPO_PUBLIC_API_URL` unset) | `apps/mobile/src/api/venues.ts` |
-| `useCastVote` wired to `POST /votes` with optimistic vote count update | `apps/mobile/src/api/votes.ts` |
-| `useVoteState` wired to `GET /votes` | `apps/mobile/src/api/votes.ts` |
-| Vote button in VenueDetail wired — shows voted state, disables when no votes remain | `apps/mobile/app/venue/[id].tsx` |
-| `CrawlMapView` with `react-native-maps` Markers + Callouts | `apps/mobile/components/map/CrawlMapView.tsx` |
-| Map screen uses `CrawlMapView` when native module available, `MapPlaceholder` otherwise | `apps/mobile/app/(tabs)/index.tsx` |
+| What                                                                                           | File                                          |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `getVenues()` and `castVote()` in API client                                                   | `apps/mobile/src/api/client.ts`               |
+| `setAuthToken()` for attaching Bearer token                                                    | `apps/mobile/src/api/client.ts`               |
+| `useVenues` / `useVenue` wired to real API (fallback to mock when `EXPO_PUBLIC_API_URL` unset) | `apps/mobile/src/api/venues.ts`               |
+| `useCastVote` wired to `POST /votes` with optimistic vote count update                         | `apps/mobile/src/api/votes.ts`                |
+| `useVoteState` wired to `GET /votes`                                                           | `apps/mobile/src/api/votes.ts`                |
+| Vote button in VenueDetail wired — shows voted state, disables when no votes remain            | `apps/mobile/app/venue/[id].tsx`              |
+| `CrawlMapView` with `react-native-maps` Markers + Callouts                                     | `apps/mobile/components/map/CrawlMapView.tsx` |
+| Map screen uses `CrawlMapView` when native module available, `MapPlaceholder` otherwise        | `apps/mobile/app/(tabs)/index.tsx`            |
 
 ### Your actions
 
 - [ ] **[YOUR ACTION]** Create `apps/mobile/.env`:
+
   ```env
   EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
   # For physical device use your machine's LAN IP: http://192.168.x.x:3000/api/v1
   ```
 
 - [ ] **[YOUR ACTION]** Install and link `react-native-maps` (required for real map; app falls back to placeholder if skipped):
+
   ```bash
   cd apps/mobile
   npx expo install react-native-maps
@@ -177,16 +184,16 @@ curl "https://<railway-url>/api/v1/trending/Charlotte,%20NC"
 
 ## Not Needed Yet — Defer These
 
-| Item | Why it can wait |
-|------|----------------|
-| Auth UI (login/register screens) | Can test with token injected manually |
-| `expo-secure-store` token persistence | Not blocking for initial E2E |
-| PostGIS radius queries | City filter works without it |
-| Redis caching | Not required for dev/staging |
-| Rate limiting | Not blocking for personal testing |
-| OAuth (Apple/Google) | Email/password or Supabase Dashboard is sufficient |
-| Real-time WebSocket updates | Phase 6 feature |
-| `packages/shared-types` unification | Types duplicated but functional |
+| Item                                  | Why it can wait                                    |
+| ------------------------------------- | -------------------------------------------------- |
+| Auth UI (login/register screens)      | Can test with token injected manually              |
+| `expo-secure-store` token persistence | Not blocking for initial E2E                       |
+| PostGIS radius queries                | City filter works without it                       |
+| Redis caching                         | Not required for dev/staging                       |
+| Rate limiting                         | Not blocking for personal testing                  |
+| OAuth (Apple/Google)                  | Email/password or Supabase Dashboard is sufficient |
+| Real-time WebSocket updates           | Phase 6 feature                                    |
+| `packages/shared-types` unification   | Types duplicated but functional                    |
 
 ---
 
@@ -200,11 +207,10 @@ HOST=0.0.0.0
 PORT=3000
 CORS_ORIGIN=http://localhost:8081
 
-# Supabase (Settings → API)
+# Supabase (Project Settings → Data API)
 SUPABASE_URL=https://your-ref.supabase.co
-SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_KEY=eyJ...
-SUPABASE_JWT_SECRET=your-jwt-secret
+# Legacy projects only — omit once migrated to asymmetric JWT signing keys
+SUPABASE_JWT_SECRET=
 
 # Supabase (Settings → Database → Connection string → Transaction mode port 6543)
 DATABASE_URL=postgresql://postgres.your-ref:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres

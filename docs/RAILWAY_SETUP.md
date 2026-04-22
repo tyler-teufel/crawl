@@ -4,10 +4,8 @@
 
 | Value | Where to find it |
 |---|---|
-| `SUPABASE_URL` | Dashboard → Settings → API → Project URL |
-| `SUPABASE_ANON_KEY` | Dashboard → Settings → API → anon/public key |
-| `SUPABASE_SERVICE_KEY` | Dashboard → Settings → API → service_role key |
-| `SUPABASE_JWT_SECRET` | Dashboard → Settings → API → JWT Secret |
+| `SUPABASE_URL` | Dashboard → Project Settings → Data API → Project URL |
+| `SUPABASE_JWT_SECRET` | **Legacy projects only.** Dashboard → Project Settings → JWT Keys → Legacy JWT Secret. Omit once the project is migrated to asymmetric signing keys — the API verifies tokens via the JWKS endpoint. |
 | `DATABASE_URL` | Dashboard → Settings → Database → Connection string → Transaction mode (port 6543) |
 
 ## Railway deployment steps
