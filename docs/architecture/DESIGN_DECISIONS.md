@@ -62,7 +62,7 @@ Expo-router maps the file system to the navigation tree. `app/(tabs)/voting.tsx`
 - **Same component interface** — `MapPlaceholder` accepts `venues: Venue[]` and `onPinPress: (venue) => void`, exactly what a real map wrapper would accept. Swapping is a single import change.
 - **Animation validation** — the pulsing glow on `MapPin` proves that reanimated animations work correctly before adding the complexity of rendering inside `<Marker>` components.
 
-**Migration path:** See [Maps Integration Guide](./MAPS_INTEGRATION.md).
+**Migration path:** See [Maps Integration Guide](../guides/MAPS_INTEGRATION.md).
 
 ---
 

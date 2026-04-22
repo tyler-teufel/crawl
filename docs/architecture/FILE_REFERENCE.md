@@ -278,4 +278,4 @@ Claude Code skill definition for the `/docs` command. Provides a structured 6-st
 
 ### `.github/workflows/ci.yaml`
 
-GitHub Actions CI workflow file. Currently empty — placeholder for the validation pipeline described in [CI/CD Pipeline](./CICD_PIPELINE.md). When populated, should run lint, type-check, and tests on push/PR to main.
+GitHub Actions CI workflow file. Currently empty — placeholder for the validation pipeline described in [CI/CD Pipeline](../ops/CICD_PIPELINE.md). When populated, should run lint, type-check, and tests on push/PR to main.

@@ -118,16 +118,16 @@ The app uses TanStack Query with a query hook layer (`src/api/`) that currently 
 - Venue check-in with GPS verification
 - Bar crawl route planning
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full roadmap.
+See [`docs/ROADMAP.md`](./docs/planning/ROADMAP.md) for the full roadmap.
 
 ## Documentation
 
 Detailed docs live in the `docs/` directory:
 
-- [Project Overview](docs/PROJECT_OVERVIEW.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [File Reference](docs/FILE_REFERENCE.md)
-- [Design Decisions](docs/DESIGN_DECISIONS.md)
-- [Data Pipeline](docs/DATA_PIPELINE.md)
-- [CI/CD Pipeline](docs/CICD_PIPELINE.md)
-- [Contributing](docs/CONTRIBUTING.md)
+- [Project Overview](./docs/architecture/PROJECT_OVERVIEW.md)
+- [Architecture](./docs/architecture/ARCHITECTURE.md)
+- [File Reference](./docs/architecture/FILE_REFERENCE.md)
+- [Design Decisions](./docs/architecture/DESIGN_DECISIONS.md)
+- [Data Pipeline](./docs/planning/DATA_PIPELINE.md)
+- [CI/CD Pipeline](./docs/ops/CICD_PIPELINE.md)
+- [Contributing](./docs/guides/CONTRIBUTING.md)

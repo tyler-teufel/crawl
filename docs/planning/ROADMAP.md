@@ -9,7 +9,7 @@ Prioritized next steps for Crawl, organized by release milestone.
 | Priority | Task             | Description                                                                                             | Effort  |
 | -------- | ---------------- | ------------------------------------------------------------------------------------------------------- | ------- |
 | High     | Test suite       | Set up Jest + React Native Testing Library. Cover context logic, hooks, and key component rendering.    | 1 day   |
-| High     | Maps integration | Replace `MapPlaceholder` with `react-native-maps`. See [Maps Integration Guide](./MAPS_INTEGRATION.md). | 2 days  |
+| High     | Maps integration | Replace `MapPlaceholder` with `react-native-maps`. See [Maps Integration Guide](../guides/MAPS_INTEGRATION.md). | 2 days  |
 | High     | Auth screens     | Login, register, and onboarding flow. JWT token storage with `expo-secure-store`.                       | 2 days  |
 | Medium   | City selector    | Implement dropdown/modal picker for the `CitySelector` component with a list of supported cities.       | 0.5 day |
 | Medium   | Venue images     | Replace image placeholders with real venue photos. Add image caching.                                   | 1 day   |
@@ -24,7 +24,7 @@ Prioritized next steps for Crawl, organized by release milestone.
 
 | Task                        | Description                                                                                                                  | Effort   |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------- |
-| EAS Build + CI              | Set up `eas.json`, GitHub Actions workflows for CI validation and preview builds. See [CI/CD Pipeline](./CICD_PIPELINE.md).  | 1 day    |
+| EAS Build + CI              | Set up `eas.json`, GitHub Actions workflows for CI validation and preview builds. See [CI/CD Pipeline](../ops/CICD_PIPELINE.md).  | 1 day    |
 | TanStack Query + API client | Install React Query, create API client layer, build query/mutation hooks. See [Data Pipeline Guide](./DATA_PIPELINE.md).     | 2 days   |
 | Backend API                 | Build Node/Express or similar API with venues, votes, auth, and trending endpoints. PostgreSQL + Redis.                      | 3-5 days |
 | Push notifications          | Trending alerts when a venue's score crosses a threshold. Use `expo-notifications`.                                          | 1 day    |

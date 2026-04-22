@@ -161,7 +161,7 @@ The app forces dark mode on mount via `useColorScheme` + `setColorScheme('dark')
 
 ## Backend (apps/api)
 
-The API is being built as a Node.js/TypeScript server in `apps/api/`. See `docs/BACKEND_IMPLEMENTATION_PLAN.md` for the full phased plan. Key points:
+The API is being built as a Node.js/TypeScript server in `apps/api/`. See `docs/planning/BACKEND_IMPLEMENTATION_PLAN.md` for the full phased plan. Key points:
 
 ### Route Structure
 
@@ -266,20 +266,38 @@ Use box-drawing characters (`┌─┐│└─┘`), arrows (`──►`, `◄�
 
 ```
 docs/
-├── README.md                      # Index linking to all docs
-├── PROJECT_OVERVIEW.md            # What the app is, features, tech stack
-├── ARCHITECTURE.md                # Structure, navigation, state, styling, diagrams
-├── FILE_REFERENCE.md              # Every file with detailed descriptions
-├── DESIGN_DECISIONS.md            # Rationale behind technical choices
-├── REACT_NATIVE_REUSABLES.md      # RNR setup, theming, adding components
-├── MAPS_INTEGRATION.md            # Guide for replacing map placeholder
-├── DATA_PIPELINE.md               # Backend architecture and migration plan
-├── BACKEND_IMPLEMENTATION_PLAN.md # Phased backend build-out plan
-├── CICD_PIPELINE.md               # Build, test, release pipeline
-├── CONTRIBUTING.md                # How to add screens, components, follow conventions
-├── ROADMAP.md                     # Prioritized next steps
-├── CLAUDE_ENHANCEMENTS.md         # Claude Code / AI workflow improvements
-└── VERSION_1.0_DOCUMENT.md        # Historical v1.0 consolidated doc
+├── README.md                  # Index linking to all docs
+├── architecture/              # How the system works today (reference)
+│   ├── PROJECT_OVERVIEW.md
+│   ├── ARCHITECTURE.md
+│   ├── FILE_REFERENCE.md
+│   ├── DESIGN_DECISIONS.md
+│   ├── API_CLIENT.md
+│   └── API_REFERENCE.md
+├── guides/                    # How-tos for contributors
+│   ├── CONTRIBUTING.md
+│   ├── MONOREPO_GUIDE.md
+│   ├── INSTALLING_PACKAGES.md
+│   ├── REACT_NATIVE_REUSABLES.md
+│   └── MAPS_INTEGRATION.md
+├── planning/                  # Forward-looking plans
+│   ├── ROADMAP.md
+│   ├── BACKEND_IMPLEMENTATION_PLAN.md
+│   ├── DATA_PIPELINE.md
+│   ├── DEV_STAGING_PLAN.md
+│   ├── TURBOREPO_MONOREPO_PLAN.md
+│   └── COST_ESTIMATE_DAY_1.md
+├── ops/                       # Deploy and infra runbooks
+│   ├── CICD_PIPELINE.md
+│   └── RAILWAY_SETUP.md
+├── claude/                    # Claude / AI workflow assets
+│   ├── CLAUDE_ENHANCEMENTS.md
+│   ├── CLAUDE_DIRECTORY_PLAN.md
+│   ├── google-sheets-prompt.md
+│   └── backend-research-tracker.csv
+└── archive/                   # Frozen historical (not maintained)
+    ├── VERSION_1.0_DOCUMENT.md
+    └── TURBOREPO_MIGRATION.md
 ```
 
 ### The `/docs` Skill

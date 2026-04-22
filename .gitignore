@@ -24,8 +24,12 @@ android
 
 .env
 
-# .claude
-# .claude/settings.local.json
+# .claude — commit team-shared config (settings.json, hooks/, agents/,
+# commands/, skills/) but keep personal state local.
+.claude/settings.local.json
+.claude/worktrees/
+.claude/memory/
+.claude/projects/
 
 # Turbo
 .turbo
