@@ -4,7 +4,7 @@ import { paginationQuery } from './common.schema.js';
 export const venueSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  type: z.string(),
+  primaryType: z.string(),
   address: z.string(),
   city: z.string(),
   latitude: z.number(),

@@ -72,7 +72,7 @@ export function CrawlMapView({ venues, onVenuePress }: CrawlMapViewProps) {
               <Text style={styles.calloutName} numberOfLines={1}>
                 {venue.name}
               </Text>
-              <Text style={styles.calloutType}>{venue.type}</Text>
+              <Text style={styles.calloutType}>{venue.primaryType}</Text>
             </Pressable>
           </Callout>
         </Marker>

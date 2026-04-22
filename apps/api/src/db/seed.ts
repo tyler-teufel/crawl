@@ -5,7 +5,7 @@ const SEED_VENUES = [
   // Charlotte, NC
   {
     name: 'Wooden Robot Brewery',
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '1440 S Tryon St Suite 110',
     city: 'Charlotte, NC',
     latitude: String(35.2082),
@@ -21,7 +21,7 @@ const SEED_VENUES = [
   },
   {
     name: 'The Punch Room',
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '401 N Tryon St',
     city: 'Charlotte, NC',
     latitude: String(35.2276),
@@ -37,7 +37,7 @@ const SEED_VENUES = [
   },
   {
     name: 'Whisky River',
-    type: 'Nightclub',
+    primaryType: 'Nightclub',
     address: '210 E Trade St',
     city: 'Charlotte, NC',
     latitude: String(35.2270),
@@ -54,7 +54,7 @@ const SEED_VENUES = [
   // Patchogue, NY
   {
     name: 'Patchogue Arts Council',
-    type: 'Music Venue',
+    primaryType: 'Music Venue',
     address: '20 Terry St',
     city: 'Patchogue, NY',
     latitude: String(40.7654),
@@ -70,7 +70,7 @@ const SEED_VENUES = [
   },
   {
     name: "Brickhouse Brewery",
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '67 W Main St',
     city: 'Patchogue, NY',
     latitude: String(40.7649),
@@ -87,7 +87,7 @@ const SEED_VENUES = [
   // Sayville, NY
   {
     name: 'The Sayville Inn',
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '126 Middle Rd',
     city: 'Sayville, NY',
     latitude: String(40.7409),
@@ -103,7 +103,7 @@ const SEED_VENUES = [
   },
   {
     name: 'Village Lanterne',
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '49 Main St',
     city: 'Sayville, NY',
     latitude: String(40.7417),

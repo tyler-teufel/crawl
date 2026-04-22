@@ -1,7 +1,7 @@
 export interface Venue {
   id: string;
   name: string;
-  type: string;
+  primaryType: string;
   address: string;
   distance: string;
   hotspotScore: number;
@@ -12,7 +12,7 @@ export interface Venue {
   latitude: number;
   longitude: number;
   imageUrl?: string;
-  priceLevel: number; // 1-4
+  priceLevel: number | null; // 0-4 (null when unknown)
   hours: string;
   description: string;
 }

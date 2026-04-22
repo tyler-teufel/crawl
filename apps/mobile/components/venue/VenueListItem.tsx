@@ -39,7 +39,7 @@ export function VenueListItem({
           {venue.isTrending && <Badge label="HOT" variant="trending" />}
         </View>
         <Text className="mt-0.5 text-sm text-crawl-text-muted">
-          {venue.type} · {venue.voteCount} votes
+          {venue.primaryType} · {venue.voteCount} votes
         </Text>
       </View>
 

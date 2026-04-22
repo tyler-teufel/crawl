@@ -68,7 +68,7 @@ export default function VenueDetailScreen() {
             {venue.isTrending && <Badge label="TRENDING" variant="trending" />}
           </View>
           <Text className="mt-1 text-sm text-crawl-text-muted">
-            {venue.type} · {venue.distance}
+            {venue.primaryType} · {venue.distance}
           </Text>
         </View>
 

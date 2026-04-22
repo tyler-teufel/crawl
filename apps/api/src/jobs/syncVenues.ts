@@ -2,7 +2,7 @@
  * Venue sync job: fetch bars/clubs from Google Places (New) and upsert into
  * the `venues` table for a given city. Idempotent via `google_place_id`.
  */
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, notInArray } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
 import { cities, venues, type NewCity, type NewVenue } from '../db/schema.js';
@@ -84,7 +84,7 @@ async function upsertVenues(rows: NewVenue[]): Promise<number> {
         target: venues.googlePlaceId,
         set: {
           name: row.name,
-          type: row.type,
+          primaryType: row.primaryType,
           types: row.types,
           address: row.address,
           city: row.city,
@@ -191,7 +191,11 @@ export async function syncCity(input: SyncCityInput): Promise<SyncCityResult> {
       .update(venues)
       .set({ isActive: false, updatedAt: new Date() })
       .where(
-        sql`${venues.cityId} = ${city.id} AND ${venues.googlePlaceId} IS NOT NULL AND ${venues.googlePlaceId} NOT IN ${activeIds}`,
+        and(
+          eq(venues.cityId, city.id),
+          isNotNull(venues.googlePlaceId),
+          notInArray(venues.googlePlaceId, activeIds),
+        ),
       );
   }
 
@@ -204,5 +208,3 @@ export async function syncCity(input: SyncCityInput): Promise<SyncCityResult> {
   };
 }
 
-// Re-export for the CLI.
-export { eq };

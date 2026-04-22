@@ -10,7 +10,7 @@ function rowToVenue(row: schema.DbVenue): Venue {
   return {
     id: row.id,
     name: row.name,
-    type: row.type,
+    primaryType: row.primaryType,
     address: row.address,
     city: row.city,
     latitude: Number(row.latitude),
@@ -46,14 +46,14 @@ export class DrizzleVenueRepository implements VenueRepository {
       conditions.push(
         or(
           ilike(schema.venues.name, `%${filters.q}%`),
-          ilike(schema.venues.type, `%${filters.q}%`),
+          ilike(schema.venues.primaryType, `%${filters.q}%`),
           ilike(schema.venues.description, `%${filters.q}%`),
         ),
       );
     }
     if (filters.types && filters.types.length > 0) {
       conditions.push(
-        or(...filters.types.map((t) => ilike(schema.venues.type, t))),
+        or(...filters.types.map((t) => ilike(schema.venues.primaryType, t))),
       );
     }
 

@@ -26,7 +26,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
     name: 'Whiskey Warehouse',
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '1515 S Tryon St',
     city: 'Charlotte, NC',
     latitude: 35.2094,
@@ -47,7 +47,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '22222222-2222-2222-2222-222222222222',
     name: 'Optimist Hall',
-    type: 'Food Hall',
+    primaryType: 'Food Hall',
     address: '1115 N Brevard St',
     city: 'Charlotte, NC',
     latitude: 35.2301,
@@ -68,7 +68,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '33333333-3333-3333-3333-333333333333',
     name: 'Bottle Cap Group - Rooftop',
-    type: 'Rooftop Bar',
+    primaryType: 'Rooftop Bar',
     address: '201 E 5th St',
     city: 'Charlotte, NC',
     latitude: 35.2268,
@@ -89,7 +89,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '44444444-4444-4444-4444-444444444444',
     name: 'Sycamore Brewing',
-    type: 'Brewery',
+    primaryType: 'Brewery',
     address: '2161 Hawkins St',
     city: 'Charlotte, NC',
     latitude: 35.2073,
@@ -111,7 +111,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '55555555-5555-5555-5555-555555555555',
     name: 'The Tap Room',
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '4 West Main St',
     city: 'Patchogue, NY',
     latitude: 40.7657,
@@ -132,7 +132,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '66666666-6666-6666-6666-666666666666',
     name: 'Brickhouse Brewery',
-    type: 'Brewery',
+    primaryType: 'Brewery',
     address: '67 West Main St',
     city: 'Patchogue, NY',
     latitude: 40.7653,
@@ -153,7 +153,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '77777777-7777-7777-7777-777777777777',
     name: 'The Oar Steak & Seafood',
-    type: 'Restaurant & Bar',
+    primaryType: 'Restaurant & Bar',
     address: '24 Foster Ave',
     city: 'Sayville, NY',
     latitude: 40.7393,
@@ -174,7 +174,7 @@ const SEED_VENUES: Venue[] = [
   {
     id: '88888888-8888-8888-8888-888888888888',
     name: 'The Drift',
-    type: 'Bar',
+    primaryType: 'Bar',
     address: '9 Main St',
     city: 'Sayville, NY',
     latitude: 40.7409,
@@ -214,13 +214,13 @@ export class InMemoryVenueRepository implements VenueRepository {
       results = results.filter(
         (v) =>
           v.name.toLowerCase().includes(q) ||
-          v.type.toLowerCase().includes(q) ||
+          v.primaryType.toLowerCase().includes(q) ||
           v.description.toLowerCase().includes(q),
       );
     }
     if (filters.types && filters.types.length > 0) {
       results = results.filter((v) =>
-        filters.types!.some((t) => v.type.toLowerCase() === t.toLowerCase()),
+        filters.types!.some((t) => v.primaryType.toLowerCase() === t.toLowerCase()),
       );
     }
 

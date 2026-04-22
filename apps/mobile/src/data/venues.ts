@@ -4,7 +4,7 @@ export const mockVenues: Venue[] = [
   {
     id: '1',
     name: 'Whiskey Tango',
-    type: 'Cocktail Bar',
+    primaryType: 'Cocktail Bar',
     address: '301 W 6th St, Austin',
     distance: '0.3 mi',
     hotspotScore: 92,
@@ -22,7 +22,7 @@ export const mockVenues: Venue[] = [
   {
     id: '2',
     name: 'The Rustic Tap',
-    type: 'Dive Bar',
+    primaryType: 'Dive Bar',
     address: '613 Red River St, Austin',
     distance: '0.5 mi',
     hotspotScore: 87,
@@ -40,7 +40,7 @@ export const mockVenues: Venue[] = [
   {
     id: '3',
     name: 'Neon Lounge',
-    type: 'Nightclub',
+    primaryType: 'Nightclub',
     address: '420 E 6th St, Austin',
     distance: '0.7 mi',
     hotspotScore: 78,
@@ -58,7 +58,7 @@ export const mockVenues: Venue[] = [
   {
     id: '4',
     name: 'Brewski Garden',
-    type: 'Beer Garden',
+    primaryType: 'Beer Garden',
     address: '1501 E 7th St, Austin',
     distance: '1.2 mi',
     hotspotScore: 85,
@@ -76,7 +76,7 @@ export const mockVenues: Venue[] = [
   {
     id: '5',
     name: 'Midnight Cowboy',
-    type: 'Speakeasy',
+    primaryType: 'Speakeasy',
     address: '313 E 6th St, Austin',
     distance: '0.4 mi',
     hotspotScore: 94,
@@ -94,7 +94,7 @@ export const mockVenues: Venue[] = [
   {
     id: '6',
     name: 'Lavaca Street Bar',
-    type: 'Sports Bar',
+    primaryType: 'Sports Bar',
     address: '405 Lavaca St, Austin',
     distance: '0.6 mi',
     hotspotScore: 71,
@@ -112,7 +112,7 @@ export const mockVenues: Venue[] = [
   {
     id: '7',
     name: 'Hotel Vegas',
-    type: 'Live Music Venue',
+    primaryType: 'Live Music Venue',
     address: '1502 E 6th St, Austin',
     distance: '1.4 mi',
     hotspotScore: 88,
@@ -130,7 +130,7 @@ export const mockVenues: Venue[] = [
   {
     id: '8',
     name: 'Roosevelt Room',
-    type: 'Cocktail Bar',
+    primaryType: 'Cocktail Bar',
     address: '307 W 5th St, Austin',
     distance: '0.3 mi',
     hotspotScore: 90,

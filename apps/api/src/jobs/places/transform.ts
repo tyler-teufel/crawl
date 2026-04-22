@@ -25,7 +25,7 @@ export function placeToVenue(place: Place, ctx: TransformContext): NewVenue | nu
     cityId: ctx.cityId,
     googlePlaceId: place.id,
     name: place.displayName.text,
-    type: primaryType,
+    primaryType,
     types,
     address: place.formattedAddress ?? '',
     city: ctx.cityName,

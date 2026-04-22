@@ -42,9 +42,15 @@ export const venues = pgTable(
     cityId: uuid('city_id').references(() => cities.id, { onDelete: 'set null' }),
     googlePlaceId: text('google_place_id').unique(),
     name: text('name').notNull(),
-    type: text('type').notNull(),
+    // The venue's single "primary" Google Places type (e.g. 'bar').
+    // `types` retains the full filtered array; prefer `primaryType` when a
+    // single identifier is needed so callers aren't depending on array order.
+    primaryType: text('primary_type').notNull(),
     types: text('types').array().notNull().default(sql`'{}'::text[]`),
     address: text('address').notNull(),
+    // TODO: drop in a future migration once `cityId` is wired through all
+    // queries — the `cities` table holds the authoritative city name and this
+    // denormalized copy will drift on rename.
     city: text('city').notNull(),
     // PostGIS geography column. Drizzle doesn't have a first-class
     // PostGIS type yet — we define it as text and use raw SQL in queries.
@@ -62,6 +68,11 @@ export const venues = pgTable(
     highlights: text('highlights').array().notNull().default(sql`'{}'::text[]`),
     hotspotScore: integer('hotspot_score').notNull().default(0),
     voteCount: integer('vote_count').notNull().default(0),
+    // NOTE: currently defaults to true and is not maintained by the sync job.
+    // This value should be computed from `hours` at read time rather than
+    // stored. Future refactor: drop this column in favor of a helper that
+    // derives open/closed from `hours` + current time, and filter map markers
+    // to only show venues open *now* rather than every active venue.
     isOpen: boolean('is_open').notNull().default(true),
     isTrending: boolean('is_trending').notNull().default(false),
     isActive: boolean('is_active').notNull().default(true),

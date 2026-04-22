@@ -69,7 +69,7 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
     return venues.filter((venue) => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        if (!venue.name.toLowerCase().includes(q) && !venue.type.toLowerCase().includes(q))
+        if (!venue.name.toLowerCase().includes(q) && !venue.primaryType.toLowerCase().includes(q))
           return false;
       }
       if (activeFilterIds.length === 0) return true;

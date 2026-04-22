@@ -23,7 +23,7 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
             {venue.name}
           </Text>
           <Text className="mt-0.5 text-sm text-crawl-text-muted">
-            {venue.type} · {venue.distance}
+            {venue.primaryType} · {venue.distance}
           </Text>
         </View>
         <View className="items-end gap-1">
@@ -44,12 +44,12 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
           </View>
         </View>
         <View className="flex-row items-center gap-1">
-          {[...Array(venue.priceLevel)].map((_, i) => (
+          {[...Array(venue.priceLevel ?? 0)].map((_, i) => (
             <Text key={i} className="text-sm font-bold text-crawl-green">
               $
             </Text>
           ))}
-          {[...Array(4 - venue.priceLevel)].map((_, i) => (
+          {[...Array(4 - (venue.priceLevel ?? 0))].map((_, i) => (
             <Text key={i} className="text-sm text-crawl-text-muted">
               $
             </Text>
