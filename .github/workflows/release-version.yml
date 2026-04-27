@@ -1,0 +1,55 @@
+name: Release — Version PR (Changesets)
+
+# Aggregates pending changesets in `.changeset/` into a single "Version
+# Packages" PR. When that PR is merged, it bumps versions in each
+# package, updates each CHANGELOG.md, and removes the consumed
+# changeset files.
+#
+# Actual binary / OTA / Railway deploys are NOT triggered by this
+# workflow. They remain dispatch-gated via release-mobile.yml /
+# release-api.yml. This workflow is purely about version bookkeeping.
+#
+# All Crawl packages are `private: true` so this workflow does NOT
+# publish to npm. The `publish` step is intentionally a no-op.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: changesets-version
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version:
+    name: Open / update Version PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Create / update Version PR
+        uses: changesets/action@v1
+        with:
+          # `version` runs `changeset version`, which bumps versions and
+          # writes CHANGELOG.md. No publish — all packages are private.
+          version: npm run changeset:version
+          # No-op publish keeps the action happy without pushing to npm.
+          publish: 'echo "no-op publish (all packages private)"'
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

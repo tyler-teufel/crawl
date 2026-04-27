@@ -1,0 +1,84 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly full audit, Mondays 08:00 UTC
+    - cron: '0 8 * * 1'
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # ── CodeQL static analysis (JS/TS) ─────────────────────────────────
+  codeql:
+    name: CodeQL — JS/TS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
+
+  # ── Secret scanning with gitleaks ──────────────────────────────────
+  gitleaks:
+    name: Gitleaks — Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE is only required for org-wide scanning.
+          # Public repos and personal/individual use do not need a license.
+
+  # ── npm audit ──────────────────────────────────────────────────────
+  # On PRs / pushes: warning only (continue-on-error) so we don't block
+  # merges on a transient upstream advisory. The weekly schedule run
+  # fails loudly so we can react.
+  npm-audit:
+    name: npm audit (high+)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Audit (high severity and above)
+        id: audit
+        continue-on-error: ${{ github.event_name != 'schedule' }}
+        run: npm audit --audit-level=high

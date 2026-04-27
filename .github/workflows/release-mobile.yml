@@ -1,0 +1,174 @@
+name: Release — Mobile
+
+# Production safety: dispatch ONLY. No auto-trigger on tag push.
+# Tags are produced by this workflow and pushed back to the repo.
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'OTA (JS bundle) or binary (native build)'
+        required: true
+        default: 'ota'
+        type: choice
+        options:
+          - ota
+          - binary
+      bump:
+        description: 'Semver bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      channel:
+        description: 'EAS channel / profile'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      submit:
+        description: 'Submit to stores after binary build (production only)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-mobile-${{ inputs.channel }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # tag + push back
+
+jobs:
+  release:
+    name: Mobile release (${{ inputs.release_type }} → ${{ inputs.channel }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install deps
+        run: npm ci
+
+      # ── Validate before releasing ────────────────────────────────
+      - name: Lint
+        working-directory: apps/mobile
+        run: npm run lint
+
+      - name: TypeScript check
+        working-directory: apps/mobile
+        run: npm run typecheck
+
+      # ── Compute new version ──────────────────────────────────────
+      - name: Compute new version
+        id: version
+        working-directory: apps/mobile
+        run: |
+          OLD=$(node -p "require('./package.json').version")
+          NEW=$(node -e "
+            const [maj, min, pat] = '$OLD'.split('.').map(Number);
+            const bump = '${{ inputs.bump }}';
+            let v;
+            if (bump === 'major') v = [maj + 1, 0, 0];
+            else if (bump === 'minor') v = [maj, min + 1, 0];
+            else v = [maj, min, pat + 1];
+            console.log(v.join('.'));
+          ")
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Bumping mobile $OLD → $NEW (${{ inputs.bump }})"
+
+      # ── OTA path ─────────────────────────────────────────────────
+      - name: Push EAS Update (OTA)
+        if: inputs.release_type == 'ota'
+        working-directory: apps/mobile
+        run: |
+          eas update \
+            --channel "${{ inputs.channel }}" \
+            --message "mobile-v${{ steps.version.outputs.new }} OTA via ${{ github.actor }}" \
+            --non-interactive
+
+      - name: Compute OTA tag
+        if: inputs.release_type == 'ota'
+        id: ota_tag
+        run: |
+          TS=$(date -u +%Y%m%d%H%M%S)
+          echo "tag=mobile-v${{ steps.version.outputs.new }}-ota.$TS" >> "$GITHUB_OUTPUT"
+
+      # ── Binary path ──────────────────────────────────────────────
+      - name: Bump version in package.json (binary)
+        if: inputs.release_type == 'binary'
+        working-directory: apps/mobile
+        run: |
+          npm version "${{ steps.version.outputs.new }}" --no-git-tag-version
+
+      - name: EAS Build (binary)
+        if: inputs.release_type == 'binary'
+        working-directory: apps/mobile
+        run: |
+          PROFILE="${{ inputs.channel }}"
+          eas build \
+            --profile "$PROFILE" \
+            --platform all \
+            --non-interactive
+
+      # Store submit is gated to production + explicit opt-in via the
+      # `submit` input. We do NOT submit on staging, ever. The opt-in
+      # input prevents an accidental production release from also
+      # firing a store submission in the same run.
+      - name: EAS Submit (production only, opt-in)
+        if: inputs.release_type == 'binary' && inputs.channel == 'production' && inputs.submit == true
+        working-directory: apps/mobile
+        run: |
+          eas submit --profile production --platform all --non-interactive
+
+      - name: Commit version bump (binary)
+        if: inputs.release_type == 'binary'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile/package.json apps/mobile/package-lock.json package-lock.json 2>/dev/null || true
+          git commit -m "chore(mobile): release v${{ steps.version.outputs.new }}" || echo "Nothing to commit"
+          git push origin HEAD:${{ github.ref_name }}
+
+      # ── Tag and push ─────────────────────────────────────────────
+      - name: Create tag
+        id: tag
+        run: |
+          if [ "${{ inputs.release_type }}" = "ota" ]; then
+            TAG="${{ steps.ota_tag.outputs.tag }}"
+          else
+            TAG="mobile-v${{ steps.version.outputs.new }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Tagged $TAG"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Mobile release"
+            echo ""
+            echo "- **Type:** ${{ inputs.release_type }}"
+            echo "- **Channel:** ${{ inputs.channel }}"
+            echo "- **Version:** ${{ steps.version.outputs.old }} → ${{ steps.version.outputs.new }}"
+            echo "- **Tag:** \`${{ steps.tag.outputs.tag }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

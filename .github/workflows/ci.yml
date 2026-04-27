@@ -3,92 +3,68 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 concurrency:
-  group: ci-${{ github.head_ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  # ── Mobile app validation ─────────────────────────────────────────
-  mobile-validate:
-    name: Mobile — Lint & TypeCheck
+  # ── Turbo-affected lint / typecheck / test ─────────────────────────
+  validate:
+    name: Validate (lint, typecheck, test)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+        with:
+          # Required for Turbo affected detection (`...[origin/main]`)
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      - name: Install deps
+        run: npm ci
 
-      - name: Lint & format check
-        working-directory: apps/mobile
-        run: npm run lint
-
-      - name: TypeScript check
-        working-directory: apps/mobile
-        run: npx tsc --noEmit
-
-      - name: Expo doctor
-        working-directory: apps/mobile
-        run: npx expo-doctor
-
-  # ── API validation ─────────────────────────────────────────────────
-  api-validate:
-    name: API — Lint, TypeCheck & Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
+      - name: Cache Turbo
+        uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: npm
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
 
-      - run: npm ci
+      # On PRs we only run on packages affected since `origin/main`.
+      # On pushes to main we run everything to keep the cache warm.
+      - name: Determine Turbo filter
+        id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "filter=--filter=...[origin/${{ github.base_ref }}]" >> "$GITHUB_OUTPUT"
+          else
+            echo "filter=" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Lint
-        working-directory: apps/api
-        run: npm run lint
+      - name: Lint, typecheck, test
+        run: npx turbo run lint typecheck test ${{ steps.filter.outputs.filter }} --cache-dir=.turbo
 
-      - name: TypeScript check
-        working-directory: apps/api
-        run: npm run typecheck
-
-      - name: Unit & integration tests
-        working-directory: apps/api
-        run: npm run test
-
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v7
+      - name: Upload API coverage (if produced)
+        if: always() && hashFiles('apps/api/coverage/**') != ''
+        uses: actions/upload-artifact@v4
         with:
           name: api-coverage
           path: apps/api/coverage
           retention-days: 7
-
-  # ── Shared types validation ────────────────────────────────────────
-  shared-types-validate:
-    name: shared-types — TypeCheck
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: TypeScript check
-        working-directory: packages/shared-types
-        run: npx tsc --noEmit
+          if-no-files-found: ignore
 
   # ── Native fingerprint (Expo OTA eligibility) ─────────────────────
   fingerprint:
@@ -98,9 +74,9 @@ jobs:
     outputs:
       fingerprint-hash: ${{ steps.fingerprint.outputs.hash }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
