@@ -276,6 +276,26 @@ Exports `THEME` (light/dark color objects with HSL strings matching `global.css`
 
 Claude Code skill definition for the `/docs` command. Provides a structured 6-step process for updating documentation: (1) assess changes via `git diff`/`git log`, (2) map changed files to affected docs using a lookup table, (3) read affected docs and source files, (4) apply targeted updates per doc type, (5) include/update ASCII diagrams, (6) verify internal links and index accuracy.
 
-### `.github/workflows/ci.yaml`
+### `.github/workflows/ci.yml`
 
-GitHub Actions CI workflow file. Currently empty — placeholder for the validation pipeline described in [CI/CD Pipeline](../ops/CICD_PIPELINE.md). When populated, should run lint, type-check, and tests on push/PR to main.
+PR + push-to-main validation. Single `validate` job runs `turbo run lint typecheck test` with `--filter=...[origin/<base>]` on PRs (Turbo affected detection) and unfiltered on `main`. Caches `node_modules` and `.turbo`. Uploads `apps/api/coverage/` if produced. Parallel `fingerprint` job emits the Expo native-deps hash for OTA eligibility. See [CI/CD Pipeline](../ops/CICD_PIPELINE.md).
+
+### `.github/workflows/security.yml`
+
+Security gates run on PRs, pushes to `main`, and a weekly Monday 08:00 UTC schedule. Three jobs: **CodeQL** (`javascript-typescript`, `security-and-quality` queries), **gitleaks** (full-history secret scan), and **npm audit** (`--audit-level=high`; warn on PRs, fail on schedule).
+
+### `.github/workflows/release-mobile.yml`
+
+`workflow_dispatch`-only mobile release. Inputs: `release_type` (`ota` | `binary`), `bump`, `channel` (`staging` | `production`), `submit` (binary+production opt-in). Validates → computes version → either pushes an `eas update` OTA or runs `eas build` (and optionally `eas submit`) → tags and pushes back. Tag formats: `mobile-vX.Y.Z` for binary, `mobile-vX.Y.Z-ota.<UTC-ts>` for OTA.
+
+### `.github/workflows/release-api.yml`
+
+`workflow_dispatch`-only API release. Inputs: `bump`, `environment` (`staging` | `production`), `run_migrations`. Pipeline: `validate` → `release` (bump `apps/api/package.json`, commit, tag) → `deploy` (Railway CLI, gated by GitHub Environment) → optional `migrate` (`drizzle-kit migrate`). Production tag: `api-vX.Y.Z`; staging tag: `api-vX.Y.Z-staging`.
+
+### `.github/workflows/release-version.yml`
+
+Standard `changesets/action@v1` flow. On every push to `main`, opens or updates a single "chore(release): version packages" PR aggregating pending `.changeset/*.md` files. Merging that PR bumps versions in each affected package and writes the per-package `CHANGELOG.md`. No publish — all packages are private.
+
+### `.changeset/config.json` + `.changeset/README.md`
+
+Changesets configuration (independent semver per service, no fixed/linked groups, all packages private) and the contributor walkthrough for `npm run changeset`.

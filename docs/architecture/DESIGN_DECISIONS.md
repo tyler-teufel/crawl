@@ -64,6 +64,8 @@ Expo-router maps the file system to the navigation tree. `app/(tabs)/voting.tsx`
 
 **Migration path:** See [Maps Integration Guide](../guides/MAPS_INTEGRATION.md).
 
+**Status:** Migrated. The Explore screen now renders `CrawlMapView` (real `react-native-maps`) when the native module is present and falls back to `MapPlaceholder` only when running in environments without the native build (e.g., Expo Go without a dev client). The placeholder remains in the tree as a graceful fallback, not the default path.
+
 ---
 
 ## React Context for State Management
@@ -262,3 +264,65 @@ Route handler (HTTP)  →  Service (business logic)  →  Repository (persistenc
 **Trade-off:** Two JWT instances mean two plugin registrations and a module augmentation (`interface JWT { refresh: JWT }`) so TypeScript sees `fastify.jwt.refresh`. The extra ~10 lines are the cost of keeping the security boundary between access and refresh tokens.
 
 **Version note:** `@fastify/jwt` was upgraded from `^9.1.0` to `^10.0.0` in this change to resolve critical CVEs in `fast-jwt` (algorithm confusion — GHSA-mvf2-f6gm-w987 CVSS 9.1; cacheKey collision identity mixup — GHSA-rp9m-7r4c-75qg CVSS 9.1). Staying on v9 is not an option.
+
+---
+
+## Independent Semver per Service via Changesets
+
+**Chosen over:** lockstep repo-wide tags (`vX.Y.Z` covers everything), or hand-maintained per-service version bumps.
+
+Mobile and API ship on different cadences. Lockstep tags would force the API to bump every time the mobile app shipped — polluting the API's changelog and giving the impression of API releases that never actually happened. Independent tags (`mobile-vX.Y.Z`, `api-vX.Y.Z`, `shared-types-vX.Y.Z`) reflect what actually changed.
+
+**Why Changesets:**
+
+- **Aggregation across PRs.** Many small PRs land between releases; Changesets batches the version bumps into one "Version Packages" PR rather than mid-PR conflicts on `package.json`.
+- **Per-package bump granularity.** A single change can describe `mobile: minor, api: patch` in one file.
+- **Auto-generated CHANGELOG.md per package.** Each `apps/*/CHANGELOG.md` is appended to from the consumed changesets — no hand-maintained changelog drift.
+- **No publishing.** All Crawl packages are `private: true`. Changesets is used purely for version bookkeeping; the actual deploy is dispatched separately.
+
+**Trade-off:** One extra step in the contributor workflow (`npm run changeset` after a feature change). Documented in `.changeset/README.md`.
+
+---
+
+## Dispatch-Gated Releases
+
+**Chosen over:** auto-deploy on tag push, or auto-deploy on merge to `main`.
+
+Both `release-mobile.yml` and `release-api.yml` are `workflow_dispatch`-only. Tag pushes alone do not deploy. Two reasons:
+
+- **Human gate before reaching users.** Even after tests pass and a maintainer has approved the PR, the act of dispatching a release is an explicit decision — "yes, this version is ready to be on real devices." This is especially important for OTA, where a bad bundle reaches every user within minutes.
+- **Decouples versioning from release timing.** A maintainer can merge several features that bump versions, then choose when to actually cut a release. This avoids the failure mode where a routine merge accidentally triggers an unintended store submission.
+
+For production, a second gate is enforced by the `production` GitHub Environment with required reviewers — even after the dispatch, a designated reviewer must approve the deploy job.
+
+**Trade-off:** Releases are not zero-touch. Acceptable; the extra 30 seconds per release is the cost of not breaking production by accident.
+
+---
+
+## Fingerprint Runtime Version for OTA
+
+**Chosen over:** `runtimeVersion: { policy: "appVersion" }` or `"sdkVersion"`, or a hand-maintained string.
+
+`appVersion` and `sdkVersion` policies require the engineer to remember when to bump the runtime — and "remembering" is exactly the failure mode that ships an OTA bundle to a binary that lacks the required native code, causing crashes.
+
+`policy: "fingerprint"` (set in `apps/mobile/app.json`) computes a hash over the project's native dependencies. The runtime version becomes a property of what was actually built. EAS Update only delivers an OTA bundle to a binary whose runtime version matches — so a JS bundle built after a `react-native-maps` upgrade simply does not reach binaries built before that upgrade. The CI fingerprint job in `ci.yml` surfaces these changes during PR review.
+
+**Trade-off:** Slightly opaque — engineers can't read the runtime version off a config file, they have to ask Expo. Acceptable, because the alternative is silent OTA-induced crashes.
+
+---
+
+## Direct Supabase Query Path from Mobile
+
+**Chosen over:** routing every venue read through `apps/api`.
+
+While the Fastify API is being built out (per `docs/planning/BACKEND_IMPLEMENTATION_PLAN.md`), the mobile app reads venue data directly from Supabase using `@supabase/supabase-js` with the publishable anon key. The TanStack Query hooks in `src/api/venues.ts` branch on env vars:
+
+1. If `EXPO_PUBLIC_API_URL` is set → call the Fastify API.
+2. Else if `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_KEY` are set → query Supabase directly.
+3. Else → return mock data.
+
+**Why:** unblocks end-to-end testing on real data while the API matures. Supabase Row Level Security policies are the trust boundary on direct reads; the publishable key is safe to ship in the bundle.
+
+**Trade-off:** Two read paths to maintain. The plan is to retire the direct path once the API exposes the corresponding endpoints — at which point the mobile-side Supabase import in `src/api/venues.ts` is deleted, not refactored. This is intentionally not abstracted behind a "data source" interface; the branch is three lines and removing it is one delete.
+
+**Coordinate handling:** the venues table's `latitude` / `longitude` columns are `numeric`, which Supabase serializes as strings. `rowToVenue()` coerces them with `Number(...)` and drops rows with non-finite coordinates with a `__DEV__` warning so silent map-render failures surface during testing.
