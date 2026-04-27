@@ -30,6 +30,8 @@ const DEFAULT_VOTE_STATE: VoteState = {
 export function VenueProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<FilterOption[]>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState('');
+  // TODO(phase-b-agent-2): seed initial city based on userLocation from
+  // AuthContext (find nearest city in DB). For now we hardcode Austin, TX.
   const [selectedCity, setSelectedCity] = useState('Austin, TX');
 
   const activeFilterIds = useMemo(
