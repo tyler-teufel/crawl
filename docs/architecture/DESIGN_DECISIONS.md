@@ -326,3 +326,41 @@ While the Fastify API is being built out (per `docs/planning/BACKEND_IMPLEMENTAT
 **Trade-off:** Two read paths to maintain. The plan is to retire the direct path once the API exposes the corresponding endpoints — at which point the mobile-side Supabase import in `src/api/venues.ts` is deleted, not refactored. This is intentionally not abstracted behind a "data source" interface; the branch is three lines and removing it is one delete.
 
 **Coordinate handling:** the venues table's `latitude` / `longitude` columns are `numeric`, which Supabase serializes as strings. `rowToVenue()` coerces them with `Number(...)` and drops rows with non-finite coordinates with a `__DEV__` warning so silent map-render failures surface during testing.
+
+---
+
+## Anonymous-First Auth via Supabase
+
+**Chosen over:** mandatory account creation up front, email/password signup, Clerk/Auth0, or a bespoke JWT flow against `apps/api`.
+
+The mobile app's first-launch experience is anonymous-first. On boot the app checks AsyncStorage for an existing Supabase session; if none exists, it calls `supabase.auth.signInAnonymously()` and persists the session via the AsyncStorage adapter configured on the Supabase client. The user is immediately authenticated as an anonymous user and can use every feature that doesn't require a verified identity.
+
+**Why anonymous-first:**
+
+- **Zero-friction first run.** A user who just installed the app is one tap from the explore map. No email, no password, no "verify your inbox" loop. This is the single biggest conversion lever on a discovery app.
+- **Stable identity for votes from minute one.** Every anonymous user has a real Supabase UUID. Votes, filters, and any user-scoped data can be persisted server-side without waiting for an explicit signup.
+- **Transparent upgrade path.** When the user later taps "Continue with Apple" or "Continue with Google", supabase-js (v2.43+) calls `signInWithIdToken` against the existing anonymous session, which **upgrades the same user record in place** rather than creating a new one. The UUID is preserved, so all prior votes/preferences remain attached. No data migration step.
+
+**Why Apple + Google (and not email/password):**
+
+- **Native id_token flows are the lowest-friction third-party path on mobile.** `expo-apple-authentication` and `@react-native-google-signin/google-signin` both surface OS-level sheets — no in-app browser, no password.
+- **App Store rule 4.8** requires Sign in with Apple whenever any third-party login is offered on iOS. Apple is therefore non-negotiable on iOS; the iOS UI hides the Apple button on Android (`Platform.OS !== 'ios'` check) where Apple Sign-In has no native UX worth supporting.
+- **Email/password adds liability without value here.** Crawl is not a productivity tool where users juggle credentials; the upgrade path from anon to authed via OS providers is sufficient.
+
+**Trade-off — reinstall resets the anonymous identity.** AsyncStorage is wiped when the user uninstalls the app, so a reinstalled-but-never-linked user gets a fresh anonymous UUID. This is the explicit reason the linking flow exists: any user who values continuity across reinstalls is one tap from a permanent Apple/Google identity. Documented to the user via the auth-screen copy ("Sign in to keep your votes and preferences across devices").
+
+**Trade-off — Expo Go cannot exercise Apple/Google.** Both native modules are absent from Expo Go's Android/iOS runtime. The auth helpers therefore `require()` the native modules lazily inside `try/catch`, so the app boots and the anonymous path remains usable even in Expo Go. Real auth requires a development build or production binary.
+
+**Implementation surface:**
+
+- `src/lib/supabase.ts` — Supabase client, `auth.storage = AsyncStorage`, `persistSession: true`.
+- `src/lib/auth.ts` — `ensureSignedIn()`, `signInWithApple()`, `signInWithGoogle()`, `signOut()`.
+- `src/context/AuthContext.tsx` — exposes `user`, `isAnonymous`, `userLocation`, `linkApple`, `linkGoogle`, `signOut`. Subscribes to `supabase.auth.onAuthStateChange`.
+- `app/(onboarding)/` — three screens (`index`, `location`, `auth`) that run only on first launch, gated by `crawl.firstLaunchComplete.v1` in AsyncStorage.
+- `app/_layout.tsx` — `OnboardingGate` reads the flag and emits `<Redirect href="/(onboarding)" />` until the user completes the flow.
+
+**Required external configuration (one-time):**
+
+1. **Supabase dashboard** — enable the Apple and Google providers under Authentication → Providers. Paste the iOS bundle id and the Google Web client ID into the relevant Supabase fields.
+2. **Apple Developer** — create a Services ID for "Sign in with Apple" and tie it to the iOS bundle id. The id_token Supabase verifies is signed by Apple against this configuration.
+3. **Google Cloud Console** — create OAuth 2.0 client IDs of type "iOS" and "Web application". Set `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `apps/mobile/.env`. Paste the reversed iOS client ID into `apps/mobile/app.json` under the `@react-native-google-signin/google-signin` plugin's `iosUrlScheme`.

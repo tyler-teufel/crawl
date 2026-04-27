@@ -20,7 +20,13 @@ This document covers the project structure, navigation, state management, stylin
 ```
 crawl/
 ├── app/                        # Screens & navigation (expo-router file-based)
-│   ├── _layout.tsx             # Root: Stack + ThemeProvider + VenueProvider
+│   ├── _layout.tsx             # Root: Stack + ThemeProvider + AuthProvider
+│   │                           #         + VenueProvider + OnboardingGate
+│   ├── (onboarding)/           # First-launch group (gated by AsyncStorage flag)
+│   │   ├── _layout.tsx         # Stack, dark backdrop
+│   │   ├── index.tsx           # Welcome / brand splash
+│   │   ├── location.tsx        # Foreground location prompt (skippable)
+│   │   └── auth.tsx            # Apple / Google / anonymous entry
 │   ├── (tabs)/                 # Tab group (bottom tab navigator)
 │   │   ├── _layout.tsx         # Tabs config + custom TabBar
 │   │   ├── index.tsx           # Explore screen (map + carousel)
@@ -75,6 +81,10 @@ import { useCountdown } from '@/hooks/useCountdown'; // → src/hooks/useCountdo
 
 ```
 Root Stack (app/_layout.tsx)
+├── (onboarding)                    # First-launch only (AsyncStorage gate)
+│   ├── index        → /           # Welcome splash
+│   ├── location     → /location   # Foreground location prompt (skippable)
+│   └── auth         → /auth       # Apple / Google / anonymous
 ├── (tabs)                          # Tab navigator
 │   ├── index        → /           # Explore (default tab)
 │   ├── voting       → /voting     # Daily votes
@@ -83,6 +93,16 @@ Root Stack (app/_layout.tsx)
 ├── venue/[id]       → /venue/123  # Venue detail (push)
 └── filters          → /filters    # Filter modal (transparentModal)
 ```
+
+### First-Launch Gate
+
+`app/_layout.tsx` renders an `OnboardingGate` component that reads
+`crawl.firstLaunchComplete.v1` from AsyncStorage. Until the flag is set, the
+gate emits `<Redirect href="/(onboarding)" />` so the user lands on the
+welcome splash. The flag is written by `markOnboardingComplete()` after the
+user picks an auth path on `/auth`. Subsequent launches skip the onboarding
+group entirely. Reinstalling the app clears AsyncStorage and restarts the
+flow.
 
 ### Navigation Stack Behavior
 
@@ -143,9 +163,28 @@ The default React Navigation tab bar is replaced by `components/layout/TabBar.ts
 
 ### Current Approach: React Context
 
-All shared state lives in a single `VenueContext` provided at the root layout level.
+Shared state lives in two providers stacked at the root layout level.
+`AuthProvider` sits above `VenueProvider` so any future query in
+`VenueProvider` can read the user.
 
 ```
+AuthProvider (app/_layout.tsx)
+│
+├── Identity
+│   ├── user: User | null            # Supabase auth user (anon or linked)
+│   ├── isAnonymous: boolean         # is_anonymous flag from supabase-js
+│   └── initializing: boolean        # true until first getSession resolves
+│
+├── Onboarding capture
+│   ├── userLocation: { latitude, longitude } | null
+│   └── setUserLocation(loc)
+│
+└── Actions
+    ├── linkApple()                  # Apple ID-token sign-in / link
+    ├── linkGoogle()                 # Google ID-token sign-in / link
+    └── signOut()
+        │
+        ▼
 VenueProvider (app/_layout.tsx)
 │
 ├── Data
@@ -168,6 +207,10 @@ VenueProvider (app/_layout.tsx)
     ├── castVote(venueId)            # Use a vote (if remaining > 0)
     └── removeVote(venueId)          # Undo a vote (restore to remaining)
 ```
+
+`AuthProvider` subscribes to `supabase.auth.onAuthStateChange` so the
+`user` and `isAnonymous` fields update automatically when an anonymous
+user is upgraded to a permanent identity via Apple or Google linking.
 
 ### Why Context at Root?
 

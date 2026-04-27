@@ -9,7 +9,7 @@ Every file in the Crawl project with detailed descriptions of its purpose and be
 | File                  | Purpose                                                                                                                                                                                                                                                                                                                                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `package.json`        | Project dependencies and npm scripts. Entry point is `expo-router/entry`. Key scripts: `start` (dev server), `lint` (ESLint + Prettier check), `format` (auto-fix), `prebuild` (native build prep).                                                                                                                                                                                                              |
-| `app.json`            | Expo app configuration. Dark mode UI (`userInterfaceStyle: "dark"`), dark splash background (#0a0a0f), expo-router plugin, portrait orientation. iOS tablet support enabled, Android adaptive icon configured.                                                                                                                                                                                                   |
+| `app.json`            | Expo app configuration. Dark mode UI (`userInterfaceStyle: "dark"`), dark splash background (#0a0a0f), portrait orientation. Plugins: `expo-router`, `expo-apple-authentication`, `expo-location` (with usage description strings), `@react-native-google-signin/google-signin` (with `iosUrlScheme` placeholder). iOS tablet support enabled with `usesAppleSignIn: true`; Android adaptive icon configured.                                                                                                                                                                                                   |
 | `tsconfig.json`       | TypeScript configuration. Extends `expo/tsconfig.base`. Strict mode enabled. Path alias `@/*` → `src/*`.                                                                                                                                                                                                                                                                                                         |
 | `babel.config.js`     | Babel preset configuration. Uses `babel-preset-expo` with `jsxImportSource: 'nativewind'` (enables `className` on JSX), `nativewind/babel` for CSS processing, and `react-native-worklets/plugin` for worklet thread support.                                                                                                                                                                                    |
 | `metro.config.js`     | Metro bundler configuration. Wraps the default Expo config with `withNativeWind()` which processes `global.css` and sets `inlineRem: 16` (converts rem units to 16px base for React Native).                                                                                                                                                                                                                     |
@@ -31,10 +31,34 @@ The top-level layout wrapping the entire application. Responsibilities:
 - **Imports `global.css`** — triggers NativeWind CSS processing
 - **`ThemeProvider`** — from `@react-navigation/native`, provides the `NAV_THEME` matching the current color scheme to React Navigation internals
 - **`useColorScheme`** — from NativeWind, detects system color scheme. An `useEffect` forces dark mode on mount
+- **`AuthProvider`** — bootstraps the Supabase session (anonymous if none persisted) and exposes auth + location state to the rest of the app. Sits **above** `VenueProvider` so future user-scoped queries can read the user.
 - **`VenueProvider`** — React Context wrapping all routes so filter state, search, and votes are shared between tabs, modals, and stack screens
-- **`Stack` navigator** — three routes: `(tabs)` (default), `venue/[id]` (push navigation), and `filters` (transparent modal with fade animation)
+- **`Stack` navigator** — four route entries: `(onboarding)` (first-launch group), `(tabs)` (default), `venue/[id]` (push navigation), and `filters` (transparent modal with fade animation)
+- **`OnboardingGate`** — sibling of `Stack` that reads `crawl.firstLaunchComplete.v1` from AsyncStorage; until the flag is set, emits `<Redirect href="/(onboarding)" />` so first-launch users land on the welcome splash
 - **`StatusBar`** — set to `"light"` for white status bar text against the dark background
 - **`PortalHost`** — from `@rn-primitives/portal`, rendered last to support overlay rendering for RNR components (dialogs, selects, etc.)
+
+### `app/(onboarding)/_layout.tsx` — Onboarding Stack
+
+Stack navigator for the first-launch flow. `headerShown: false`, dark backdrop. Registers the three onboarding screens (`index`, `location`, `auth`).
+
+### `app/(onboarding)/index.tsx` — Welcome Splash
+
+Centered brand splash: Crawl logo glyph, name, one-line value prop, and a "Get Started" CTA that pushes `/location`. Safe-area-aware top/bottom padding.
+
+### `app/(onboarding)/location.tsx` — Location Permission
+
+Prompts for foreground location. The "Enable Location" CTA dynamically requires `expo-location` (lazy import for Expo Go safety), calls `requestForegroundPermissionsAsync()`, and on grant calls `getCurrentPositionAsync({ accuracy: Balanced })`. The resulting `{ latitude, longitude }` is stashed in `AuthContext.userLocation` for Phase B Agent 2 to consume when seeding the initial city. A "Not now" link skips without prompting; both paths route to `/auth`.
+
+### `app/(onboarding)/auth.tsx` — Auth Choice
+
+Three vertically-stacked buttons:
+
+- **Continue with Apple** — iOS only (hidden on Android via `Platform.OS` check), required by App Store rule 4.8. Calls `linkApple()`.
+- **Continue with Google** — both platforms. Calls `linkGoogle()`.
+- **Continue anonymously** — calls `ensureSignedIn()`, which is a no-op if an anonymous session already exists.
+
+All three paths call `markOnboardingComplete()` and `router.replace('/(tabs)')`. Errors surface via `Alert.alert` with the helper's message — Apple/Google native module absence (Expo Go) flows through this path.
 
 ### `app/(tabs)/_layout.tsx` — Tab Layout
 
@@ -254,7 +278,15 @@ export const colors = {
 
 ### `src/context/VenueContext.tsx`
 
-React Context provider and `useVenueContext()` hook. Manages filter state, search query, city selection, and vote state. Derives `filteredVenues` by applying search and active filter logic. Uses `useCallback` for memoized action functions. See the [Architecture](./ARCHITECTURE.md#3-state-management) doc for the full state tree.
+React Context provider and `useVenueContext()` hook. Manages filter state, search query, city selection, and vote state. Derives `filteredVenues` by applying search and active filter logic. Uses `useCallback` for memoized action functions. The hardcoded `selectedCity` default ("Austin, TX") is marked with a `TODO(phase-b-agent-2)` to swap to `userLocation`-derived city resolution. See the [Architecture](./ARCHITECTURE.md#3-state-management) doc for the full state tree.
+
+### `src/context/AuthContext.tsx`
+
+Auth state + identity context. Bootstraps the Supabase session on mount via `ensureSignedIn()` (creates an anonymous user if none persisted). Subscribes to `supabase.auth.onAuthStateChange` so `user` and `isAnonymous` track the current identity — including the in-place upgrade that occurs when an anonymous user signs in with Apple or Google. Exposes:
+
+- `user`, `isAnonymous`, `initializing`
+- `userLocation`, `setUserLocation` — used by `app/(onboarding)/location.tsx` to stash the foreground-permission coords; available to consumers (e.g. Phase B Agent 2's city resolver)
+- `linkApple()`, `linkGoogle()`, `signOut()` — bound versions of the helpers in `src/lib/auth.ts`
 
 ### `src/hooks/useCountdown.ts`
 
@@ -267,6 +299,28 @@ Exports the `cn()` function — combines `clsx` (conditional class logic) with `
 ### `src/lib/theme.ts`
 
 Exports `THEME` (light/dark color objects with HSL strings matching `global.css`) and `NAV_THEME` (React Navigation theme objects extending `DefaultTheme` and `DarkTheme`). The dark theme values are mapped to Crawl's color palette. Used by `ThemeProvider` in the root layout.
+
+### `src/lib/auth.ts`
+
+Auth helpers used by `AuthContext` and the onboarding auth screen:
+
+- `ensureSignedIn()` — returns the existing Supabase user, or signs in anonymously if no session is persisted.
+- `signInWithApple()` — iOS-only; lazily requires `expo-apple-authentication`, requests `FULL_NAME` + `EMAIL` scopes, then exchanges the `identityToken` via `supabase.auth.signInWithIdToken({ provider: 'apple' })`. When called with an active anonymous session, supabase-js upgrades the existing user in place rather than creating a new one.
+- `signInWithGoogle()` — same pattern using `@react-native-google-signin/google-signin`. Reads `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (and optional `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`) and configures `GoogleSignin` once on first call.
+- `signOut()` — passthrough to `supabase.auth.signOut()`.
+
+Native module imports are wrapped in `try/catch` so the JS bundle still boots in Expo Go (where the native modules are absent); the helpers throw a descriptive error when invoked there instead.
+
+### `src/lib/onboarding.ts`
+
+Two helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
+
+- `isOnboardingComplete()` — read flag.
+- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/auth.tsx` once the user picks any auth path).
+
+### `src/lib/supabase.ts`
+
+Supabase client singleton. Configured with `auth.storage = AsyncStorage`, `autoRefreshToken: true`, `persistSession: true`, `detectSessionInUrl: false`. Reads `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY`; throws at import time if either is missing.
 
 ---
 
