@@ -148,11 +148,11 @@ jobs:
       name: ${{ inputs.environment }}
       url: ${{ inputs.environment == 'production' && vars.PRODUCTION_URL || vars.STAGING_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
