@@ -75,7 +75,7 @@ jobs:
   # ── Bump version + tag ───────────────────────────────────────────
   release:
     name: Release (${{ inputs.environment }})
-    needs: validate
+    needs: [validate, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: ${{ inputs.environment }}
@@ -136,56 +136,57 @@ jobs:
           git push origin "$TAG"
           echo "Tagged $TAG"
 
-  # ── Deploy via Railway CLI ───────────────────────────────────────
-  # Production deploys are gated by the `production` GitHub Environment
-  # (configured with required reviewers in repo settings).
-  # deploy:
-  #   name: Deploy (${{ inputs.environment }})
-  #   needs: release
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   environment:
-  #     name: ${{ inputs.environment }}
-  #     url: ${{ inputs.environment == 'production' && vars.PRODUCTION_URL || vars.STAGING_URL }}
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #       with:
-  #         ref: ${{ needs.release.outputs.tag }}
+    # ── Build & Push Docker image ─────────────────────────────────────────────
+  build-and-push:
+    name: Build Docker Image
+    needs: [release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TAG: ${{ needs.release.outputs.tag }}
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
 
-  #     - uses: actions/setup-node@v6
-  #       with:
-  #         node-version: 22
-  #         cache: npm
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-  #     - name: Install deps
-  #       run: npm ci
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: Install Railway CLI
-  #       run: npm i -g @railway/cli
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/api
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
-  #     # Railway service name is configured per-environment in repo Variables.
-  #     # Set vars.RAILWAY_SERVICE_STAGING and vars.RAILWAY_SERVICE_PRODUCTION
-  #     # in the GitHub Environment.
-  #     - name: Deploy to Railway
-  #       env:
-  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-  #       run: |
-  #         SERVICE="${{ inputs.environment == 'production' && vars.RAILWAY_SERVICE_PRODUCTION || vars.RAILWAY_SERVICE_STAGING }}"
-  #         if [ -z "$SERVICE" ]; then
-  #           echo "::warning::Railway service variable not set. Skipping deploy."
-  #           echo "Set vars.RAILWAY_SERVICE_STAGING / vars.RAILWAY_SERVICE_PRODUCTION."
-  #           exit 0
-  #         fi
-  #         echo "Deploying api → $SERVICE"
-  #         railway up --service "$SERVICE" --detach
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+          build-args: |
+            APP_VERSION=${{ env.TAG }}
 
-  # ── Optional: run drizzle-kit migrate ────────────────────────────
-  # Migrations are gated behind an explicit input. drizzle-kit migrate is
-  # non-destructive (forward-only). Anything destructive (db:push with
-  # --force, drops, etc.) must be done manually with eyes on it.
   migrate:
     name: Migrate DB (${{ inputs.environment }})
-    needs: [release, deploy]
+    needs: [release, build-and-push]
     if: inputs.run_migrations == true
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -212,7 +213,7 @@ jobs:
   summary:
     name: Summary
     # needs: [release, deploy]
-    needs: [release]
+    needs: [release, build-and-push]
     if: always()
     runs-on: ubuntu-latest
     steps:
