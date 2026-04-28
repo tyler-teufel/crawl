@@ -75,7 +75,7 @@ jobs:
   # ── Bump version + tag ───────────────────────────────────────────
   release:
     name: Release (${{ inputs.environment }})
-    needs: [validate, build]
+    needs: [validate]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: ${{ inputs.environment }}
