@@ -211,7 +211,8 @@ jobs:
 
   summary:
     name: Summary
-    needs: [release, deploy]
+    # needs: [release, deploy]
+    needs: [release]
     if: always()
     runs-on: ubuntu-latest
     steps:
