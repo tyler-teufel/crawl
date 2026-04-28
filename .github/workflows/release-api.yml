@@ -48,11 +48,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -83,11 +83,11 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       version: ${{ steps.version.outputs.new }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -139,45 +139,45 @@ jobs:
   # ── Deploy via Railway CLI ───────────────────────────────────────
   # Production deploys are gated by the `production` GitHub Environment
   # (configured with required reviewers in repo settings).
-  deploy:
-    name: Deploy (${{ inputs.environment }})
-    needs: release
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment:
-      name: ${{ inputs.environment }}
-      url: ${{ inputs.environment == 'production' && vars.PRODUCTION_URL || vars.STAGING_URL }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.release.outputs.tag }}
+  # deploy:
+  #   name: Deploy (${{ inputs.environment }})
+  #   needs: release
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 15
+  #   environment:
+  #     name: ${{ inputs.environment }}
+  #     url: ${{ inputs.environment == 'production' && vars.PRODUCTION_URL || vars.STAGING_URL }}
+  #   steps:
+  #     - uses: actions/checkout@v6
+  #       with:
+  #         ref: ${{ needs.release.outputs.tag }}
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
+  #     - uses: actions/setup-node@v6
+  #       with:
+  #         node-version: 22
+  #         cache: npm
 
-      - name: Install deps
-        run: npm ci
+  #     - name: Install deps
+  #       run: npm ci
 
-      - name: Install Railway CLI
-        run: npm i -g @railway/cli
+  #     - name: Install Railway CLI
+  #       run: npm i -g @railway/cli
 
-      # Railway service name is configured per-environment in repo Variables.
-      # Set vars.RAILWAY_SERVICE_STAGING and vars.RAILWAY_SERVICE_PRODUCTION
-      # in the GitHub Environment.
-      - name: Deploy to Railway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          SERVICE="${{ inputs.environment == 'production' && vars.RAILWAY_SERVICE_PRODUCTION || vars.RAILWAY_SERVICE_STAGING }}"
-          if [ -z "$SERVICE" ]; then
-            echo "::warning::Railway service variable not set. Skipping deploy."
-            echo "Set vars.RAILWAY_SERVICE_STAGING / vars.RAILWAY_SERVICE_PRODUCTION."
-            exit 0
-          fi
-          echo "Deploying api → $SERVICE"
-          railway up --service "$SERVICE" --detach
+  #     # Railway service name is configured per-environment in repo Variables.
+  #     # Set vars.RAILWAY_SERVICE_STAGING and vars.RAILWAY_SERVICE_PRODUCTION
+  #     # in the GitHub Environment.
+  #     - name: Deploy to Railway
+  #       env:
+  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  #       run: |
+  #         SERVICE="${{ inputs.environment == 'production' && vars.RAILWAY_SERVICE_PRODUCTION || vars.RAILWAY_SERVICE_STAGING }}"
+  #         if [ -z "$SERVICE" ]; then
+  #           echo "::warning::Railway service variable not set. Skipping deploy."
+  #           echo "Set vars.RAILWAY_SERVICE_STAGING / vars.RAILWAY_SERVICE_PRODUCTION."
+  #           exit 0
+  #         fi
+  #         echo "Deploying api → $SERVICE"
+  #         railway up --service "$SERVICE" --detach
 
   # ── Optional: run drizzle-kit migrate ────────────────────────────
   # Migrations are gated behind an explicit input. drizzle-kit migrate is
@@ -191,11 +191,11 @@ jobs:
     timeout-minutes: 10
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
