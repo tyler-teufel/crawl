@@ -147,6 +147,14 @@ jobs:
     needs: [release]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Job-level permissions REPLACE the top-level block, so we re-declare
+    # `contents: read` for actions/checkout. `packages: write` is what was
+    # missing — without it, the GITHUB_TOKEN can authenticate to ghcr.io but
+    # the actual layer push is denied with "installation not allowed to
+    # Write organization package."
+    permissions:
+      contents: read
+      packages: write
     env:
       TAG: ${{ needs.release.outputs.tag }}
     outputs:
