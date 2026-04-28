@@ -419,3 +419,27 @@ VenueContext now seeds `selectedCity` from the user's onboarding-captured locati
 The `venues` table currently denormalizes city as a `"Name, State"` text column (with a TODO in the schema to migrate to `cityId` lookups). The mobile app keys queries off this same string so the data path stays simple. When the schema migration to `cityId` lands, swap to UUID in one place (`useVenues`) without touching the rest of the context. Switching now would require two reads in lockstep — schema cleanup first, app change second.
 
 **Trade-off:** the display string format must stay consistent across `cities.name + ', ' + cities.state` and `venues.city`. The seed and sync jobs currently produce this format; document this contract in `apps/api/src/jobs/syncVenues` if a contributor proposes changing it.
+
+---
+
+## Loading and Error UI
+
+**Chosen over:** ad-hoc per-screen spinners, blocking modals on failure, no offline indicator, custom skeletons per surface.
+
+Every data-driven screen renders one of three states based on the underlying TanStack Query: skeleton (no cached data, fetch in flight), error fallback (query failed), or empty (query succeeded with zero results). The previous code silently rendered an empty list whenever a fetch failed.
+
+**Primitives** (in `components/ui/`):
+
+- **`Skeleton`** — a single component sized via NativeWind classes (`<Skeleton className="h-4 w-32 rounded" />`). One Reanimated 3 opacity loop drives the pulse on the UI thread. No per-screen variants — every skeleton block is this one component, and per-surface "shapes" (e.g. `VenueCardSkeleton`) are just compositions of `Skeleton`s arranged to match the loaded silhouette. This rule keeps the visual language consistent and means tweaking the pulse is one file, not twelve.
+- **`ErrorState`** — title + message + optional retry button. Used whenever `isError` is true on a query. Always offers a retry path when one is provided.
+- **`EmptyState`** — same shape as `ErrorState` but for the "succeeded with zero results" case (e.g. filters exclude every venue). Distinct semantically: no failure occurred, so the language and CTA differ.
+
+**`isLoading` semantics — skeleton only when no cached data exists.** TanStack Query's `isLoading` is true on the *first* fetch with no cache; once the city or filter set has been seen before, switching back uses cache while a refetch happens in the background. Skeletons therefore only appear on the cold path; subsequent toggles show stale data immediately. This matches user intuition (instant response on familiar choices) and avoids skeleton flicker on every chip toggle.
+
+**Loading/error are lifted out of `VenueContext`.** The provider exposes `isVenuesLoading`, `isVenuesError`, and `refetchVenues` so screens never have to call `useVenues` again to read its status. One source of truth, no double-subscription.
+
+**Connectivity banner over a blocking modal.** A non-blocking `OfflineBanner` (under the status bar, red background) appears when `@react-native-community/netinfo` reports `isInternetReachable === false`. It does NOT block the UI — TanStack Query's cache continues to serve stale results, and queries fail gracefully on their own. The banner is signal, not a gate. Modal-style "you're offline" overlays are user-hostile when a cached experience would still be usable; this is the lighter touch.
+
+**NetInfo as a lazy require.** The banner imports netinfo via `try { require(...) }` so the module's absence (Expo Go without a dev client, or before the package is installed) makes the banner a no-op rather than crashing the app at module load.
+
+**Trade-off:** Three states per screen is more wiring than a single spinner. Mitigated by the shared primitives — each screen adds ~10 lines of conditional rendering, not custom UI. Accepted as the cost of failing gracefully.

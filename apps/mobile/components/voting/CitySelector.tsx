@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVenueContext } from '@/context/VenueContext';
 import { useCities } from '@/api/cities';
+import { Skeleton } from '../ui/Skeleton';
+import { ErrorState } from '../ui/States';
 
 export function CitySelector() {
   const { selectedCity, setSelectedCity } = useVenueContext();
-  const { data: cities = [] } = useCities();
+  const { data: cities = [], isLoading, isError, refetch } = useCities();
   const [open, setOpen] = useState(false);
 
   return (
@@ -30,7 +32,19 @@ export function CitySelector() {
             className="w-full max-w-sm rounded-2xl bg-crawl-card p-4">
             <Text className="mb-3 text-base font-semibold text-white">Select city</Text>
             <ScrollView className="max-h-80" showsVerticalScrollIndicator={false}>
-              {cities.length === 0 ? (
+              {isLoading ? (
+                <View>
+                  {[0, 1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="mb-2 h-10 w-full rounded-lg" />
+                  ))}
+                </View>
+              ) : isError ? (
+                <ErrorState
+                  title="Couldn't load cities"
+                  message="Check your connection."
+                  onRetry={() => refetch()}
+                />
+              ) : cities.length === 0 ? (
                 <Text className="py-2 text-sm text-crawl-text-muted">No cities available yet.</Text>
               ) : (
                 cities.map((c) => {

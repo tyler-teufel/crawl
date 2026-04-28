@@ -7,11 +7,14 @@ import { VoteCounter } from '../../components/voting/VoteCounter';
 import { CountdownTimer } from '../../components/voting/CountdownTimer';
 import { CitySelector } from '../../components/voting/CitySelector';
 import { VenueListItem } from '../../components/venue/VenueListItem';
+import { VenueListItemSkeleton } from '../../components/venue/VenueListItemSkeleton';
+import { ErrorState, EmptyState } from '../../components/ui/States';
 
 export default function VotingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { venues, voteState, castVote, removeVote } = useVenueContext();
+  const { venues, voteState, castVote, removeVote, isVenuesLoading, isVenuesError, refetchVenues } =
+    useVenueContext();
 
   const sortedVenues = [...venues].sort((a, b) => b.hotspotScore - a.hotspotScore);
 
@@ -49,28 +52,47 @@ export default function VotingScreen() {
 
         {/* Venue list */}
         <View className="mt-4 px-4 pb-4">
-          {sortedVenues.map((venue, index) => {
-            const hasVoted = voteState.votedVenueIds.includes(venue.id);
-            const canVote = voteState.remainingVotes > 0;
+          {isVenuesLoading ? (
+            <>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <VenueListItemSkeleton key={i} />
+              ))}
+            </>
+          ) : isVenuesError ? (
+            <ErrorState
+              title="Couldn't load rankings"
+              message="Check your connection and try again."
+              onRetry={refetchVenues}
+            />
+          ) : sortedVenues.length === 0 ? (
+            <EmptyState
+              title="No venues yet"
+              message="Nothing's been submitted for this city tonight."
+            />
+          ) : (
+            sortedVenues.map((venue, index) => {
+              const hasVoted = voteState.votedVenueIds.includes(venue.id);
+              const canVote = voteState.remainingVotes > 0;
 
-            return (
-              <VenueListItem
-                key={venue.id}
-                venue={venue}
-                rank={index + 1}
-                hasVoted={hasVoted}
-                canVote={canVote}
-                onVote={() => {
-                  if (hasVoted) {
-                    removeVote(venue.id);
-                  } else {
-                    castVote(venue.id);
-                  }
-                }}
-                onPress={() => router.push(`/venue/${venue.id}`)}
-              />
-            );
-          })}
+              return (
+                <VenueListItem
+                  key={venue.id}
+                  venue={venue}
+                  rank={index + 1}
+                  hasVoted={hasVoted}
+                  canVote={canVote}
+                  onVote={() => {
+                    if (hasVoted) {
+                      removeVote(venue.id);
+                    } else {
+                      castVote(venue.id);
+                    }
+                  }}
+                  onPress={() => router.push(`/venue/${venue.id}`)}
+                />
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </View>

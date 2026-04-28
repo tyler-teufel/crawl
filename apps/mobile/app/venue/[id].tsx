@@ -8,6 +8,8 @@ import { useCastVote, useVoteState } from '@/api/votes';
 import { useVenueContext } from '@/context/VenueContext';
 import { HotspotScore } from '../../components/venue/HotspotScore';
 import { Badge } from '../../components/ui/Badge';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { ErrorState } from '../../components/ui/States';
 
 export default function VenueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,7 +17,7 @@ export default function VenueDetailScreen() {
   const insets = useSafeAreaInsets();
   const { selectedCity } = useVenueContext();
 
-  const { data: venue, isLoading } = useVenue(id!);
+  const { data: venue, isLoading, isError, refetch } = useVenue(id!);
   const { data: voteState } = useVoteState(selectedCity);
   const castVote = useCastVote(selectedCity);
 
@@ -29,16 +31,66 @@ export default function VenueDetailScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-crawl-bg">
-        <ActivityIndicator color="#a855f7" />
+      <View className="flex-1 bg-crawl-bg" style={{ paddingTop: insets.top }}>
+        <View className="flex-row items-center justify-between px-4 py-3">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="h-10 w-10 rounded-full" />
+        </View>
+        <Skeleton className="mx-4 h-48 rounded-2xl" />
+        <View className="mt-4 px-4">
+          <Skeleton className="h-7 w-2/3 rounded" />
+          <Skeleton className="mt-2 h-4 w-1/2 rounded" />
+        </View>
+        <View className="mt-6 items-center">
+          <Skeleton className="h-32 w-32 rounded-full" />
+        </View>
+        <View className="mt-6 px-4">
+          <Skeleton className="h-12 w-full rounded-full" />
+        </View>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View className="flex-1 bg-crawl-bg" style={{ paddingTop: insets.top }}>
+        <View className="flex-row items-center px-4 py-3">
+          <Pressable
+            onPress={() => router.back()}
+            className="h-10 w-10 items-center justify-center rounded-full bg-crawl-card">
+            <Ionicons name="arrow-back" size={20} color="#fff" />
+          </Pressable>
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <ErrorState
+            title="Couldn't load venue"
+            message="Check your connection and try again."
+            onRetry={() => refetch()}
+          />
+        </View>
       </View>
     );
   }
 
   if (!venue) {
     return (
-      <View className="flex-1 items-center justify-center bg-crawl-bg">
-        <Text className="text-white">Venue not found</Text>
+      <View className="flex-1 bg-crawl-bg" style={{ paddingTop: insets.top }}>
+        <View className="flex-row items-center px-4 py-3">
+          <Pressable
+            onPress={() => router.back()}
+            className="h-10 w-10 items-center justify-center rounded-full bg-crawl-card">
+            <Ionicons name="arrow-back" size={20} color="#fff" />
+          </Pressable>
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <ErrorState
+            title="Venue not found"
+            message="This venue may have been removed."
+            icon="help-circle-outline"
+            onRetry={() => router.back()}
+            retryLabel="Go back"
+          />
+        </View>
       </View>
     );
   }

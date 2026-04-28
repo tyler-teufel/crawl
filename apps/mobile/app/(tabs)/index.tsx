@@ -8,7 +8,9 @@ import { FilterChip } from '../../components/ui/FilterChip';
 import { CrawlMapView } from '../../components/map/CrawlMapView';
 import { MapPlaceholder } from '../../components/map/MapPlaceholder';
 import { VenueCard } from '../../components/venue/VenueCard';
+import { VenueCardSkeleton } from '../../components/venue/VenueCardSkeleton';
 import { CitySelector } from '../../components/voting/CitySelector';
+import { ErrorState, EmptyState } from '../../components/ui/States';
 
 const CARD_WIDTH = Dimensions.get('window').width * 0.8;
 
@@ -27,7 +29,17 @@ try {
 
 export default function ExploreScreen() {
   const router = useRouter();
-  const { filteredVenues, filters, toggleFilter, searchQuery, setSearchQuery } = useVenueContext();
+  const {
+    filteredVenues,
+    filters,
+    toggleFilter,
+    searchQuery,
+    setSearchQuery,
+    resetFilters,
+    isVenuesLoading,
+    isVenuesError,
+    refetchVenues,
+  } = useVenueContext();
   const flatListRef = useRef<FlatList>(null);
 
   const handleVenuePress = (venue: { id: string }) => router.push(`/venue/${venue.id}`);
@@ -77,19 +89,43 @@ export default function ExploreScreen() {
 
       {/* Bottom venue carousel */}
       <View className="pb-2">
-        <FlatList
-          ref={flatListRef}
-          data={filteredVenues}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={CARD_WIDTH + 16}
-          decelerationRate="fast"
-          contentContainerStyle={{ paddingHorizontal: 16 }}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <VenueCard venue={item} width={CARD_WIDTH} onPress={() => handleVenuePress(item)} />
-          )}
-        />
+        {isVenuesLoading ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16 }}>
+            {[0, 1, 2].map((i) => (
+              <VenueCardSkeleton key={i} width={CARD_WIDTH} />
+            ))}
+          </ScrollView>
+        ) : isVenuesError ? (
+          <ErrorState
+            title="Couldn't load venues"
+            message="Check your connection and try again."
+            onRetry={refetchVenues}
+          />
+        ) : filteredVenues.length === 0 ? (
+          <EmptyState
+            title="No venues match your filters"
+            message="Try clearing a chip or switching cities."
+            onRetry={resetFilters}
+            retryLabel="Clear filters"
+          />
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={filteredVenues}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={CARD_WIDTH + 16}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingHorizontal: 16 }}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <VenueCard venue={item} width={CARD_WIDTH} onPress={() => handleVenuePress(item)} />
+            )}
+          />
+        )}
       </View>
     </SafeAreaView>
   );

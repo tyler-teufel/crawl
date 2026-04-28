@@ -27,6 +27,12 @@ interface VenueContextValue {
   castVote: (venueId: string) => void;
   removeVote: (venueId: string) => void;
   filteredVenues: Venue[];
+  /** True while the venues query has no cached data yet for the current key. */
+  isVenuesLoading: boolean;
+  /** True if the venues query is currently in an error state. */
+  isVenuesError: boolean;
+  /** Manually retry the venues query. */
+  refetchVenues: () => void;
 }
 
 const VenueContext = createContext<VenueContextValue | null>(null);
@@ -77,10 +83,22 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
 
   // Server-side filtering happens inside `useVenues` (see venues.ts). The
   // queryKey includes city + sorted filters, so changes refetch automatically.
-  const { data: venues = [] } = useVenues(selectedCity, activeFilterIds);
+  const venuesQuery = useVenues(selectedCity, activeFilterIds);
+  // Memoize the empty default so `venues` is stable across renders when the
+  // query is still loading — otherwise downstream useMemo deps thrash.
+  const venues = useMemo(() => venuesQuery.data ?? [], [venuesQuery.data]);
   const { data: voteState = DEFAULT_VOTE_STATE } = useVoteState(selectedCity);
   const castVoteMutation = useCastVote(selectedCity);
   const removeVoteMutation = useRemoveVote(selectedCity);
+
+  // `isLoading` is only true on the *first* fetch with no cached data — once
+  // a city has been seen, switching back uses cache while a refetch happens
+  // in the background. Skeletons should only show in the no-data case.
+  const isVenuesLoading = venuesQuery.isLoading;
+  const isVenuesError = venuesQuery.isError;
+  const refetchVenues = useCallback(() => {
+    void venuesQuery.refetch();
+  }, [venuesQuery]);
 
   const toggleFilter = useCallback((id: string) => {
     setFilters((prev) => prev.map((f) => (f.id === id ? { ...f, enabled: !f.enabled } : f)));
@@ -129,6 +147,9 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
         castVote,
         removeVote,
         filteredVenues,
+        isVenuesLoading,
+        isVenuesError,
+        refetchVenues,
       }}>
       {children}
     </VenueContext.Provider>

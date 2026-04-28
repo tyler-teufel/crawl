@@ -12,6 +12,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
 import { isOnboardingComplete } from '@/lib/onboarding';
+import { OfflineBanner } from '../components/ui/OfflineBanner';
 
 export default function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme();
@@ -47,6 +48,7 @@ export default function RootLayout() {
               />
             </Stack>
             <OnboardingGate />
+            <OfflineBanner />
             <StatusBar style="light" />
             <PortalHost />
           </VenueProvider>
