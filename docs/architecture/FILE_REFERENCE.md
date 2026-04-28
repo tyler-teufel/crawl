@@ -9,7 +9,7 @@ Every file in the Crawl project with detailed descriptions of its purpose and be
 | File                  | Purpose                                                                                                                                                                                                                                                                                                                                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `package.json`        | Project dependencies and npm scripts. Entry point is `expo-router/entry`. Key scripts: `start` (dev server), `lint` (ESLint + Prettier check), `format` (auto-fix), `prebuild` (native build prep).                                                                                                                                                                                                              |
-| `app.json`            | Expo app configuration. Dark mode UI (`userInterfaceStyle: "dark"`), dark splash background (#0a0a0f), expo-router plugin, portrait orientation. iOS tablet support enabled, Android adaptive icon configured.                                                                                                                                                                                                   |
+| `app.json`            | Expo app configuration. Dark mode UI (`userInterfaceStyle: "dark"`), dark splash background (#0a0a0f), portrait orientation. Plugins: `expo-router`, `expo-apple-authentication`, `expo-location` (with usage description strings), `@react-native-google-signin/google-signin` (with `iosUrlScheme` placeholder). iOS tablet support enabled with `usesAppleSignIn: true`; Android adaptive icon configured.                                                                                                                                                                                                   |
 | `tsconfig.json`       | TypeScript configuration. Extends `expo/tsconfig.base`. Strict mode enabled. Path alias `@/*` → `src/*`.                                                                                                                                                                                                                                                                                                         |
 | `babel.config.js`     | Babel preset configuration. Uses `babel-preset-expo` with `jsxImportSource: 'nativewind'` (enables `className` on JSX), `nativewind/babel` for CSS processing, and `react-native-worklets/plugin` for worklet thread support.                                                                                                                                                                                    |
 | `metro.config.js`     | Metro bundler configuration. Wraps the default Expo config with `withNativeWind()` which processes `global.css` and sets `inlineRem: 16` (converts rem units to 16px base for React Native).                                                                                                                                                                                                                     |
@@ -31,10 +31,34 @@ The top-level layout wrapping the entire application. Responsibilities:
 - **Imports `global.css`** — triggers NativeWind CSS processing
 - **`ThemeProvider`** — from `@react-navigation/native`, provides the `NAV_THEME` matching the current color scheme to React Navigation internals
 - **`useColorScheme`** — from NativeWind, detects system color scheme. An `useEffect` forces dark mode on mount
+- **`AuthProvider`** — bootstraps the Supabase session (anonymous if none persisted) and exposes auth + location state to the rest of the app. Sits **above** `VenueProvider` so future user-scoped queries can read the user.
 - **`VenueProvider`** — React Context wrapping all routes so filter state, search, and votes are shared between tabs, modals, and stack screens
-- **`Stack` navigator** — three routes: `(tabs)` (default), `venue/[id]` (push navigation), and `filters` (transparent modal with fade animation)
+- **`Stack` navigator** — four route entries: `(onboarding)` (first-launch group), `(tabs)` (default), `venue/[id]` (push navigation), and `filters` (transparent modal with fade animation)
+- **`OnboardingGate`** — sibling of `Stack` that reads `crawl.firstLaunchComplete.v1` from AsyncStorage; until the flag is set, emits `<Redirect href="/(onboarding)" />` so first-launch users land on the welcome splash
 - **`StatusBar`** — set to `"light"` for white status bar text against the dark background
 - **`PortalHost`** — from `@rn-primitives/portal`, rendered last to support overlay rendering for RNR components (dialogs, selects, etc.)
+
+### `app/(onboarding)/_layout.tsx` — Onboarding Stack
+
+Stack navigator for the first-launch flow. `headerShown: false`, dark backdrop. Registers the three onboarding screens (`index`, `location`, `auth`).
+
+### `app/(onboarding)/index.tsx` — Welcome Splash
+
+Centered brand splash: Crawl logo glyph, name, one-line value prop, and a "Get Started" CTA that pushes `/location`. Safe-area-aware top/bottom padding.
+
+### `app/(onboarding)/location.tsx` — Location Permission
+
+Prompts for foreground location. The "Enable Location" CTA dynamically requires `expo-location` (lazy import for Expo Go safety), calls `requestForegroundPermissionsAsync()`, and on grant calls `getCurrentPositionAsync({ accuracy: Balanced })`. The resulting `{ latitude, longitude }` is stashed in `AuthContext.userLocation` for Phase B Agent 2 to consume when seeding the initial city. A "Not now" link skips without prompting; both paths route to `/auth`.
+
+### `app/(onboarding)/auth.tsx` — Auth Choice
+
+Three vertically-stacked buttons:
+
+- **Continue with Apple** — iOS only (hidden on Android via `Platform.OS` check), required by App Store rule 4.8. Calls `linkApple()`.
+- **Continue with Google** — both platforms. Calls `linkGoogle()`.
+- **Continue anonymously** — calls `ensureSignedIn()`, which is a no-op if an anonymous session already exists.
+
+All three paths call `markOnboardingComplete()` and `router.replace('/(tabs)')`. Errors surface via `Alert.alert` with the helper's message — Apple/Google native module absence (Expo Go) flows through this path.
 
 ### `app/(tabs)/_layout.tsx` — Tab Layout
 
@@ -56,12 +80,12 @@ Uses `useVenueContext()` for `filteredVenues`, `filters`, `toggleFilter`, `searc
 Daily voting interface. Scrollable layout:
 
 1. **Header** — "Daily Hotspot Votes" title and subtitle
-2. **CitySelector** — shows "Austin, TX" with dropdown chevron (dropdown not implemented)
+2. **CitySelector** — opens a modal listing every city in the DB; selection updates `VenueContext` and refetches venues, votes, and rankings via TanStack Query queryKey invalidation
 3. **VoteCounter** — large display of remaining/max votes (e.g., "3 / 3")
 4. **CountdownTimer** — live HH:MM:SS countdown to midnight when votes reset
 5. **Venue list** — venues sorted by hotspot score, rendered as `VenueListItem` rows. Each has a heart button to cast or remove a vote.
 
-Uses `useVenueContext()` for `venues`, `voteState`, `castVote`, `removeVote`, and `selectedCity`.
+Uses `useVenueContext()` for `venues`, `voteState`, `castVote`, and `removeVote`. The CitySelector reads `selectedCity` from context directly.
 
 ### `app/(tabs)/global.tsx` — Global Rankings (Placeholder)
 
@@ -200,7 +224,7 @@ Live countdown to midnight. Three `TimeBlock` sub-components (hours, minutes, se
 
 ### `components/voting/CitySelector.tsx`
 
-Pressable button showing a location pin icon, city name text, and a dropdown chevron icon. Styled as a rounded pill on card background. The `onPress` callback is provided but not yet connected to a dropdown/picker.
+Self-contained city picker. Renders as a rounded pill (location pin + city name + chevron) on `bg-crawl-card`. Tapping opens a `Modal` with the list returned by `useCities()`; tapping a row calls `setSelectedCity` on `VenueContext` and dismisses. Used on both the explore screen and the voting screen — neither passes any props.
 
 ---
 
@@ -254,7 +278,15 @@ export const colors = {
 
 ### `src/context/VenueContext.tsx`
 
-React Context provider and `useVenueContext()` hook. Manages filter state, search query, city selection, and vote state. Derives `filteredVenues` by applying search and active filter logic. Uses `useCallback` for memoized action functions. See the [Architecture](./ARCHITECTURE.md#3-state-management) doc for the full state tree.
+React Context provider and `useVenueContext()` hook. Manages filter state, search query, city selection, and vote state. On first run, seeds `selectedCity` by resolving the user's onboarding-captured `userLocation` (from `AuthContext`) against `useCities()` via `findNearestCity` — capped at 50 miles, with a fallback to `Austin, TX` when the user is too far from any covered city. A guard ref ensures the seeded value never overrides a manual `setSelectedCity` call. The TanStack Query queryKeys for venues and votes both include `selectedCity`, so changes refetch automatically. Search-by-text is the only client-side filter that remains; the ten filter chips are now applied server-side by `useVenues`. See the [Architecture](./ARCHITECTURE.md#3-state-management) doc for the full state tree.
+
+### `src/context/AuthContext.tsx`
+
+Auth state + identity context. Bootstraps the Supabase session on mount via `ensureSignedIn()` (creates an anonymous user if none persisted). Subscribes to `supabase.auth.onAuthStateChange` so `user` and `isAnonymous` track the current identity — including the in-place upgrade that occurs when an anonymous user signs in with Apple or Google. Exposes:
+
+- `user`, `isAnonymous`, `initializing`
+- `userLocation`, `setUserLocation` — used by `app/(onboarding)/location.tsx` to stash the foreground-permission coords; available to consumers (e.g. Phase B Agent 2's city resolver)
+- `linkApple()`, `linkGoogle()`, `signOut()` — bound versions of the helpers in `src/lib/auth.ts`
 
 ### `src/hooks/useCountdown.ts`
 
@@ -268,6 +300,36 @@ Exports the `cn()` function — combines `clsx` (conditional class logic) with `
 
 Exports `THEME` (light/dark color objects with HSL strings matching `global.css`) and `NAV_THEME` (React Navigation theme objects extending `DefaultTheme` and `DarkTheme`). The dark theme values are mapped to Crawl's color palette. Used by `ThemeProvider` in the root layout.
 
+### `src/lib/auth.ts`
+
+Auth helpers used by `AuthContext` and the onboarding auth screen:
+
+- `ensureSignedIn()` — returns the existing Supabase user, or signs in anonymously if no session is persisted.
+- `signInWithApple()` — iOS-only; lazily requires `expo-apple-authentication`, requests `FULL_NAME` + `EMAIL` scopes, then exchanges the `identityToken` via `supabase.auth.signInWithIdToken({ provider: 'apple' })`. When called with an active anonymous session, supabase-js upgrades the existing user in place rather than creating a new one.
+- `signInWithGoogle()` — same pattern using `@react-native-google-signin/google-signin`. Reads `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (and optional `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`) and configures `GoogleSignin` once on first call.
+- `signOut()` — passthrough to `supabase.auth.signOut()`.
+
+Native module imports are wrapped in `try/catch` so the JS bundle still boots in Expo Go (where the native modules are absent); the helpers throw a descriptive error when invoked there instead.
+
+### `src/lib/onboarding.ts`
+
+Two helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
+
+- `isOnboardingComplete()` — read flag.
+- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/auth.tsx` once the user picks any auth path).
+
+### `src/lib/supabase.ts`
+
+Supabase client singleton. Configured with `auth.storage = AsyncStorage`, `autoRefreshToken: true`, `persistSession: true`, `detectSessionInUrl: false`. Reads `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY`; throws at import time if either is missing.
+
+### `src/api/cities.ts`
+
+`useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`. Also exports `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.
+
+### `apps/api/drizzle/0001_venue_filter_indexes.sql`
+
+Idempotent migration adding the indexes that back the dynamic filter predicates in `useVenues`: compound `(city, is_active|is_trending|is_open)` indexes (the `_trending` and `_open` variants are partial — `WHERE is_trending = true` etc. — so they stay tiny), a GIN index on `highlights[]` for the tag-based filters, and a partial `cities (is_active) WHERE is_active` index for the city picker. See [Dynamic Venue Filtering Strategy](./DESIGN_DECISIONS.md#dynamic-venue-filtering-strategy) for the predicate map.
+
 ---
 
 ## Development Tools
@@ -276,6 +338,26 @@ Exports `THEME` (light/dark color objects with HSL strings matching `global.css`
 
 Claude Code skill definition for the `/docs` command. Provides a structured 6-step process for updating documentation: (1) assess changes via `git diff`/`git log`, (2) map changed files to affected docs using a lookup table, (3) read affected docs and source files, (4) apply targeted updates per doc type, (5) include/update ASCII diagrams, (6) verify internal links and index accuracy.
 
-### `.github/workflows/ci.yaml`
+### `.github/workflows/ci.yml`
 
-GitHub Actions CI workflow file. Currently empty — placeholder for the validation pipeline described in [CI/CD Pipeline](../ops/CICD_PIPELINE.md). When populated, should run lint, type-check, and tests on push/PR to main.
+PR + push-to-main validation. Single `validate` job runs `turbo run lint typecheck test` with `--filter=...[origin/<base>]` on PRs (Turbo affected detection) and unfiltered on `main`. Caches `node_modules` and `.turbo`. Uploads `apps/api/coverage/` if produced. Parallel `fingerprint` job emits the Expo native-deps hash for OTA eligibility. See [CI/CD Pipeline](../ops/CICD_PIPELINE.md).
+
+### `.github/workflows/security.yml`
+
+Security gates run on PRs, pushes to `main`, and a weekly Monday 08:00 UTC schedule. Three jobs: **CodeQL** (`javascript-typescript`, `security-and-quality` queries), **gitleaks** (full-history secret scan), and **npm audit** (`--audit-level=high`; warn on PRs, fail on schedule).
+
+### `.github/workflows/release-mobile.yml`
+
+`workflow_dispatch`-only mobile release. Inputs: `release_type` (`ota` | `binary`), `bump`, `channel` (`staging` | `production`), `submit` (binary+production opt-in). Validates → computes version → either pushes an `eas update` OTA or runs `eas build` (and optionally `eas submit`) → tags and pushes back. Tag formats: `mobile-vX.Y.Z` for binary, `mobile-vX.Y.Z-ota.<UTC-ts>` for OTA.
+
+### `.github/workflows/release-api.yml`
+
+`workflow_dispatch`-only API release. Inputs: `bump`, `environment` (`staging` | `production`), `run_migrations`. Pipeline: `validate` → `release` (bump `apps/api/package.json`, commit, tag) → `deploy` (Railway CLI, gated by GitHub Environment) → optional `migrate` (`drizzle-kit migrate`). Production tag: `api-vX.Y.Z`; staging tag: `api-vX.Y.Z-staging`.
+
+### `.github/workflows/release-version.yml`
+
+Standard `changesets/action@v1` flow. On every push to `main`, opens or updates a single "chore(release): version packages" PR aggregating pending `.changeset/*.md` files. Merging that PR bumps versions in each affected package and writes the per-package `CHANGELOG.md`. No publish — all packages are private.
+
+### `.changeset/config.json` + `.changeset/README.md`
+
+Changesets configuration (independent semver per service, no fixed/linked groups, all packages private) and the contributor walkthrough for `npm run changeset`.

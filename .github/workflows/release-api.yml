@@ -1,0 +1,230 @@
+name: Release — API
+
+# Production safety: dispatch ONLY for production. A separate auto-staging
+# path triggers on `api-v*-staging` tag push (the staging tag is itself
+# created via dispatch with `environment: staging`).
+#
+# Tags produced by this workflow:
+#   - api-v<new>-staging   (when environment == staging)
+#   - api-v<new>           (when environment == production)
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Semver bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      environment:
+        description: 'Deploy target'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      run_migrations:
+        description: 'Run drizzle-kit migrate against the target DB (NON-DESTRUCTIVE only)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  # Never cancel an in-flight deploy. Serialize per environment.
+  group: release-api-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # bump version, push commit + tag
+
+jobs:
+  # ── Lint + typecheck + test gate ─────────────────────────────────
+  validate:
+    name: API — Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint
+        working-directory: apps/api
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: apps/api
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: apps/api
+        run: npm run test
+
+  # ── Bump version + tag ───────────────────────────────────────────
+  release:
+    name: Release (${{ inputs.environment }})
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.environment }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.version.outputs.new }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Compute new version
+        id: version
+        working-directory: apps/api
+        run: |
+          OLD=$(node -p "require('./package.json').version")
+          NEW=$(node -e "
+            const [maj, min, pat] = '$OLD'.split('.').map(Number);
+            const bump = '${{ inputs.bump }}';
+            let v;
+            if (bump === 'major') v = [maj + 1, 0, 0];
+            else if (bump === 'minor') v = [maj, min + 1, 0];
+            else v = [maj, min, pat + 1];
+            console.log(v.join('.'));
+          ")
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Bumping api $OLD → $NEW (${{ inputs.bump }})"
+
+      - name: Bump version in apps/api/package.json
+        working-directory: apps/api
+        run: npm version "${{ steps.version.outputs.new }}" --no-git-tag-version
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/package.json package-lock.json 2>/dev/null || true
+          git commit -m "chore(api): release v${{ steps.version.outputs.new }} (${{ inputs.environment }})" \
+            || echo "Nothing to commit"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Create tag
+        id: tag
+        run: |
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            TAG="api-v${{ steps.version.outputs.new }}"
+          else
+            TAG="api-v${{ steps.version.outputs.new }}-staging"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Tagged $TAG"
+
+    # ── Build & Push Docker image ─────────────────────────────────────────────
+  build-and-push:
+    name: Build Docker Image
+    needs: [release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TAG: ${{ needs.release.outputs.tag }}
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/api
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: production
+          build-args: |
+            APP_VERSION=${{ env.TAG }}
+
+  migrate:
+    name: Migrate DB (${{ inputs.environment }})
+    needs: [release, build-and-push]
+    if: inputs.run_migrations == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run Drizzle migrations
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:migrate
+
+  summary:
+    name: Summary
+    # needs: [release, deploy]
+    needs: [release, build-and-push]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write summary
+        run: |
+          {
+            echo "## API release"
+            echo ""
+            echo "- **Environment:** ${{ inputs.environment }}"
+            echo "- **Bump:** ${{ inputs.bump }}"
+            echo "- **Version:** ${{ needs.release.outputs.version }}"
+            echo "- **Tag:** \`${{ needs.release.outputs.tag }}\`"
+            echo "- **Migrations:** ${{ inputs.run_migrations }}"
+          } >> "$GITHUB_STEP_SUMMARY"

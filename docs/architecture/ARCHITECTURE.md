@@ -20,7 +20,13 @@ This document covers the project structure, navigation, state management, stylin
 ```
 crawl/
 ├── app/                        # Screens & navigation (expo-router file-based)
-│   ├── _layout.tsx             # Root: Stack + ThemeProvider + VenueProvider
+│   ├── _layout.tsx             # Root: Stack + ThemeProvider + AuthProvider
+│   │                           #         + VenueProvider + OnboardingGate
+│   ├── (onboarding)/           # First-launch group (gated by AsyncStorage flag)
+│   │   ├── _layout.tsx         # Stack, dark backdrop
+│   │   ├── index.tsx           # Welcome / brand splash
+│   │   ├── location.tsx        # Foreground location prompt (skippable)
+│   │   └── auth.tsx            # Apple / Google / anonymous entry
 │   ├── (tabs)/                 # Tab group (bottom tab navigator)
 │   │   ├── _layout.tsx         # Tabs config + custom TabBar
 │   │   ├── index.tsx           # Explore screen (map + carousel)
@@ -75,6 +81,10 @@ import { useCountdown } from '@/hooks/useCountdown'; // → src/hooks/useCountdo
 
 ```
 Root Stack (app/_layout.tsx)
+├── (onboarding)                    # First-launch only (AsyncStorage gate)
+│   ├── index        → /           # Welcome splash
+│   ├── location     → /location   # Foreground location prompt (skippable)
+│   └── auth         → /auth       # Apple / Google / anonymous
 ├── (tabs)                          # Tab navigator
 │   ├── index        → /           # Explore (default tab)
 │   ├── voting       → /voting     # Daily votes
@@ -83,6 +93,16 @@ Root Stack (app/_layout.tsx)
 ├── venue/[id]       → /venue/123  # Venue detail (push)
 └── filters          → /filters    # Filter modal (transparentModal)
 ```
+
+### First-Launch Gate
+
+`app/_layout.tsx` renders an `OnboardingGate` component that reads
+`crawl.firstLaunchComplete.v1` from AsyncStorage. Until the flag is set, the
+gate emits `<Redirect href="/(onboarding)" />` so the user lands on the
+welcome splash. The flag is written by `markOnboardingComplete()` after the
+user picks an auth path on `/auth`. Subsequent launches skip the onboarding
+group entirely. Reinstalling the app clears AsyncStorage and restarts the
+flow.
 
 ### Navigation Stack Behavior
 
@@ -143,17 +163,38 @@ The default React Navigation tab bar is replaced by `components/layout/TabBar.ts
 
 ### Current Approach: React Context
 
-All shared state lives in a single `VenueContext` provided at the root layout level.
+Shared state lives in two providers stacked at the root layout level.
+`AuthProvider` sits above `VenueProvider` so any future query in
+`VenueProvider` can read the user.
 
 ```
-VenueProvider (app/_layout.tsx)
+AuthProvider (app/_layout.tsx)
+│
+├── Identity
+│   ├── user: User | null            # Supabase auth user (anon or linked)
+│   ├── isAnonymous: boolean         # is_anonymous flag from supabase-js
+│   └── initializing: boolean        # true until first getSession resolves
+│
+├── Onboarding capture
+│   ├── userLocation: { latitude, longitude } | null
+│   └── setUserLocation(loc)
+│
+└── Actions
+    ├── linkApple()                  # Apple ID-token sign-in / link
+    ├── linkGoogle()                 # Google ID-token sign-in / link
+    └── signOut()
+        │
+        ▼
+VenueProvider (app/_layout.tsx, beneath AuthProvider)
 │
 ├── Data
-│   ├── venues: Venue[]              # Full mock venue list (8 items)
-│   ├── filteredVenues: Venue[]      # Derived: search + filter applied
-│   ├── filters: FilterOption[]      # 10 filter toggles
-│   ├── searchQuery: string          # Current search text
-│   └── selectedCity: string         # Active city ("Austin, TX")
+│   ├── venues: Venue[]              # Server-filtered for selectedCity + active chips
+│   ├── filteredVenues: Venue[]      # Derived: client-side search-text filter only
+│   ├── filters: FilterOption[]      # 10 filter toggles (server-side application)
+│   ├── searchQuery: string          # Current search text (client-side)
+│   └── selectedCity: string         # Seeded from AuthContext.userLocation via
+│                                    #   findNearestCity(); user override via
+│                                    #   setSelectedCity, persisted as a guard ref
 │
 ├── Vote State
 │   ├── voteState.remainingVotes: number     # Starts at 3
@@ -169,17 +210,21 @@ VenueProvider (app/_layout.tsx)
     └── removeVote(venueId)          # Undo a vote (restore to remaining)
 ```
 
+`AuthProvider` subscribes to `supabase.auth.onAuthStateChange` so the
+`user` and `isAnonymous` fields update automatically when an anonymous
+user is upgraded to a permanent identity via Apple or Google linking.
+
 ### Why Context at Root?
 
 The filter modal (`/filters`) is rendered as a separate route outside the tab navigator. If the provider lived inside `(tabs)/_layout.tsx`, the modal couldn't access filter state. Hoisting the provider to `app/_layout.tsx` ensures all routes — tabs, modals, and stack screens — share the same state.
 
 ### Derived State
 
-`filteredVenues` is computed on every render from the full venue list:
+`filteredVenues` is the search-narrowed view of the already-filtered server result. The filter chips are applied server-side now (`useVenues` composes Supabase predicates per active filter — see [Dynamic Venue Filtering Strategy](./DESIGN_DECISIONS.md#dynamic-venue-filtering-strategy)), so the only client-side filter that remains is search text:
 
-1. **Search filter:** Case-insensitive match against venue `name` or `type`
-2. **Category filters:** If "Trending" is active, exclude non-trending venues. If "Open Now" is active, exclude closed venues.
-3. **No active filters:** Return all venues that match the search query
+- **Search filter (client):** case-insensitive match against `name` or `primaryType`. Runs on every keystroke.
+- **Category filters (server):** every chip toggle invalidates the `venues.list` queryKey, which triggers a refetch with the new predicate set.
+- **City scope (server):** changing `selectedCity` invalidates both the `venues.list` and `votes.state` queryKeys so the map, carousel, voting screen, and rankings all re-fetch in lockstep.
 
 ### Future State Architecture
 

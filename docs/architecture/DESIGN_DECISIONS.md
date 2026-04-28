@@ -64,6 +64,8 @@ Expo-router maps the file system to the navigation tree. `app/(tabs)/voting.tsx`
 
 **Migration path:** See [Maps Integration Guide](../guides/MAPS_INTEGRATION.md).
 
+**Status:** Migrated. The Explore screen now renders `CrawlMapView` (real `react-native-maps`) when the native module is present and falls back to `MapPlaceholder` only when running in environments without the native build (e.g., Expo Go without a dev client). The placeholder remains in the tree as a graceful fallback, not the default path.
+
 ---
 
 ## React Context for State Management
@@ -262,3 +264,158 @@ Route handler (HTTP)  →  Service (business logic)  →  Repository (persistenc
 **Trade-off:** Two JWT instances mean two plugin registrations and a module augmentation (`interface JWT { refresh: JWT }`) so TypeScript sees `fastify.jwt.refresh`. The extra ~10 lines are the cost of keeping the security boundary between access and refresh tokens.
 
 **Version note:** `@fastify/jwt` was upgraded from `^9.1.0` to `^10.0.0` in this change to resolve critical CVEs in `fast-jwt` (algorithm confusion — GHSA-mvf2-f6gm-w987 CVSS 9.1; cacheKey collision identity mixup — GHSA-rp9m-7r4c-75qg CVSS 9.1). Staying on v9 is not an option.
+
+---
+
+## Independent Semver per Service via Changesets
+
+**Chosen over:** lockstep repo-wide tags (`vX.Y.Z` covers everything), or hand-maintained per-service version bumps.
+
+Mobile and API ship on different cadences. Lockstep tags would force the API to bump every time the mobile app shipped — polluting the API's changelog and giving the impression of API releases that never actually happened. Independent tags (`mobile-vX.Y.Z`, `api-vX.Y.Z`, `shared-types-vX.Y.Z`) reflect what actually changed.
+
+**Why Changesets:**
+
+- **Aggregation across PRs.** Many small PRs land between releases; Changesets batches the version bumps into one "Version Packages" PR rather than mid-PR conflicts on `package.json`.
+- **Per-package bump granularity.** A single change can describe `mobile: minor, api: patch` in one file.
+- **Auto-generated CHANGELOG.md per package.** Each `apps/*/CHANGELOG.md` is appended to from the consumed changesets — no hand-maintained changelog drift.
+- **No publishing.** All Crawl packages are `private: true`. Changesets is used purely for version bookkeeping; the actual deploy is dispatched separately.
+
+**Trade-off:** One extra step in the contributor workflow (`npm run changeset` after a feature change). Documented in `.changeset/README.md`.
+
+---
+
+## Dispatch-Gated Releases
+
+**Chosen over:** auto-deploy on tag push, or auto-deploy on merge to `main`.
+
+Both `release-mobile.yml` and `release-api.yml` are `workflow_dispatch`-only. Tag pushes alone do not deploy. Two reasons:
+
+- **Human gate before reaching users.** Even after tests pass and a maintainer has approved the PR, the act of dispatching a release is an explicit decision — "yes, this version is ready to be on real devices." This is especially important for OTA, where a bad bundle reaches every user within minutes.
+- **Decouples versioning from release timing.** A maintainer can merge several features that bump versions, then choose when to actually cut a release. This avoids the failure mode where a routine merge accidentally triggers an unintended store submission.
+
+For production, a second gate is enforced by the `production` GitHub Environment with required reviewers — even after the dispatch, a designated reviewer must approve the deploy job.
+
+**Trade-off:** Releases are not zero-touch. Acceptable; the extra 30 seconds per release is the cost of not breaking production by accident.
+
+---
+
+## Fingerprint Runtime Version for OTA
+
+**Chosen over:** `runtimeVersion: { policy: "appVersion" }` or `"sdkVersion"`, or a hand-maintained string.
+
+`appVersion` and `sdkVersion` policies require the engineer to remember when to bump the runtime — and "remembering" is exactly the failure mode that ships an OTA bundle to a binary that lacks the required native code, causing crashes.
+
+`policy: "fingerprint"` (set in `apps/mobile/app.json`) computes a hash over the project's native dependencies. The runtime version becomes a property of what was actually built. EAS Update only delivers an OTA bundle to a binary whose runtime version matches — so a JS bundle built after a `react-native-maps` upgrade simply does not reach binaries built before that upgrade. The CI fingerprint job in `ci.yml` surfaces these changes during PR review.
+
+**Trade-off:** Slightly opaque — engineers can't read the runtime version off a config file, they have to ask Expo. Acceptable, because the alternative is silent OTA-induced crashes.
+
+---
+
+## Direct Supabase Query Path from Mobile
+
+**Chosen over:** routing every venue read through `apps/api`.
+
+While the Fastify API is being built out (per `docs/planning/BACKEND_IMPLEMENTATION_PLAN.md`), the mobile app reads venue data directly from Supabase using `@supabase/supabase-js` with the publishable anon key. The TanStack Query hooks in `src/api/venues.ts` branch on env vars:
+
+1. If `EXPO_PUBLIC_API_URL` is set → call the Fastify API.
+2. Else if `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_KEY` are set → query Supabase directly.
+3. Else → return mock data.
+
+**Why:** unblocks end-to-end testing on real data while the API matures. Supabase Row Level Security policies are the trust boundary on direct reads; the publishable key is safe to ship in the bundle.
+
+**Trade-off:** Two read paths to maintain. The plan is to retire the direct path once the API exposes the corresponding endpoints — at which point the mobile-side Supabase import in `src/api/venues.ts` is deleted, not refactored. This is intentionally not abstracted behind a "data source" interface; the branch is three lines and removing it is one delete.
+
+**Coordinate handling:** the venues table's `latitude` / `longitude` columns are `numeric`, which Supabase serializes as strings. `rowToVenue()` coerces them with `Number(...)` and drops rows with non-finite coordinates with a `__DEV__` warning so silent map-render failures surface during testing.
+
+---
+
+## Anonymous-First Auth via Supabase
+
+**Chosen over:** mandatory account creation up front, email/password signup, Clerk/Auth0, or a bespoke JWT flow against `apps/api`.
+
+The mobile app's first-launch experience is anonymous-first. On boot the app checks AsyncStorage for an existing Supabase session; if none exists, it calls `supabase.auth.signInAnonymously()` and persists the session via the AsyncStorage adapter configured on the Supabase client. The user is immediately authenticated as an anonymous user and can use every feature that doesn't require a verified identity.
+
+**Why anonymous-first:**
+
+- **Zero-friction first run.** A user who just installed the app is one tap from the explore map. No email, no password, no "verify your inbox" loop. This is the single biggest conversion lever on a discovery app.
+- **Stable identity for votes from minute one.** Every anonymous user has a real Supabase UUID. Votes, filters, and any user-scoped data can be persisted server-side without waiting for an explicit signup.
+- **Transparent upgrade path.** When the user later taps "Continue with Apple" or "Continue with Google", supabase-js (v2.43+) calls `signInWithIdToken` against the existing anonymous session, which **upgrades the same user record in place** rather than creating a new one. The UUID is preserved, so all prior votes/preferences remain attached. No data migration step.
+
+**Why Apple + Google (and not email/password):**
+
+- **Native id_token flows are the lowest-friction third-party path on mobile.** `expo-apple-authentication` and `@react-native-google-signin/google-signin` both surface OS-level sheets — no in-app browser, no password.
+- **App Store rule 4.8** requires Sign in with Apple whenever any third-party login is offered on iOS. Apple is therefore non-negotiable on iOS; the iOS UI hides the Apple button on Android (`Platform.OS !== 'ios'` check) where Apple Sign-In has no native UX worth supporting.
+- **Email/password adds liability without value here.** Crawl is not a productivity tool where users juggle credentials; the upgrade path from anon to authed via OS providers is sufficient.
+
+**Trade-off — reinstall resets the anonymous identity.** AsyncStorage is wiped when the user uninstalls the app, so a reinstalled-but-never-linked user gets a fresh anonymous UUID. This is the explicit reason the linking flow exists: any user who values continuity across reinstalls is one tap from a permanent Apple/Google identity. Documented to the user via the auth-screen copy ("Sign in to keep your votes and preferences across devices").
+
+**Trade-off — Expo Go cannot exercise Apple/Google.** Both native modules are absent from Expo Go's Android/iOS runtime. The auth helpers therefore `require()` the native modules lazily inside `try/catch`, so the app boots and the anonymous path remains usable even in Expo Go. Real auth requires a development build or production binary.
+
+**Implementation surface:**
+
+- `src/lib/supabase.ts` — Supabase client, `auth.storage = AsyncStorage`, `persistSession: true`.
+- `src/lib/auth.ts` — `ensureSignedIn()`, `signInWithApple()`, `signInWithGoogle()`, `signOut()`.
+- `src/context/AuthContext.tsx` — exposes `user`, `isAnonymous`, `userLocation`, `linkApple`, `linkGoogle`, `signOut`. Subscribes to `supabase.auth.onAuthStateChange`.
+- `app/(onboarding)/` — three screens (`index`, `location`, `auth`) that run only on first launch, gated by `crawl.firstLaunchComplete.v1` in AsyncStorage.
+- `app/_layout.tsx` — `OnboardingGate` reads the flag and emits `<Redirect href="/(onboarding)" />` until the user completes the flow.
+
+**Required external configuration (one-time):**
+
+1. **Supabase dashboard** — enable the Apple and Google providers under Authentication → Providers. Paste the iOS bundle id and the Google Web client ID into the relevant Supabase fields.
+2. **Apple Developer** — create a Services ID for "Sign in with Apple" and tie it to the iOS bundle id. The id_token Supabase verifies is signed by Apple against this configuration.
+3. **Google Cloud Console** — create OAuth 2.0 client IDs of type "iOS" and "Web application". Set `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `apps/mobile/.env`. Paste the reversed iOS client ID into `apps/mobile/app.json` under the `@react-native-google-signin/google-signin` plugin's `iosUrlScheme`.
+
+---
+
+## Dynamic Venue Filtering Strategy
+
+**Chosen over:** materialized views, per-filter Postgres views, hard-coded SQL functions, client-side filtering.
+
+The map screen scopes by city and applies an arbitrary subset of ten filter chips on top. The constraint is "fastest correct path" with vote counts changing every few seconds — so anything precomputed (materialized views, denormalized aggregates that aren't already there) is the wrong shape.
+
+**The approach:**
+
+1. **Compose `WHERE` predicates dynamically in the Supabase query.** `useVenues(city, filters)` chains `.eq('city', ...)`, `.eq('is_trending', true)`, `.eq('is_open', true)`, and `.contains('highlights', tags)` only for the filters that are active. PostgREST handles this composition; Supabase's planner picks the right index per predicate combination.
+2. **Index for the predicates, not for arbitrary queries.** Migration `0001_venue_filter_indexes.sql` adds compound `(city, is_active)`, `(city, is_trending) WHERE is_trending`, `(city, is_open) WHERE is_open`, plus a GIN on `highlights[]`. Each filter chip therefore hits a leading-column index. The partial indexes (`WHERE is_trending`) are tiny because most rows fail the predicate.
+3. **Stable queryKey sorting.** `venueKeys.list(city, filters)` sorts the filter array before keying so `['trending', 'open-now']` and `['open-now', 'trending']` share a cache entry. Without this, every re-ordering would cause an unnecessary refetch.
+4. **No materialized views.** Vote counts and `hotspot_score` change continuously; a materialized view would be stale within seconds and the refresh cost would be wasted.
+5. **No regular views either, for now.** Predicates compose well enough with `WHERE` clauses that a view layer adds indirection without speeding anything up. Views become useful when filter logic involves joins or aggregates the planner can't see through — flag for follow-up if a "trending tonight" filter starts requiring a vote-count-by-day join.
+6. **PostGIS RPC reserved for spatial filters.** No spatial chip exists in the current set, so no `venues_within(...)` function was added. When one is added, follow this pattern: a `language sql stable` function fronted by Supabase RPC, with a GiST index on the geography column. Avoid encoding spatial logic into the JS client — the round-trip math is fine in JS but the server-side index lookup isn't replicable client-side.
+
+**Filter → predicate mapping** (in `apps/mobile/src/api/venues.ts`):
+
+| Filter id          | Predicate                                |
+| ------------------ | ---------------------------------------- |
+| `trending`         | `is_trending = true`                     |
+| `open-now`         | `is_open = true` (note: see schema TODO — should derive from `hours`) |
+| `live-music`       | `'live-music' = ANY(highlights)`         |
+| `happy-hour`       | `'happy-hour' = ANY(highlights)`         |
+| `rooftop`          | `'rooftop' = ANY(highlights)`            |
+| `craft-cocktails`  | `'craft-cocktails' = ANY(highlights)`    |
+| `dive-bar`         | `'dive-bar' = ANY(highlights)`           |
+| `sports`           | `'sports' = ANY(highlights)`             |
+| `dancing`          | `'dancing' = ANY(highlights)`            |
+| `outdoor`          | `'outdoor' = ANY(highlights)`            |
+
+The highlight tag values must match what the venue sync job writes to the `highlights[]` column. If the sync job uses different casing or punctuation, update the `HIGHLIGHT_TAGS` map in `venues.ts` rather than per-call mapping.
+
+**Trade-off:** Dynamic predicate composition is harder to reason about than a fixed view because the SQL the planner sees varies by call. Mitigated by: (a) the index plan is deterministic per active filter set, (b) we only compose well-known predicates, (c) every active predicate has a leading-column index. Acceptable for this size of query.
+
+---
+
+## City as Source of Truth in VenueContext
+
+**Chosen over:** independent city state per screen, deriving city from a route param, or storing only a city `id` UUID.
+
+VenueContext now seeds `selectedCity` from the user's onboarding-captured location:
+
+1. `useCities()` resolves the list of supported cities once.
+2. `findNearestCity(cities, userLocation, maxMiles=50)` picks the closest covered city via haversine.
+3. The result is set into `selectedCity` once on first run; manual selection via `setSelectedCity` flips a guard ref so seeding never overrides a user choice.
+4. If the user is more than 50 miles from any covered city, the previous fallback (`Austin, TX`) wins — better than zooming the map to the wrong city.
+
+**Why store the display string and not the UUID:**
+
+The `venues` table currently denormalizes city as a `"Name, State"` text column (with a TODO in the schema to migrate to `cityId` lookups). The mobile app keys queries off this same string so the data path stays simple. When the schema migration to `cityId` lands, swap to UUID in one place (`useVenues`) without touching the rest of the context. Switching now would require two reads in lockstep — schema cleanup first, app change second.
+
+**Trade-off:** the display string format must stay consistent across `cities.name + ', ' + cities.state` and `venues.city`. The seed and sync jobs currently produce this format; document this contract in `apps/api/src/jobs/syncVenues` if a contributor proposes changing it.

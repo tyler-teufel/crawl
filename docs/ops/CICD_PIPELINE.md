@@ -1,400 +1,261 @@
-# CI/CD Pipeline for Mobile
+# CI/CD Pipeline
 
-Build, test, and release pipeline using EAS Build, EAS Update, and GitHub Actions.
+Crawl uses **independent semver per service** with **dispatch-gated releases**. Mobile and API ship on their own cadence — version bookkeeping is automated via Changesets, but no deploy reaches production without a human pressing "Run workflow."
 
 ---
 
 ## Pipeline Overview
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        DEVELOPER WORKFLOW                        │
-│                                                                  │
-│   Local Dev ──► git push ──► Pull Request ──► Code Review        │
-│                              (PR template)    (CODEOWNERS)       │
-└──────────┬───────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                        DEVELOPER WORKFLOW                          │
+│                                                                    │
+│   Local Dev ──► npm run changeset ──► git push ──► PR ──► Review   │
+│                 (describe bumps)                                   │
+└──────────┬─────────────────────────────────────────────────────────┘
            │
            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                CI PIPELINE (GitHub Actions: ci.yml)               │
-│                Trigger: pull_request → main                      │
-│                Concurrency: cancels stale runs per PR            │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │  JOB: validate                                          │     │
-│  │                                                         │     │
-│  │  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌────────┐ │     │
-│  │  │ Install  │─►│  Lint    │─►│TypeCheck  │─►│ Expo   │ │     │
-│  │  │   deps   │  │(eslint + │  │(tsc       │  │Doctor  │ │     │
-│  │  │(npm ci)  │  │prettier) │  │--noEmit)  │  │        │ │     │
-│  │  └──────────┘  └──────────┘  └───────────┘  └────────┘ │     │
-│  │                                                         │     │
-│  │  ✗ Any failure ──► block merge                          │     │
-│  └─────────────────────────────────────────────────────────┘     │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │  JOB: fingerprint (parallel with validate)              │     │
-│  │                                                         │     │
-│  │  Generates @expo/fingerprint hash to detect native      │     │
-│  │  dependency changes (OTA eligibility check)             │     │
-│  └─────────────────────────────────────────────────────────┘     │
-└──────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                    CI PIPELINE (ci.yml)                            │
+│                    Trigger: pull_request, push → main              │
+│                                                                    │
+│  ┌────────────────────────────────────────────────────────┐        │
+│  │ JOB: validate                                          │        │
+│  │  • npm ci  •  Turbo cache restore                      │        │
+│  │  • turbo run lint typecheck test                       │        │
+│  │       --filter=...[origin/<base>]   (PRs only)         │        │
+│  │  • Upload api/coverage if produced                     │        │
+│  └────────────────────────────────────────────────────────┘        │
+│  ┌────────────────────────────────────────────────────────┐        │
+│  │ JOB: fingerprint (parallel)                            │        │
+│  │  @expo/fingerprint hash → output for OTA eligibility   │        │
+│  └────────────────────────────────────────────────────────┘        │
+└──────────┬─────────────────────────────────────────────────────────┘
+           │  Same PR also runs:
+           ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                  SECURITY (security.yml)                           │
+│                  Trigger: PR, push → main, weekly cron             │
+│                                                                    │
+│  • CodeQL (javascript-typescript, security-and-quality)            │
+│  • gitleaks (secret scan over full history)                        │
+│  • npm audit --audit-level=high                                    │
+│      └─ warn on PR, fail on schedule                               │
+└──────────┬─────────────────────────────────────────────────────────┘
            │
      merge to main
            │
            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│          PREVIEW BUILD (GitHub Actions: preview-build.yml)       │
-│          Trigger: push → main                                    │
-│          Concurrency: one build at a time                        │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐    │
-│  │              EAS Build (Expo)                            │    │
-│  │                                                         │    │
-│  │  ┌─────────────────┐  ┌────────────────────┐            │    │
-│  │  │  iOS Build      │  │  Android Build     │            │    │
-│  │  │  Profile:       │  │  Profile:          │            │    │
-│  │  │  "preview"      │  │  "preview"         │            │    │
-│  │  │  (internal      │  │  (APK for          │            │    │
-│  │  │  distribution)  │  │  internal testing) │            │    │
-│  │  └─────────────────┘  └────────────────────┘            │    │
-│  └──────────────────────────────────────────────────────────┘    │
-│                                                                  │
-│  Future: Slack notification with build link                      │
-└──────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│             VERSION PR (release-version.yml)                       │
+│             Trigger: push → main                                   │
+│                                                                    │
+│  changesets/action@v1 opens / updates a single                     │
+│  "chore(release): version packages" PR aggregating every           │
+│  pending .changeset/*.md. Merging that PR:                         │
+│    • bumps versions in apps/mobile, apps/api, packages/shared-types│
+│    • writes / appends each CHANGELOG.md                            │
+│    • removes the consumed changeset files                          │
+│  No publish step — all packages are private.                       │
+└──────────┬─────────────────────────────────────────────────────────┘
            │
-     git tag v1.x.x
-           │
+           │  Versions are now bumped, but nothing has shipped.
+           │  A human dispatches one of the two release workflows.
            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│              RELEASE PIPELINE (GitHub Actions: release.yml)      │
-│              Trigger: push tag v*                                 │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐     │
-│  │  JOB 1: build                                           │     │
-│  │                                                         │     │
-│  │  EAS Build with profile: "production"                   │     │
-│  │  iOS: .ipa (signed with distribution cert)              │     │
-│  │  Android: .aab (signed with upload key)                 │     │
-│  └────────────────────────┬────────────────────────────────┘     │
-│                           │                                      │
-│                  ┌────────▼────────┐                              │
-│                  │ APPROVAL GATE   │                              │
-│                  │ (GitHub         │                              │
-│                  │  Environment:   │                              │
-│                  │  "production")  │                              │
-│                  └────────┬────────┘                              │
-│                           │                                      │
-│  ┌────────────────────────▼────────────────────────────────┐     │
-│  │  JOB 2: submit                                          │     │
-│  │                                                         │     │
-│  │  eas submit --platform all --non-interactive            │     │
-│  │  iOS ──► App Store Connect                              │     │
-│  │  Android ──► Google Play Console                        │     │
-│  └────────────────────────┬────────────────────────────────┘     │
-│                           │                                      │
-│  ┌────────────────────────▼────────────────────────────────┐     │
-│  │  JOB 3: github-release                                  │     │
-│  │                                                         │     │
-│  │  Auto-generates changelog from commits since last tag   │     │
-│  │  Creates GitHub Release with release notes              │     │
-│  └─────────────────────────────────────────────────────────┘     │
-└──────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────┐
-│            OTA UPDATE (GitHub Actions: ota-update.yml)           │
-│            Trigger: manual (workflow_dispatch)                    │
-│                                                                  │
-│  Inputs: branch (preview|production), message                    │
-│  Production branch requires "production" environment approval    │
-│                                                                  │
-│  eas update --branch <branch> --message "<message>"              │
-│  JS-only changes pushed over-the-air, no store review needed     │
-└──────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────┐  ┌─────────────────────────────┐
+│  RELEASE — MOBILE                │  │  RELEASE — API              │
+│  (release-mobile.yml)            │  │  (release-api.yml)          │
+│  workflow_dispatch ONLY          │  │  workflow_dispatch ONLY     │
+│                                  │  │                             │
+│  Inputs:                         │  │  Inputs:                    │
+│   • release_type: ota | binary   │  │   • bump: patch|minor|major │
+│   • bump:    patch|minor|major   │  │   • environment:            │
+│   • channel: staging|production  │  │       staging | production  │
+│   • submit:  bool (binary+prod)  │  │   • run_migrations: bool    │
+│                                  │  │                             │
+│  Steps:                          │  │  Steps:                     │
+│   1. Validate (lint+typecheck)   │  │   1. Validate (lint+tc+test)│
+│   2. Compute new version         │  │   2. Compute new version    │
+│   3a. OTA: eas update --channel  │  │   3. Bump apps/api/ver,     │
+│       Tag mobile-vX.Y.Z-ota.<ts> │  │      commit + push          │
+│   3b. Binary: eas build          │  │   4. Tag api-vX.Y.Z         │
+│       (+ eas submit if opt-in    │  │      (or -staging suffix)   │
+│       and channel == prod)       │  │   5. Deploy via Railway CLI │
+│       Tag mobile-vX.Y.Z          │  │      (gated by GH env)      │
+│   4. Push tag back to repo       │  │   6. Optional drizzle migrate│
+└─────────────────────────────────┘  └─────────────────────────────┘
 ```
 
 ---
 
 ## Workflow Files
 
-| File                                    | Trigger               | Purpose                                                     |
-| --------------------------------------- | --------------------- | ----------------------------------------------------------- |
-| `.github/workflows/ci.yml`              | `pull_request → main` | Lint, typecheck, expo-doctor, fingerprint                   |
-| `.github/workflows/preview-build.yml`   | `push → main`         | EAS preview build (iOS + Android)                           |
-| `.github/workflows/ota-update.yml`      | Manual dispatch       | OTA JS bundle update via EAS Update                         |
-| `.github/workflows/release.yml`         | `push tag v*`         | Production build → approval → store submit → GitHub Release |
-| `.github/workflows/dependabot-auto.yml` | Dependabot PRs        | Auto-merge minor/patch dependency updates                   |
-
-### Supporting Files
-
-| File                               | Purpose                                                                 |
-| ---------------------------------- | ----------------------------------------------------------------------- |
-| `.github/dependabot.yml`           | Weekly dependency updates, grouped by ecosystem (Expo, RN, dev)         |
-| `.github/CODEOWNERS`               | Requires `@tyler-teufel` review on all PRs                              |
-| `.github/pull_request_template.md` | Structured PR description (what, why, type, testing, screenshots)       |
-| `eas.json`                         | EAS Build profiles (development, preview, production) and submit config |
+| File                                       | Trigger                          | Purpose                                                |
+| ------------------------------------------ | -------------------------------- | ------------------------------------------------------ |
+| `.github/workflows/ci.yml`                 | `pull_request`, `push → main`    | Lint, typecheck, test (Turbo affected detection)       |
+| `.github/workflows/security.yml`           | PR, push → main, weekly schedule | CodeQL + gitleaks + npm audit                          |
+| `.github/workflows/release-version.yml`    | `push → main`                    | Open / update Changesets "Version Packages" PR         |
+| `.github/workflows/release-mobile.yml`     | `workflow_dispatch`              | OTA or binary release of `apps/mobile` via EAS         |
+| `.github/workflows/release-api.yml`        | `workflow_dispatch`              | Bump + tag + Railway deploy of `apps/api`              |
+| `.github/workflows/preview-build.yml`      | `push → main` (kept)             | Internal-distribution EAS preview build                |
+| `.github/workflows/sync-venues.yml`        | scheduled / manual               | Operational job — unrelated to releases                |
+| `.github/workflows/dependabot-auto.yml.txt`| (disabled — see commit b9c7d75)  | Held in `.txt` form; Dependabot is currently off       |
 
 ---
 
-## Key Tools
+## Versioning — Independent Semver via Changesets
 
-| Tool                  | Purpose                                                                                                                                                                             |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **EAS Build**         | Expo's cloud build service. Builds iOS and Android binaries without local Xcode or Android Studio. Configure via `eas.json` with build profiles (development, preview, production). |
-| **EAS Submit**        | Automates store submission. Uploads `.ipa` to App Store Connect and `.aab` to Google Play Console.                                                                                  |
-| **EAS Update**        | Over-the-air JavaScript bundle updates. Bypasses app store review for JS-only changes. Users receive the update on next app launch.                                                 |
-| **GitHub Actions**    | CI runner. Triggers on PR for validation, on merge to main for preview builds, on git tag for production releases.                                                                  |
-| **Dependabot**        | Automated dependency update PRs with auto-merge for minor/patch versions.                                                                                                           |
-| **@expo/fingerprint** | Detects native dependency changes to determine OTA eligibility.                                                                                                                     |
+Each service has its own version line and its own tag prefix:
 
----
+| Package                  | Tag prefix          | Owns                                  |
+| ------------------------ | ------------------- | ------------------------------------- |
+| `@crawl/mobile`          | `mobile-vX.Y.Z`     | `apps/mobile`                         |
+| `@crawl/api`             | `api-vX.Y.Z`        | `apps/api`                            |
+| `@crawl/shared-types`    | `shared-types-vX.Y.Z` | `packages/shared-types` (when needed) |
 
-## `eas.json` Configuration
+OTA-only mobile releases get the suffix `-ota.<UTC-timestamp>` so an OTA on top of `mobile-v1.4.0` becomes e.g. `mobile-v1.4.1-ota.20260427143055`.
 
-The `eas.json` file at the project root defines three build profiles:
+**Workflow as a contributor:**
 
-```json
-{
-  "cli": { "version": ">= 3.0.0" },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal",
-      "ios": { "simulator": false }
-    },
-    "production": {
-      "autoIncrement": true
-    }
-  },
-  "submit": {
-    "production": {
-      "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "your-app-store-connect-app-id"
-      },
-      "android": {
-        "serviceAccountKeyPath": "./google-service-account.json"
-      }
-    }
-  }
-}
+```bash
+# After making a change worth a version bump
+npm run changeset
+# answers prompt: which packages, bump type, summary
+git add .changeset/<file>.md
+git commit -m "feat(mobile): add city selector"
 ```
 
-### Build Profiles Explained
+When the PR merges to `main`, the **Release — Version PR** workflow opens (or updates) a `chore(release): version packages` PR aggregating every pending changeset. Merging that PR is what actually performs the version bump and writes `CHANGELOG.md`.
 
-| Profile       | When              | Output                | Distribution                     |
-| ------------- | ----------------- | --------------------- | -------------------------------- |
-| `development` | Daily development | Dev client app        | Internal (TestFlight / Firebase) |
-| `preview`     | PR merge to main  | Production-like build | Internal (QA team testing)       |
-| `production`  | Git tag `v1.x.x`  | Store-ready binary    | App Store / Google Play          |
+Skip a changeset for: pure docs changes, internal refactors with no behavior change, test-only edits. Otherwise add one — they're cheap.
+
+See `.changeset/README.md` for the contributor walkthrough.
+
+---
+
+## Mobile release: OTA vs Binary
+
+The mobile release workflow accepts a `release_type` input. The right choice depends on what changed:
+
+| Change                                  | Release type | Why                                       |
+| --------------------------------------- | ------------ | ----------------------------------------- |
+| JS / TSX components, hooks, styles      | `ota`        | No native rebuild needed                  |
+| Tailwind / NativeWind class changes     | `ota`        | Pure JS bundle                            |
+| New / upgraded native module            | `binary`     | OTA can't ship native code                |
+| Expo SDK upgrade                        | `binary`     | New native runtime                        |
+| Permissions, `app.json`, splash, icons  | `binary`     | Native config                             |
+| Anything in `ios/` or `android/`        | `binary`     | Native code                               |
+
+`runtimeVersion` is configured in `apps/mobile/app.json` as:
+
+```json
+"runtimeVersion": { "policy": "fingerprint" }
+```
+
+Expo computes a hash over your native dependencies. Each binary is bound to that hash; the OTA delivery system only sends a JS bundle to a binary whose runtime version matches. **You cannot accidentally ship JS that needs a native rebuild — the bundle simply won't be delivered to incompatible binaries.**
+
+**Channels = environments.** The build profiles in `apps/mobile/eas.json` map to channels:
+
+| Profile (eas.json) | Channel       | Distribution                |
+| ------------------ | ------------- | --------------------------- |
+| `development`      | `development` | Dev client (internal)       |
+| `preview`          | `staging`     | Internal QA                 |
+| `staging`          | `staging`     | (alias of `preview`)        |
+| `production`       | `production`  | App Store / Google Play     |
+
+OTA updates publish to a channel; the binary picks up updates from whichever channel it was built for.
+
+**Promotion model:** OTAs ship to `staging` first, get verified, then a separate dispatch ships the same change to `production`. Don't dispatch straight to `production` for anything risky.
+
+---
+
+## API release: Railway via dispatch
+
+The API release workflow does four things in order:
+
+1. **Validate** — lint, typecheck, vitest. A failure here aborts the rest.
+2. **Bump + tag** — `npm version` in `apps/api`, commit, tag (`api-vX.Y.Z` for production, `api-vX.Y.Z-staging` for staging).
+3. **Deploy** — `railway up --service <service>` against the configured Railway service. Production is gated by the `production` GitHub Environment with required reviewers (configure in repo Settings → Environments).
+4. **Migrate (optional, opt-in)** — when `run_migrations: true`, runs `drizzle-kit migrate` against the target `DATABASE_URL`. Drizzle's `migrate` is forward-only; anything destructive (drops, `db:push --force`) must be done manually with eyes on it.
+
+The Railway service name is read from `vars.RAILWAY_SERVICE_STAGING` and `vars.RAILWAY_SERVICE_PRODUCTION`, configured per environment in repo settings.
+
+---
+
+## Required Secrets and Variables
+
+| Type     | Name                          | Used by                  | Notes                                          |
+| -------- | ----------------------------- | ------------------------ | ---------------------------------------------- |
+| Secret   | `EXPO_TOKEN`                  | `release-mobile.yml`     | EAS auth                                       |
+| Secret   | `RAILWAY_TOKEN`               | `release-api.yml`        | Railway CLI auth                               |
+| Secret   | `DATABASE_URL`                | `release-api.yml` (migrate job) | Only set in the GitHub Environment that runs migrations |
+| Variable | `RAILWAY_SERVICE_STAGING`     | `release-api.yml`        | Railway service name (per environment)         |
+| Variable | `RAILWAY_SERVICE_PRODUCTION`  | `release-api.yml`        | Railway service name (per environment)         |
+| Variable | `STAGING_URL`, `PRODUCTION_URL` | `release-api.yml`      | Used in workflow summary URLs                  |
+| Secret   | `GITHUB_TOKEN`                | All                      | Provided automatically                         |
+
+CodeQL needs the `security-events: write` permission, which is set on the workflow itself. No additional secret is required.
+
+---
+
+## GitHub Environments
+
+| Environment   | Used by                           | Required reviewers? |
+| ------------- | --------------------------------- | ------------------- |
+| `staging`     | `release-mobile.yml`, `release-api.yml` | No                  |
+| `production`  | `release-mobile.yml`, `release-api.yml` | **Yes** — configure in Settings → Environments |
+
+The `production` environment is the second gate (the first being `workflow_dispatch` itself). Even after a maintainer dispatches a production release, a designated reviewer must approve before the deploy job runs.
+
+---
+
+## Branch Protection on `main`
+
+- Require pull request before merging
+- Require status checks: `validate` (CI) and the security checks
+- Require 1 approval (CODEOWNERS)
+- Dismiss stale approvals on new commits
+- No force pushes
+
+---
+
+## Rollback
+
+**OTA bad bundle:**
+
+```bash
+eas update:rollback --channel production
+```
+
+This republishes the previous bundle on the channel; users pick it up on next launch.
+
+**Bad binary:** ship a fix via the same workflow (`release_type: binary`, `bump: patch`). iOS App Review is 24–48h; Google Play is usually same-day.
+
+**Bad API deploy:** re-dispatch `release-api.yml` against the previous tag (Railway redeploys from the checked-out ref). For DB migrations, a destructive rollback must be hand-rolled — Drizzle does not generate down-migrations.
 
 ---
 
 ## Concurrency Controls
 
-Each workflow uses concurrency groups to prevent wasted resources:
+| Workflow                  | Group                                              | Cancel-in-progress |
+| ------------------------- | -------------------------------------------------- | ------------------ |
+| `ci.yml`                  | `ci-<workflow>-<head_ref or ref>`                  | yes                |
+| `security.yml`            | `security-<workflow>-<head_ref or ref>`            | yes                |
+| `release-mobile.yml`      | `release-mobile-<channel>`                         | **no** (never cancel) |
+| `release-api.yml`         | `release-api-<environment>`                        | **no** (never cancel) |
+| `release-version.yml`     | `changesets-version`                               | no                 |
 
-| Workflow            | Concurrency Group | Behavior                                               |
-| ------------------- | ----------------- | ------------------------------------------------------ |
-| `ci.yml`            | `ci-<pr-branch>`  | Cancels stale CI runs when new commits push to same PR |
-| `preview-build.yml` | `preview-build`   | Only one preview build runs at a time                  |
-
----
-
-## OTA Updates vs Binary Releases
-
-| Change Type                 | Deploy Method        | Review Required               | User Gets It    |
-| --------------------------- | -------------------- | ----------------------------- | --------------- |
-| JS code, styles, images     | `eas update` (OTA)   | No                            | Next app launch |
-| New native module           | `eas build` + submit | Yes (App Store / Google Play) | Store update    |
-| Expo SDK upgrade            | `eas build` + submit | Yes                           | Store update    |
-| Config changes (`app.json`) | `eas build` + submit | Yes                           | Store update    |
-
-### OTA Update via GitHub Actions
-
-Trigger the OTA Update workflow manually from the GitHub Actions tab:
-
-1. Go to Actions → "OTA Update" → "Run workflow"
-2. Select branch (`preview` or `production`)
-3. Enter update message
-4. For production, approve in the environment gate
-
-### OTA Update via CLI
-
-```bash
-# Push a JS update to preview channel
-eas update --branch preview --message "Fix voting countdown display"
-
-# Push to production channel
-eas update --branch production --message "Hotfix: score animation timing"
-```
+Releases never cancel each other — partial deploys are worse than queued ones.
 
 ---
 
-## Secrets & Environments
+## What changed from the previous pipeline
 
-### GitHub Actions Secrets
+This pipeline supersedes the older `preview-build.yml` / `release.yml` / `ota-update.yml` / `api-deploy.yml` setup, which was tag-triggered with no version bookkeeping and no fingerprint-based OTA gating. The replacement enforces:
 
-| Secret          | Purpose                                  |
-| --------------- | ---------------------------------------- |
-| `EXPO_TOKEN`    | Authenticates `eas` CLI in all workflows |
-| `SLACK_WEBHOOK` | (Future) Build notification to Slack     |
+- **No automatic deploys.** Tag pushes alone don't deploy anything; a human dispatches.
+- **Fingerprint-based OTA compatibility** so JS bundles never reach incompatible binaries.
+- **Per-service tags + changelogs** so mobile and API ship on separate cadences without versioning entanglement.
+- **CodeQL + gitleaks** in addition to `npm audit`.
 
-### GitHub Environments
-
-| Environment  | Used By                                                          | Requires Approval              |
-| ------------ | ---------------------------------------------------------------- | ------------------------------ |
-| `production` | `release.yml` (submit job), `ota-update.yml` (production branch) | Yes — manual reviewer approval |
-
-### Other Credentials
-
-| Credential                 | Location                                   | Purpose                        |
-| -------------------------- | ------------------------------------------ | ------------------------------ |
-| Apple ID + ASC App ID      | `eas.json` submit config                   | App Store Connect submission   |
-| Google service account key | `google-service-account.json` (gitignored) | Google Play Console submission |
-
----
-
-## Branch Protection (GitHub Settings)
-
-Configure these rules on the `main` branch:
-
-- **Require pull request before merging**
-- **Require status check: `validate`** to pass before merge
-- **Require 1 approval** (enforced via CODEOWNERS)
-- **Dismiss stale approvals** when new commits are pushed
-- **Require branch to be up-to-date** before merging
-- **No force pushes**
-
----
-
-## Dependency Management
-
-Dependabot is configured to open weekly PRs grouped by ecosystem:
-
-| Group              | Patterns                          | Auto-merge         |
-| ------------------ | --------------------------------- | ------------------ |
-| `expo`             | `expo*`, `@expo/*`                | Minor & patch only |
-| `react-native`     | `react-native*`, `@react-native*` | Minor & patch only |
-| `dev-dependencies` | All dev deps                      | Minor & patch only |
-| `github-actions`   | All actions                       | Minor & patch only |
-
-Major version bumps require manual review.
-
----
-
-## Monitoring & Rollback
-
-### Error Monitoring
-
-Install Sentry or Bugsnag for production crash reporting:
-
-```bash
-npx expo install @sentry/react-native
-```
-
-Configure in `app/_layout.tsx` to capture unhandled errors and navigation events.
-
-### Rollback
-
-If a bad OTA update is pushed:
-
-```bash
-# Roll back to the previous update on a channel
-eas update:rollback --branch production
-```
-
-For binary releases, submit a new build with the fix. iOS App Review typically takes 24-48 hours; Android review is usually same-day.
-
----
-
-## Setup Checklist
-
-Before the pipeline is fully operational:
-
-- [ ] Add `ios.bundleIdentifier` and `android.package` to `app.json`
-- [ ] Run `eas init` to link the Expo project
-- [ ] Add `EXPO_TOKEN` to GitHub repo secrets
-- [ ] Create `production` environment in GitHub repo settings with required reviewers
-- [ ] Configure branch protection rules on `main`
-- [ ] Update `eas.json` submit config with real Apple ID and ASC App ID
-- [ ] Add `google-service-account.json` to `.gitignore` and store securely
-- [ ] (Optional) Add `SLACK_WEBHOOK` secret and uncomment notification step
-
----
-
-## API CI/CD Pipeline
-
-The API has its own deploy pipeline separate from the mobile app.
-
-### Workflow Files
-
-| File                                    | Trigger                          | Purpose                                          |
-| --------------------------------------- | -------------------------------- | ------------------------------------------------ |
-| `.github/workflows/ci.yml`              | `pull_request → main`            | Lint, typecheck, tests for mobile **and** API    |
-| `.github/workflows/api-deploy.yml`      | `push → main` (api paths only)   | Build Docker image, deploy to staging + prod     |
-
-### API Deploy Flow
-
-```
-push to main (apps/api/** changed)
-        │
-        ▼
-┌─────────────────────────────────────────────────────────────┐
-│  JOB: test                                                  │
-│  TypeScript check + Vitest suite                            │
-│  ✗ failure → block deploy                                   │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  JOB: build                                                 │
-│  docker/build-push-action → ghcr.io/repo/api:sha-abc123     │
-│  Cache: GitHub Actions cache for fast layer reuse           │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  JOB: deploy-staging                                        │
-│  Deploy image to Railway/Render staging environment         │
-│  Environment: "staging"                                     │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-               APPROVAL GATE
-               (GitHub Environment: "production")
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  JOB: deploy-production                                     │
-│  Deploy image to Railway/Render production environment      │
-│  Environment: "production"                                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### API Secrets Required
-
-| Secret / Variable     | Purpose                                          |
-| --------------------- | ------------------------------------------------ |
-| `GITHUB_TOKEN`        | Automatic — used to push Docker image to GHCR    |
-| `RAILWAY_TOKEN`       | Railway deploy (add when hosting is configured)  |
-| `STAGING_URL`         | Environment variable — staging API URL           |
-| `PRODUCTION_URL`      | Environment variable — production API URL        |
-
-### API Environments
-
-| Environment  | Trigger                          | Approval Required |
-| ------------ | -------------------------------- | ----------------- |
-| `staging`    | Every merge to `main`            | No                |
-| `production` | After staging deploy, from `main`| Yes               |
-
-### Connecting to Railway
-
-1. Create a Railway project at [railway.app](https://railway.app)
-2. Add a PostgreSQL service (PostGIS extension is supported)
-3. Add a Redis service
-4. Connect the GitHub repo to the Railway project
-5. Set environment variables in the Railway dashboard (see `.env.example`)
-6. In `.github/workflows/api-deploy.yml`, uncomment the Railway deploy step and set `RAILWAY_TOKEN` as a GitHub secret
+See `docs/architecture/DESIGN_DECISIONS.md` for the rationale.

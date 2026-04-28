@@ -4,6 +4,12 @@
     "slug": "crawl",
     "owner": "crawl-app",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/77d64449-a6b3-4da1-8562-228fa8bfb501"
+    },
     "extra": {
       "eas": {
         "projectId": "77d64449-a6b3-4da1-8562-228fa8bfb501"
@@ -16,7 +22,24 @@
       "tsconfigPaths": true
     },
     "scheme": "crawl",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Crawl uses your location to surface nearby venues and tonight's hotspots.",
+          "locationWhenInUsePermission": "Crawl uses your location to surface nearby venues and tonight's hotspots.",
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID"
+        }
+      ]
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -27,7 +50,8 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
