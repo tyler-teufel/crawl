@@ -8,6 +8,7 @@ import { FilterChip } from '../../components/ui/FilterChip';
 import { CrawlMapView } from '../../components/map/CrawlMapView';
 import { MapPlaceholder } from '../../components/map/MapPlaceholder';
 import { VenueCard } from '../../components/venue/VenueCard';
+import { CitySelector } from '../../components/voting/CitySelector';
 
 const CARD_WIDTH = Dimensions.get('window').width * 0.8;
 
@@ -33,6 +34,11 @@ export default function ExploreScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-crawl-bg">
+      {/* City selector */}
+      <View className="items-center pt-2">
+        <CitySelector />
+      </View>
+
       {/* Search */}
       <View className="py-3">
         <SearchBar

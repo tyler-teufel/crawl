@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useVenue } from '@/api/venues';
 import { useCastVote, useVoteState } from '@/api/votes';
+import { useVenueContext } from '@/context/VenueContext';
 import { HotspotScore } from '../../components/venue/HotspotScore';
 import { Badge } from '../../components/ui/Badge';
 
@@ -12,10 +13,11 @@ export default function VenueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { selectedCity } = useVenueContext();
 
   const { data: venue, isLoading } = useVenue(id!);
-  const { data: voteState } = useVoteState();
-  const castVote = useCastVote();
+  const { data: voteState } = useVoteState(selectedCity);
+  const castVote = useCastVote(selectedCity);
 
   const hasVoted = voteState?.votedVenueIds.includes(id!) ?? false;
   const canVote = (voteState?.remainingVotes ?? 0) > 0 && !hasVoted;

@@ -10,8 +10,24 @@ const USE_SUPABASE =
 
 export const venueKeys = {
   all: ['venues'] as const,
-  list: (city: string, filters: string[]) => ['venues', 'list', city, filters] as const,
+  // Filters are sorted before keying so ['a','b'] and ['b','a'] share a cache entry.
+  list: (city: string, filters: string[]) =>
+    ['venues', 'list', city, [...filters].sort()] as const,
   detail: (id: string) => ['venues', 'detail', id] as const,
+};
+
+// Filter id → predicate. Boolean-column filters short-circuit; the rest
+// resolve to a `highlights @> ARRAY['<tag>']` containment check, supported
+// by the GIN index added in 0001_venue_filter_indexes.sql.
+const HIGHLIGHT_TAGS: Record<string, string> = {
+  'live-music': 'live-music',
+  'happy-hour': 'happy-hour',
+  rooftop: 'rooftop',
+  'craft-cocktails': 'craft-cocktails',
+  'dive-bar': 'dive-bar',
+  sports: 'sports',
+  dancing: 'dancing',
+  outdoor: 'outdoor',
 };
 
 // Shape of a row returned by `select('*')` against the `venues` table.
@@ -34,6 +50,9 @@ interface VenueRow {
   description: string | null;
   image_url: string | null;
 }
+
+const VENUE_COLUMNS =
+  'id, name, primary_type, address, latitude, longitude, hotspot_score, vote_count, is_open, is_trending, highlights, price_level, hours, description, image_url';
 
 function rowToVenue(row: VenueRow): Venue | null {
   const lat = Number(row.latitude);
@@ -78,12 +97,21 @@ export function useVenues(city: string, filters: string[]) {
         return res.data;
       }
       if (USE_SUPABASE) {
-        const { data, error } = await supabase
+        let q = supabase
           .from('venues')
-          .select(
-            'id, name, primary_type, address, latitude, longitude, hotspot_score, vote_count, is_open, is_trending, highlights, price_level, hours, description, image_url'
-          )
-          .eq('is_active', true);
+          .select(VENUE_COLUMNS)
+          .eq('is_active', true)
+          .eq('city', city);
+
+        if (filters.includes('trending')) q = q.eq('is_trending', true);
+        if (filters.includes('open-now')) q = q.eq('is_open', true);
+
+        const tags = filters
+          .map((id) => HIGHLIGHT_TAGS[id])
+          .filter((tag): tag is string => !!tag);
+        if (tags.length > 0) q = q.contains('highlights', tags);
+
+        const { data, error } = await q;
         if (error) throw error;
         return ((data ?? []) as VenueRow[])
           .map(rowToVenue)
@@ -105,9 +133,7 @@ export function useVenue(id: string) {
       if (USE_SUPABASE) {
         const { data, error } = await supabase
           .from('venues')
-          .select(
-            'id, name, primary_type, address, latitude, longitude, hotspot_score, vote_count, is_open, is_trending, highlights, price_level, hours, description, image_url'
-          )
+          .select(VENUE_COLUMNS)
           .eq('id', id)
           .maybeSingle();
         if (error) throw error;

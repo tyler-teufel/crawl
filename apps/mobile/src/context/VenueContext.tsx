@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Venue, FilterOption, VoteState } from '@/types/venue';
 import { defaultFilters } from '@/data/filters';
 import { useVenues } from '@/api/venues';
 import { useVoteState, useCastVote, useRemoveVote } from '@/api/votes';
+import { useCities, findNearestCity } from '@/api/cities';
+import { useAuth } from '@/context/AuthContext';
 
 interface VenueContextValue {
   venues: Venue[];
@@ -27,23 +29,50 @@ const DEFAULT_VOTE_STATE: VoteState = {
   votedVenueIds: [],
 };
 
+const FALLBACK_CITY = 'Austin, TX';
+
 export function VenueProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<FilterOption[]>(defaultFilters);
   const [searchQuery, setSearchQuery] = useState('');
-  // TODO(phase-b-agent-2): seed initial city based on userLocation from
-  // AuthContext (find nearest city in DB). For now we hardcode Austin, TX.
-  const [selectedCity, setSelectedCity] = useState('Austin, TX');
+  const [selectedCity, setSelectedCity] = useState(FALLBACK_CITY);
+
+  // Seed `selectedCity` once from the nearest covered city to the user's
+  // location. Skipped if the user has already chosen a city manually.
+  const { userLocation } = useAuth();
+  const { data: cities = [] } = useCities();
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (cities.length === 0) return;
+
+    let next: string | null = null;
+    if (userLocation) {
+      const nearest = findNearestCity(cities, userLocation);
+      if (nearest) next = nearest.displayName;
+    }
+    if (!next && !cities.some((c) => c.displayName === FALLBACK_CITY)) {
+      next = cities[0].displayName;
+    }
+    if (next && next !== selectedCity) setSelectedCity(next);
+    seededRef.current = true;
+  }, [cities, userLocation, selectedCity]);
+
+  const setSelectedCityManual = useCallback((city: string) => {
+    seededRef.current = true;
+    setSelectedCity(city);
+  }, []);
 
   const activeFilterIds = useMemo(
     () => filters.filter((f) => f.enabled).map((f) => f.id),
     [filters]
   );
 
-  // Data from TanStack Query
+  // Server-side filtering happens inside `useVenues` (see venues.ts). The
+  // queryKey includes city + sorted filters, so changes refetch automatically.
   const { data: venues = [] } = useVenues(selectedCity, activeFilterIds);
-  const { data: voteState = DEFAULT_VOTE_STATE } = useVoteState();
-  const castVoteMutation = useCastVote();
-  const removeVoteMutation = useRemoveVote();
+  const { data: voteState = DEFAULT_VOTE_STATE } = useVoteState(selectedCity);
+  const castVoteMutation = useCastVote(selectedCity);
+  const removeVoteMutation = useRemoveVote(selectedCity);
 
   const toggleFilter = useCallback((id: string) => {
     setFilters((prev) => prev.map((f) => (f.id === id ? { ...f, enabled: !f.enabled } : f)));
@@ -67,19 +96,17 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
     [removeVoteMutation]
   );
 
+  // Search remains client-side over the already-filtered venue list — fast,
+  // and keystrokes shouldn't round-trip to the server.
   const filteredVenues = useMemo(() => {
-    return venues.filter((venue) => {
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        if (!venue.name.toLowerCase().includes(q) && !venue.primaryType.toLowerCase().includes(q))
-          return false;
-      }
-      if (activeFilterIds.length === 0) return true;
-      if (activeFilterIds.includes('trending') && !venue.isTrending) return false;
-      if (activeFilterIds.includes('open-now') && !venue.isOpen) return false;
-      return true;
-    });
-  }, [venues, searchQuery, activeFilterIds]);
+    if (!searchQuery) return venues;
+    const q = searchQuery.toLowerCase();
+    return venues.filter(
+      (venue) =>
+        venue.name.toLowerCase().includes(q) ||
+        venue.primaryType.toLowerCase().includes(q)
+    );
+  }, [venues, searchQuery]);
 
   return (
     <VenueContext.Provider
@@ -90,7 +117,7 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
         searchQuery,
         selectedCity,
         setSearchQuery,
-        setSelectedCity,
+        setSelectedCity: setSelectedCityManual,
         toggleFilter,
         resetFilters,
         castVote,

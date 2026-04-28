@@ -11,7 +11,7 @@ import { VenueListItem } from '../../components/venue/VenueListItem';
 export default function VotingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { venues, voteState, castVote, removeVote, selectedCity } = useVenueContext();
+  const { venues, voteState, castVote, removeVote } = useVenueContext();
 
   const sortedVenues = [...venues].sort((a, b) => b.hotspotScore - a.hotspotScore);
 
@@ -28,7 +28,7 @@ export default function VotingScreen() {
 
         {/* City selector */}
         <View className="mt-4 items-center">
-          <CitySelector city={selectedCity} onPress={() => {}} />
+          <CitySelector />
         </View>
 
         {/* Vote counter */}
