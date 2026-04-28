@@ -364,3 +364,58 @@ The mobile app's first-launch experience is anonymous-first. On boot the app che
 1. **Supabase dashboard** — enable the Apple and Google providers under Authentication → Providers. Paste the iOS bundle id and the Google Web client ID into the relevant Supabase fields.
 2. **Apple Developer** — create a Services ID for "Sign in with Apple" and tie it to the iOS bundle id. The id_token Supabase verifies is signed by Apple against this configuration.
 3. **Google Cloud Console** — create OAuth 2.0 client IDs of type "iOS" and "Web application". Set `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `apps/mobile/.env`. Paste the reversed iOS client ID into `apps/mobile/app.json` under the `@react-native-google-signin/google-signin` plugin's `iosUrlScheme`.
+
+---
+
+## Dynamic Venue Filtering Strategy
+
+**Chosen over:** materialized views, per-filter Postgres views, hard-coded SQL functions, client-side filtering.
+
+The map screen scopes by city and applies an arbitrary subset of ten filter chips on top. The constraint is "fastest correct path" with vote counts changing every few seconds — so anything precomputed (materialized views, denormalized aggregates that aren't already there) is the wrong shape.
+
+**The approach:**
+
+1. **Compose `WHERE` predicates dynamically in the Supabase query.** `useVenues(city, filters)` chains `.eq('city', ...)`, `.eq('is_trending', true)`, `.eq('is_open', true)`, and `.contains('highlights', tags)` only for the filters that are active. PostgREST handles this composition; Supabase's planner picks the right index per predicate combination.
+2. **Index for the predicates, not for arbitrary queries.** Migration `0001_venue_filter_indexes.sql` adds compound `(city, is_active)`, `(city, is_trending) WHERE is_trending`, `(city, is_open) WHERE is_open`, plus a GIN on `highlights[]`. Each filter chip therefore hits a leading-column index. The partial indexes (`WHERE is_trending`) are tiny because most rows fail the predicate.
+3. **Stable queryKey sorting.** `venueKeys.list(city, filters)` sorts the filter array before keying so `['trending', 'open-now']` and `['open-now', 'trending']` share a cache entry. Without this, every re-ordering would cause an unnecessary refetch.
+4. **No materialized views.** Vote counts and `hotspot_score` change continuously; a materialized view would be stale within seconds and the refresh cost would be wasted.
+5. **No regular views either, for now.** Predicates compose well enough with `WHERE` clauses that a view layer adds indirection without speeding anything up. Views become useful when filter logic involves joins or aggregates the planner can't see through — flag for follow-up if a "trending tonight" filter starts requiring a vote-count-by-day join.
+6. **PostGIS RPC reserved for spatial filters.** No spatial chip exists in the current set, so no `venues_within(...)` function was added. When one is added, follow this pattern: a `language sql stable` function fronted by Supabase RPC, with a GiST index on the geography column. Avoid encoding spatial logic into the JS client — the round-trip math is fine in JS but the server-side index lookup isn't replicable client-side.
+
+**Filter → predicate mapping** (in `apps/mobile/src/api/venues.ts`):
+
+| Filter id          | Predicate                                |
+| ------------------ | ---------------------------------------- |
+| `trending`         | `is_trending = true`                     |
+| `open-now`         | `is_open = true` (note: see schema TODO — should derive from `hours`) |
+| `live-music`       | `'live-music' = ANY(highlights)`         |
+| `happy-hour`       | `'happy-hour' = ANY(highlights)`         |
+| `rooftop`          | `'rooftop' = ANY(highlights)`            |
+| `craft-cocktails`  | `'craft-cocktails' = ANY(highlights)`    |
+| `dive-bar`         | `'dive-bar' = ANY(highlights)`           |
+| `sports`           | `'sports' = ANY(highlights)`             |
+| `dancing`          | `'dancing' = ANY(highlights)`            |
+| `outdoor`          | `'outdoor' = ANY(highlights)`            |
+
+The highlight tag values must match what the venue sync job writes to the `highlights[]` column. If the sync job uses different casing or punctuation, update the `HIGHLIGHT_TAGS` map in `venues.ts` rather than per-call mapping.
+
+**Trade-off:** Dynamic predicate composition is harder to reason about than a fixed view because the SQL the planner sees varies by call. Mitigated by: (a) the index plan is deterministic per active filter set, (b) we only compose well-known predicates, (c) every active predicate has a leading-column index. Acceptable for this size of query.
+
+---
+
+## City as Source of Truth in VenueContext
+
+**Chosen over:** independent city state per screen, deriving city from a route param, or storing only a city `id` UUID.
+
+VenueContext now seeds `selectedCity` from the user's onboarding-captured location:
+
+1. `useCities()` resolves the list of supported cities once.
+2. `findNearestCity(cities, userLocation, maxMiles=50)` picks the closest covered city via haversine.
+3. The result is set into `selectedCity` once on first run; manual selection via `setSelectedCity` flips a guard ref so seeding never overrides a user choice.
+4. If the user is more than 50 miles from any covered city, the previous fallback (`Austin, TX`) wins — better than zooming the map to the wrong city.
+
+**Why store the display string and not the UUID:**
+
+The `venues` table currently denormalizes city as a `"Name, State"` text column (with a TODO in the schema to migrate to `cityId` lookups). The mobile app keys queries off this same string so the data path stays simple. When the schema migration to `cityId` lands, swap to UUID in one place (`useVenues`) without touching the rest of the context. Switching now would require two reads in lockstep — schema cleanup first, app change second.
+
+**Trade-off:** the display string format must stay consistent across `cities.name + ', ' + cities.state` and `venues.city`. The seed and sync jobs currently produce this format; document this contract in `apps/api/src/jobs/syncVenues` if a contributor proposes changing it.

@@ -80,12 +80,12 @@ Uses `useVenueContext()` for `filteredVenues`, `filters`, `toggleFilter`, `searc
 Daily voting interface. Scrollable layout:
 
 1. **Header** — "Daily Hotspot Votes" title and subtitle
-2. **CitySelector** — shows "Austin, TX" with dropdown chevron (dropdown not implemented)
+2. **CitySelector** — opens a modal listing every city in the DB; selection updates `VenueContext` and refetches venues, votes, and rankings via TanStack Query queryKey invalidation
 3. **VoteCounter** — large display of remaining/max votes (e.g., "3 / 3")
 4. **CountdownTimer** — live HH:MM:SS countdown to midnight when votes reset
 5. **Venue list** — venues sorted by hotspot score, rendered as `VenueListItem` rows. Each has a heart button to cast or remove a vote.
 
-Uses `useVenueContext()` for `venues`, `voteState`, `castVote`, `removeVote`, and `selectedCity`.
+Uses `useVenueContext()` for `venues`, `voteState`, `castVote`, and `removeVote`. The CitySelector reads `selectedCity` from context directly.
 
 ### `app/(tabs)/global.tsx` — Global Rankings (Placeholder)
 
@@ -224,7 +224,7 @@ Live countdown to midnight. Three `TimeBlock` sub-components (hours, minutes, se
 
 ### `components/voting/CitySelector.tsx`
 
-Pressable button showing a location pin icon, city name text, and a dropdown chevron icon. Styled as a rounded pill on card background. The `onPress` callback is provided but not yet connected to a dropdown/picker.
+Self-contained city picker. Renders as a rounded pill (location pin + city name + chevron) on `bg-crawl-card`. Tapping opens a `Modal` with the list returned by `useCities()`; tapping a row calls `setSelectedCity` on `VenueContext` and dismisses. Used on both the explore screen and the voting screen — neither passes any props.
 
 ---
 
@@ -278,7 +278,7 @@ export const colors = {
 
 ### `src/context/VenueContext.tsx`
 
-React Context provider and `useVenueContext()` hook. Manages filter state, search query, city selection, and vote state. Derives `filteredVenues` by applying search and active filter logic. Uses `useCallback` for memoized action functions. The hardcoded `selectedCity` default ("Austin, TX") is marked with a `TODO(phase-b-agent-2)` to swap to `userLocation`-derived city resolution. See the [Architecture](./ARCHITECTURE.md#3-state-management) doc for the full state tree.
+React Context provider and `useVenueContext()` hook. Manages filter state, search query, city selection, and vote state. On first run, seeds `selectedCity` by resolving the user's onboarding-captured `userLocation` (from `AuthContext`) against `useCities()` via `findNearestCity` — capped at 50 miles, with a fallback to `Austin, TX` when the user is too far from any covered city. A guard ref ensures the seeded value never overrides a manual `setSelectedCity` call. The TanStack Query queryKeys for venues and votes both include `selectedCity`, so changes refetch automatically. Search-by-text is the only client-side filter that remains; the ten filter chips are now applied server-side by `useVenues`. See the [Architecture](./ARCHITECTURE.md#3-state-management) doc for the full state tree.
 
 ### `src/context/AuthContext.tsx`
 
@@ -321,6 +321,14 @@ Two helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
 ### `src/lib/supabase.ts`
 
 Supabase client singleton. Configured with `auth.storage = AsyncStorage`, `autoRefreshToken: true`, `persistSession: true`, `detectSessionInUrl: false`. Reads `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_KEY`; throws at import time if either is missing.
+
+### `src/api/cities.ts`
+
+`useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`. Also exports `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.
+
+### `apps/api/drizzle/0001_venue_filter_indexes.sql`
+
+Idempotent migration adding the indexes that back the dynamic filter predicates in `useVenues`: compound `(city, is_active|is_trending|is_open)` indexes (the `_trending` and `_open` variants are partial — `WHERE is_trending = true` etc. — so they stay tiny), a GIN index on `highlights[]` for the tag-based filters, and a partial `cities (is_active) WHERE is_active` index for the city picker. See [Dynamic Venue Filtering Strategy](./DESIGN_DECISIONS.md#dynamic-venue-filtering-strategy) for the predicate map.
 
 ---
 

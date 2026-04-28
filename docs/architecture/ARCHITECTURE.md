@@ -185,14 +185,16 @@ AuthProvider (app/_layout.tsx)
     └── signOut()
         │
         ▼
-VenueProvider (app/_layout.tsx)
+VenueProvider (app/_layout.tsx, beneath AuthProvider)
 │
 ├── Data
-│   ├── venues: Venue[]              # Full mock venue list (8 items)
-│   ├── filteredVenues: Venue[]      # Derived: search + filter applied
-│   ├── filters: FilterOption[]      # 10 filter toggles
-│   ├── searchQuery: string          # Current search text
-│   └── selectedCity: string         # Active city ("Austin, TX")
+│   ├── venues: Venue[]              # Server-filtered for selectedCity + active chips
+│   ├── filteredVenues: Venue[]      # Derived: client-side search-text filter only
+│   ├── filters: FilterOption[]      # 10 filter toggles (server-side application)
+│   ├── searchQuery: string          # Current search text (client-side)
+│   └── selectedCity: string         # Seeded from AuthContext.userLocation via
+│                                    #   findNearestCity(); user override via
+│                                    #   setSelectedCity, persisted as a guard ref
 │
 ├── Vote State
 │   ├── voteState.remainingVotes: number     # Starts at 3
@@ -218,11 +220,11 @@ The filter modal (`/filters`) is rendered as a separate route outside the tab na
 
 ### Derived State
 
-`filteredVenues` is computed on every render from the full venue list:
+`filteredVenues` is the search-narrowed view of the already-filtered server result. The filter chips are applied server-side now (`useVenues` composes Supabase predicates per active filter — see [Dynamic Venue Filtering Strategy](./DESIGN_DECISIONS.md#dynamic-venue-filtering-strategy)), so the only client-side filter that remains is search text:
 
-1. **Search filter:** Case-insensitive match against venue `name` or `type`
-2. **Category filters:** If "Trending" is active, exclude non-trending venues. If "Open Now" is active, exclude closed venues.
-3. **No active filters:** Return all venues that match the search query
+- **Search filter (client):** case-insensitive match against `name` or `primaryType`. Runs on every keystroke.
+- **Category filters (server):** every chip toggle invalidates the `venues.list` queryKey, which triggers a refetch with the new predicate set.
+- **City scope (server):** changing `selectedCity` invalidates both the `venues.list` and `votes.state` queryKeys so the map, carousel, voting screen, and rankings all re-fetch in lockstep.
 
 ### Future State Architecture
 
