@@ -184,6 +184,18 @@ Small rounded pill badge for status indicators. Three variants:
 
 All variants render uppercase bold white text.
 
+### `components/ui/Skeleton.tsx`
+
+The single skeleton primitive used everywhere. Renders a `bg-crawl-card` block sized via Tailwind classes (`<Skeleton className="h-4 w-32 rounded" />`); a Reanimated 3 opacity loop runs on the UI thread. Per-surface "shapes" (`VenueCardSkeleton`, `VenueListItemSkeleton`) compose this primitive — there is no per-screen variant.
+
+### `components/ui/States.tsx`
+
+Exports `ErrorState` and `EmptyState`. Both take `{ title, message?, onRetry?, retryLabel?, icon? }`. `ErrorState` is rendered whenever a TanStack Query reports `isError`; `EmptyState` is for the success-but-zero-results case (e.g. filters exclude every venue). See [Loading and Error UI](./DESIGN_DECISIONS.md#loading-and-error-ui).
+
+### `components/ui/OfflineBanner.tsx`
+
+Non-blocking banner pinned under the status bar that appears when `@react-native-community/netinfo` reports the device cannot reach the internet. Imports netinfo via lazy `require` so the banner becomes a no-op when the native module is absent (e.g. Expo Go without a dev client). Mounted once in the root layout.
+
 ### `components/venue/VenueCard.tsx`
 
 Card component for the bottom carousel on the Explore screen. Parameterized width for snap interval calculations. Displays:
@@ -213,6 +225,14 @@ Row component for the voting screen's ranked list. Layout left to right:
 2. **Info** — venue name (with HOT badge if trending), type, and vote count
 3. **Score** — hotspot score number in purple-light
 4. **Vote button** — heart icon button. Filled purple when voted, outline when not. Disabled (40% opacity) when no votes remain and the venue hasn't been voted for. `stopPropagation` on the heart press prevents triggering the row's navigation.
+
+### `components/venue/VenueCardSkeleton.tsx`
+
+Skeleton silhouette of `VenueCard` for the explore-screen carousel. Composes `Skeleton` blocks at the same dimensions as the loaded card so the loading→loaded swap doesn't reflow.
+
+### `components/venue/VenueListItemSkeleton.tsx`
+
+Skeleton silhouette of `VenueListItem` for the voting screen.
 
 ### `components/voting/VoteCounter.tsx`
 
