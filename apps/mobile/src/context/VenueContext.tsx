@@ -84,7 +84,9 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
   // Server-side filtering happens inside `useVenues` (see venues.ts). The
   // queryKey includes city + sorted filters, so changes refetch automatically.
   const venuesQuery = useVenues(selectedCity, activeFilterIds);
-  const venues = venuesQuery.data ?? [];
+  // Memoize the empty default so `venues` is stable across renders when the
+  // query is still loading — otherwise downstream useMemo deps thrash.
+  const venues = useMemo(() => venuesQuery.data ?? [], [venuesQuery.data]);
   const { data: voteState = DEFAULT_VOTE_STATE } = useVoteState(selectedCity);
   const castVoteMutation = useCastVote(selectedCity);
   const removeVoteMutation = useRemoveVote(selectedCity);

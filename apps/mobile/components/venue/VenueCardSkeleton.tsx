@@ -9,9 +9,7 @@ interface Props {
 /** Matches the rough silhouette of `VenueCard` so loading→loaded swap is calm. */
 export function VenueCardSkeleton({ width }: Props) {
   return (
-    <View
-      style={{ width }}
-      className="mr-4 overflow-hidden rounded-2xl bg-crawl-card p-4">
+    <View style={{ width }} className="mr-4 overflow-hidden rounded-2xl bg-crawl-card p-4">
       <View className="flex-row items-start justify-between">
         <View className="flex-1">
           <Skeleton className="h-5 w-3/4 rounded" />

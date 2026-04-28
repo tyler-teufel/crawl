@@ -13,15 +13,8 @@ import { ErrorState, EmptyState } from '../../components/ui/States';
 export default function VotingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    venues,
-    voteState,
-    castVote,
-    removeVote,
-    isVenuesLoading,
-    isVenuesError,
-    refetchVenues,
-  } = useVenueContext();
+  const { venues, voteState, castVote, removeVote, isVenuesLoading, isVenuesError, refetchVenues } =
+    useVenueContext();
 
   const sortedVenues = [...venues].sort((a, b) => b.hotspotScore - a.hotspotScore);
 

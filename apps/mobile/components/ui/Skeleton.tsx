@@ -35,10 +35,7 @@ export function Skeleton({ className }: SkeletonProps) {
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
-    <Animated.View
-      accessible={false}
-      style={style}
-      className={cn('bg-crawl-card', className)}>
+    <Animated.View accessible={false} style={style} className={cn('bg-crawl-card', className)}>
       <View className="flex-1" />
     </Animated.View>
   );
