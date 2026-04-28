@@ -32,6 +32,11 @@ on:
         required: false
         default: false
         type: boolean
+      cleanup_tag_on_failure:
+        description: 'Delete the version tag if a later job fails after the release job pushed it'
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   # Never cancel an in-flight deploy. Serialize per environment.
@@ -209,6 +214,32 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run db:migrate
+
+  # ── Cleanup stale tag if a later job fails ───────────────────────
+  # The release job pushes the version tag before downstream jobs run, so a
+  # failure in build-and-push or migrate leaves a tag pointing at a release
+  # that never shipped. This job deletes that tag (opt-out via input).
+  cleanup-on-failure:
+    name: Cleanup stale tag (on failure)
+    needs: [release, build-and-push, migrate]
+    if: |
+      always() &&
+      inputs.cleanup_tag_on_failure &&
+      needs.release.result == 'success' &&
+      (needs['build-and-push'].result == 'failure' || needs.migrate.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TAG: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Delete stale tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Deleting stale tag: $TAG"
+          git push origin --delete "$TAG" || echo "Remote tag $TAG already gone"
 
   summary:
     name: Summary
