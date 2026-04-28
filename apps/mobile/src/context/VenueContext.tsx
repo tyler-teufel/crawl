@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from 'react';
 import { Venue, FilterOption, VoteState } from '@/types/venue';
 import { defaultFilters } from '@/data/filters';
 import { useVenues } from '@/api/venues';
@@ -102,9 +110,7 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
     if (!searchQuery) return venues;
     const q = searchQuery.toLowerCase();
     return venues.filter(
-      (venue) =>
-        venue.name.toLowerCase().includes(q) ||
-        venue.primaryType.toLowerCase().includes(q)
+      (venue) => venue.name.toLowerCase().includes(q) || venue.primaryType.toLowerCase().includes(q)
     );
   }, [venues, searchQuery]);
 

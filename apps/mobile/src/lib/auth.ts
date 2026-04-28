@@ -127,8 +127,9 @@ function configureGoogle() {
 export async function signInWithGoogle() {
   configureGoogle();
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { GoogleSignin } = require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin');
+  const { GoogleSignin } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin');
 
   await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
   const result = await GoogleSignin.signIn();

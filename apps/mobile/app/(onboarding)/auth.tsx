@@ -76,8 +76,8 @@ export default function OnboardingAuth() {
         </View>
         <Text className="mt-6 text-2xl font-bold text-white">Make it yours</Text>
         <Text className="mt-3 text-center text-base text-crawl-text-muted">
-          Sign in to keep your votes and preferences across devices, or jump in anonymously and
-          link an account later.
+          Sign in to keep your votes and preferences across devices, or jump in anonymously and link
+          an account later.
         </Text>
       </View>
 

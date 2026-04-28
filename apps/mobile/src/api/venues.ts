@@ -11,8 +11,7 @@ const USE_SUPABASE =
 export const venueKeys = {
   all: ['venues'] as const,
   // Filters are sorted before keying so ['a','b'] and ['b','a'] share a cache entry.
-  list: (city: string, filters: string[]) =>
-    ['venues', 'list', city, [...filters].sort()] as const,
+  list: (city: string, filters: string[]) => ['venues', 'list', city, [...filters].sort()] as const,
   detail: (id: string) => ['venues', 'detail', id] as const,
 };
 
@@ -106,16 +105,12 @@ export function useVenues(city: string, filters: string[]) {
         if (filters.includes('trending')) q = q.eq('is_trending', true);
         if (filters.includes('open-now')) q = q.eq('is_open', true);
 
-        const tags = filters
-          .map((id) => HIGHLIGHT_TAGS[id])
-          .filter((tag): tag is string => !!tag);
+        const tags = filters.map((id) => HIGHLIGHT_TAGS[id]).filter((tag): tag is string => !!tag);
         if (tags.length > 0) q = q.contains('highlights', tags);
 
         const { data, error } = await q;
         if (error) throw error;
-        return ((data ?? []) as VenueRow[])
-          .map(rowToVenue)
-          .filter((v): v is Venue => v !== null);
+        return ((data ?? []) as VenueRow[]).map(rowToVenue).filter((v): v is Venue => v !== null);
       }
       return mockVenues;
     },

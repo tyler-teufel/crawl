@@ -53,7 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // In Expo Go without env vars, supabase calls will throw. Log and
         // leave user=null so the UI can still render the onboarding flow.
         if (__DEV__) {
-          // eslint-disable-next-line no-console
           console.warn('[AuthContext] ensureSignedIn failed:', err);
         }
       } finally {

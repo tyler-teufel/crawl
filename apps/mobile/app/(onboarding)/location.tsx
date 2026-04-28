@@ -39,7 +39,6 @@ export default function OnboardingLocation() {
       }
     } catch (err) {
       if (__DEV__) {
-        // eslint-disable-next-line no-console
         console.warn('[onboarding/location] failed:', err);
       }
     } finally {
