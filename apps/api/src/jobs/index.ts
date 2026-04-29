@@ -16,12 +16,8 @@ const simpleLogger = {
 export function startJobs(): void {
   const useRealDb = process.env.USE_REAL_DB === 'true';
 
-  const venueRepo = useRealDb
-    ? new DrizzleVenueRepository(getDb())
-    : new InMemoryVenueRepository();
-  const voteRepo = useRealDb
-    ? new DrizzleVoteRepository(getDb())
-    : new InMemoryVoteRepository();
+  const venueRepo = useRealDb ? new DrizzleVenueRepository(getDb()) : new InMemoryVenueRepository();
+  const voteRepo = useRealDb ? new DrizzleVoteRepository(getDb()) : new InMemoryVoteRepository();
 
   const venueService = new VenueService(venueRepo);
   const voteService = new VoteService(voteRepo, venueRepo);
@@ -29,5 +25,7 @@ export function startJobs(): void {
   scheduleVoteReset(voteService, venueService, simpleLogger);
   scheduleScoreRecalculation(venueService, simpleLogger);
 
-  simpleLogger.info('[jobs] Cron jobs scheduled: vote reset (midnight UTC), score recalculation (hourly).');
+  simpleLogger.info(
+    '[jobs] Cron jobs scheduled: vote reset (midnight UTC), score recalculation (hourly).'
+  );
 }

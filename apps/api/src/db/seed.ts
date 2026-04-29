@@ -40,8 +40,8 @@ const SEED_VENUES = [
     primaryType: 'Nightclub',
     address: '210 E Trade St',
     city: 'Charlotte, NC',
-    latitude: String(35.2270),
-    longitude: String(-80.8440),
+    latitude: String(35.227),
+    longitude: String(-80.844),
     hotspotScore: 68,
     voteCount: 72,
     isOpen: true,
@@ -66,10 +66,11 @@ const SEED_VENUES = [
     highlights: ['Live Music', 'Local Art', 'Events'],
     priceLevel: 1,
     hours: 'Varies by event',
-    description: 'Community arts hub hosting live performances and exhibitions in downtown Patchogue.',
+    description:
+      'Community arts hub hosting live performances and exhibitions in downtown Patchogue.',
   },
   {
-    name: "Brickhouse Brewery",
+    name: 'Brickhouse Brewery',
     primaryType: 'Bar',
     address: '67 W Main St',
     city: 'Patchogue, NY',
@@ -82,7 +83,7 @@ const SEED_VENUES = [
     highlights: ['Craft Beer', 'Pub Food', 'Live Music'],
     priceLevel: 2,
     hours: '11:30am - 12am',
-    description: 'Long Island microbrewery and pub on Patchogue\'s lively Main Street.',
+    description: "Long Island microbrewery and pub on Patchogue's lively Main Street.",
   },
   // Sayville, NY
   {
@@ -115,7 +116,7 @@ const SEED_VENUES = [
     highlights: ['Cocktails', 'Patio', 'Date Night'],
     priceLevel: 3,
     hours: '4pm - 12am',
-    description: 'Cozy cocktail bar with a warm atmosphere on Sayville\'s Main Street.',
+    description: "Cozy cocktail bar with a warm atmosphere on Sayville's Main Street.",
   },
 ];
 

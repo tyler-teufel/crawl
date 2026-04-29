@@ -11,7 +11,7 @@ interface TrendingRoutesOptions {
 
 export async function trendingRoutes(
   fastify: FastifyInstance,
-  opts: TrendingRoutesOptions,
+  opts: TrendingRoutesOptions
 ): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -41,6 +41,6 @@ export async function trendingRoutes(
     async (request) => {
       const city = decodeURIComponent(request.params.city);
       return opts.venueService.getTrendingVenues(city, request.query.limit);
-    },
+    }
   );
 }

@@ -1,10 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import {
-  voteStateSchema,
-  castVoteBody,
-  removeVoteParams,
-} from '../schemas/vote.schema.js';
+import { voteStateSchema, castVoteBody, removeVoteParams } from '../schemas/vote.schema.js';
 import { errorResponse } from '../schemas/common.schema.js';
 import { VoteError, type VoteService } from '../services/vote.service.js';
 
@@ -18,10 +14,7 @@ const CAST_VOTE_ERROR_STATUS: Record<string, 404 | 409 | 422> = {
   VENUE_NOT_FOUND: 404,
 };
 
-export async function voteRoutes(
-  fastify: FastifyInstance,
-  opts: VoteRoutesOptions,
-): Promise<void> {
+export async function voteRoutes(fastify: FastifyInstance, opts: VoteRoutesOptions): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   /**
@@ -45,7 +38,7 @@ export async function voteRoutes(
     },
     async (request) => {
       return opts.voteService.getVoteState(request.user.sub);
-    },
+    }
   );
 
   /**
@@ -86,7 +79,7 @@ export async function voteRoutes(
         }
         throw err;
       }
-    },
+    }
   );
 
   /**
@@ -123,6 +116,6 @@ export async function voteRoutes(
         }
         throw err;
       }
-    },
+    }
   );
 }

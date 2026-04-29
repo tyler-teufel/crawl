@@ -23,19 +23,13 @@ export class InMemoryVoteRepository implements VoteRepository {
   private votes: Map<string, Vote> = new Map();
 
   async findByUserAndDate(userId: string, date: string): Promise<Vote[]> {
-    return [...this.votes.values()].filter(
-      (v) => v.userId === userId && v.votedAt === date,
-    );
+    return [...this.votes.values()].filter((v) => v.userId === userId && v.votedAt === date);
   }
 
-  async findByUserVenueDate(
-    userId: string,
-    venueId: string,
-    date: string,
-  ): Promise<Vote | null> {
+  async findByUserVenueDate(userId: string, venueId: string, date: string): Promise<Vote | null> {
     return (
       [...this.votes.values()].find(
-        (v) => v.userId === userId && v.venueId === venueId && v.votedAt === date,
+        (v) => v.userId === userId && v.venueId === venueId && v.votedAt === date
       ) ?? null
     );
   }
@@ -54,7 +48,7 @@ export class InMemoryVoteRepository implements VoteRepository {
 
   async delete(userId: string, venueId: string): Promise<boolean> {
     const vote = [...this.votes.values()].find(
-      (v) => v.userId === userId && v.venueId === venueId && v.votedAt === today(),
+      (v) => v.userId === userId && v.venueId === venueId && v.votedAt === today()
     );
     if (!vote) return false;
     this.votes.delete(vote.id);
@@ -73,8 +67,7 @@ export class InMemoryVoteRepository implements VoteRepository {
   }
 
   async countByVenueAndDate(venueId: string, date: string): Promise<number> {
-    return [...this.votes.values()].filter(
-      (v) => v.venueId === venueId && v.votedAt === date,
-    ).length;
+    return [...this.votes.values()].filter((v) => v.venueId === venueId && v.votedAt === date)
+      .length;
   }
 }

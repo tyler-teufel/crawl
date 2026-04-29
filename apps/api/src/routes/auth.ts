@@ -15,16 +15,13 @@ interface AuthRoutesOptions {
   authService: AuthService;
 }
 
-export async function authRoutes(
-  fastify: FastifyInstance,
-  opts: AuthRoutesOptions,
-): Promise<void> {
+export async function authRoutes(fastify: FastifyInstance, opts: AuthRoutesOptions): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   const signTokens = (user: { id: string; email: string }) => {
     const accessToken = fastify.jwt.sign(
       { sub: user.id, email: user.email },
-      { expiresIn: env.JWT_ACCESS_EXPIRY },
+      { expiresIn: env.JWT_ACCESS_EXPIRY }
     );
     const refreshToken = fastify.jwt.refresh.sign({
       sub: user.id,
@@ -70,7 +67,7 @@ export async function authRoutes(
         }
         throw err;
       }
-    },
+    }
   );
 
   /**
@@ -105,7 +102,7 @@ export async function authRoutes(
         }
         throw err;
       }
-    },
+    }
   );
 
   /**
@@ -162,6 +159,6 @@ export async function authRoutes(
           statusCode: 401,
         });
       }
-    },
+    }
   );
 }

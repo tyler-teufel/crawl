@@ -18,6 +18,7 @@ InMemoryRepository              DrizzleRepository
 ```
 
 When you're ready to connect a real database:
+
 1. Set `DATABASE_URL` in `.env` (see `.env.example`).
 2. Run `npm run db:generate` to create migration SQL from `schema.ts`.
 3. Run `npm run db:migrate` to apply migrations.
@@ -26,10 +27,10 @@ When you're ready to connect a real database:
 
 ## Files
 
-| File | Purpose |
-|---|---|
+| File        | Purpose                                                                                                                                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `schema.ts` | Drizzle table definitions for `venues`, `users`, and `votes`. Single source of truth — `drizzle-kit` diffs this file to generate migrations. Also exports `$inferSelect` / `$inferInsert` TypeScript types. |
-| `index.ts` | `getDb()` — lazily constructs a `node-postgres` connection pool and passes it to Drizzle. Throws a descriptive error if called without `DATABASE_URL` set, rather than silently failing at query time. |
+| `index.ts`  | `getDb()` — lazily constructs a `node-postgres` connection pool and passes it to Drizzle. Throws a descriptive error if called without `DATABASE_URL` set, rather than silently failing at query time.      |
 
 ## Schema overview
 
@@ -58,7 +59,7 @@ votes
   UNIQUE(user_id, venue_id, voted_at)   ← one vote per venue per day
 ```
 
-> **PostGIS note:** The `location` column stores a WKT `POINT(lng lat)` string. Drizzle doesn't have a first-class PostGIS type, so geo queries will use `db.execute(sql\`...\`)` with raw PostGIS functions (`ST_DWithin`, `ST_MakePoint`). The `latitude_e6` / `longitude_e6` integer columns (lat × 10⁶) provide a B-tree indexable alternative for bounding-box pre-filters.
+> **PostGIS note:** The `location` column stores a WKT `POINT(lng lat)` string. Drizzle doesn't have a first-class PostGIS type, so geo queries will use `db.execute(sql\`...\`)` with raw PostGIS functions (`ST_DWithin`, `ST_MakePoint`). The `latitude_e6`/`longitude_e6` integer columns (lat × 10⁶) provide a B-tree indexable alternative for bounding-box pre-filters.
 
 ## Adding a new table
 
@@ -101,14 +102,12 @@ import { highlights } from '../db/schema.js';
 import type { HighlightRepository, Highlight } from './highlight.repository.js';
 
 export class DrizzleHighlightRepository implements HighlightRepository {
-  private get db() { return getDb(); }
+  private get db() {
+    return getDb();
+  }
 
   async findById(id: string): Promise<Highlight | null> {
-    const rows = await this.db
-      .select()
-      .from(highlights)
-      .where(eq(highlights.id, id))
-      .limit(1);
+    const rows = await this.db.select().from(highlights).where(eq(highlights.id, id)).limit(1);
     return rows[0] ? this.toHighlight(rows[0]) : null;
   }
 
@@ -118,10 +117,7 @@ export class DrizzleHighlightRepository implements HighlightRepository {
   }
 
   async countByVenue(venueId: string): Promise<number> {
-    const rows = await this.db
-      .select()
-      .from(highlights)
-      .where(eq(highlights.venueId, venueId));
+    const rows = await this.db.select().from(highlights).where(eq(highlights.venueId, venueId));
     return rows.length;
   }
 

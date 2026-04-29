@@ -17,11 +17,11 @@ The interface is what services depend on. The concrete class is what `src/app.ts
 
 ## Files
 
-| File | Interface | In-Memory implementation |
-|---|---|---|
-| `venue.repository.ts` | `VenueRepository` — `findMany`, `findById`, `findTrendingByCity`, `incrementVoteCount`, `decrementVoteCount`, `updateHotspotScore`, `resetDailyMetrics` | `InMemoryVenueRepository` — seeded with 3 Austin venues |
-| `vote.repository.ts` | `VoteRepository` — `findByUserAndDate`, `findByUserVenueDate`, `create`, `delete`, `resetByDate`, `countByVenueAndDate` | `InMemoryVoteRepository` — Map keyed by vote UUID |
-| `user.repository.ts` | `UserRepository` — `findByEmail`, `findById`, `create`, `updateCity` | `InMemoryUserRepository` — Map + email index for O(1) lookups |
+| File                  | Interface                                                                                                                                               | In-Memory implementation                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `venue.repository.ts` | `VenueRepository` — `findMany`, `findById`, `findTrendingByCity`, `incrementVoteCount`, `decrementVoteCount`, `updateHotspotScore`, `resetDailyMetrics` | `InMemoryVenueRepository` — seeded with 3 Austin venues       |
+| `vote.repository.ts`  | `VoteRepository` — `findByUserAndDate`, `findByUserVenueDate`, `create`, `delete`, `resetByDate`, `countByVenueAndDate`                                 | `InMemoryVoteRepository` — Map keyed by vote UUID             |
+| `user.repository.ts`  | `UserRepository` — `findByEmail`, `findById`, `create`, `updateCity`                                                                                    | `InMemoryUserRepository` — Map + email index for O(1) lookups |
 
 ## Adding a new repository
 
@@ -37,7 +37,7 @@ export interface Highlight {
   id: string;
   venueId: string;
   title: string;
-  addedBy: string;   // userId
+  addedBy: string; // userId
   createdAt: string;
 }
 
@@ -115,7 +115,9 @@ import { highlights } from '../db/schema.js';
 import type { HighlightRepository, Highlight, HighlightFilters } from './highlight.repository.js';
 
 export class DrizzleHighlightRepository implements HighlightRepository {
-  private get db() { return getDb(); }
+  private get db() {
+    return getDb();
+  }
 
   async findById(id: string): Promise<Highlight | null> {
     const rows = await this.db.select().from(highlights).where(eq(highlights.id, id)).limit(1);

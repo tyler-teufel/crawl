@@ -11,7 +11,7 @@ interface VenueRoutesOptions {
 
 export async function venueRoutes(
   fastify: FastifyInstance,
-  opts: VenueRoutesOptions,
+  opts: VenueRoutesOptions
 ): Promise<void> {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
@@ -40,9 +40,9 @@ export async function venueRoutes(
       return opts.venueService.listVenues(
         { city, lat, lng, radius, q, types: filters },
         page,
-        limit,
+        limit
       );
-    },
+    }
   );
 
   /**
@@ -72,6 +72,6 @@ export async function venueRoutes(
         });
       }
       return venue;
-    },
+    }
   );
 }

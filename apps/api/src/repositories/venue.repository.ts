@@ -10,7 +10,11 @@ export interface VenueFilters {
 }
 
 export interface VenueRepository {
-  findMany(filters: VenueFilters, page: number, limit: number): Promise<{ data: Venue[]; total: number }>;
+  findMany(
+    filters: VenueFilters,
+    page: number,
+    limit: number
+  ): Promise<{ data: Venue[]; total: number }>;
   findById(id: string): Promise<Venue | null>;
   findTrendingByCity(city: string, limit: number): Promise<Venue[]>;
   incrementVoteCount(id: string): Promise<void>;
@@ -123,7 +127,8 @@ const SEED_VENUES: Venue[] = [
     highlights: ['Craft Beer', 'Happy Hour', 'Sports TV'],
     priceLevel: 2,
     hours: '12pm - 2am',
-    description: 'A beloved Main Street craft beer bar in the heart of Patchogue\'s nightlife strip.',
+    description:
+      "A beloved Main Street craft beer bar in the heart of Patchogue's nightlife strip.",
     imageUrl: undefined,
     distance: '0.1 mi',
     createdAt: now(),
@@ -144,7 +149,8 @@ const SEED_VENUES: Venue[] = [
     highlights: ['Craft Beer', 'Live Music', 'Outdoor Seating'],
     priceLevel: 2,
     hours: '12pm - 11pm',
-    description: 'Long Island\'s original brewpub, serving handcrafted beers in a historic brick building.',
+    description:
+      "Long Island's original brewpub, serving handcrafted beers in a historic brick building.",
     imageUrl: undefined,
     distance: '0.3 mi',
     createdAt: now(),
@@ -165,7 +171,8 @@ const SEED_VENUES: Venue[] = [
     highlights: ['Waterfront', 'Seafood', 'Cocktails'],
     priceLevel: 3,
     hours: '11:30am - 10pm',
-    description: 'Waterfront restaurant and bar near the Sayville Ferry, known for fresh seafood and sunsets.',
+    description:
+      'Waterfront restaurant and bar near the Sayville Ferry, known for fresh seafood and sunsets.',
     imageUrl: undefined,
     distance: '0.5 mi',
     createdAt: now(),
@@ -186,7 +193,7 @@ const SEED_VENUES: Venue[] = [
     highlights: ['Cocktails', 'DJ Nights', 'Late Night'],
     priceLevel: 2,
     hours: '5pm - 2am',
-    description: 'Sayville\'s go-to late-night bar with a rotating DJ lineup and strong cocktails.',
+    description: "Sayville's go-to late-night bar with a rotating DJ lineup and strong cocktails.",
     imageUrl: undefined,
     distance: '0.2 mi',
     createdAt: now(),
@@ -200,14 +207,12 @@ export class InMemoryVenueRepository implements VenueRepository {
   async findMany(
     filters: VenueFilters,
     page: number,
-    limit: number,
+    limit: number
   ): Promise<{ data: Venue[]; total: number }> {
     let results = [...this.venues.values()];
 
     if (filters.city) {
-      results = results.filter((v) =>
-        v.city.toLowerCase().includes(filters.city!.toLowerCase()),
-      );
+      results = results.filter((v) => v.city.toLowerCase().includes(filters.city!.toLowerCase()));
     }
     if (filters.q) {
       const q = filters.q.toLowerCase();
@@ -215,12 +220,12 @@ export class InMemoryVenueRepository implements VenueRepository {
         (v) =>
           v.name.toLowerCase().includes(q) ||
           v.primaryType.toLowerCase().includes(q) ||
-          v.description.toLowerCase().includes(q),
+          v.description.toLowerCase().includes(q)
       );
     }
     if (filters.types && filters.types.length > 0) {
       results = results.filter((v) =>
-        filters.types!.some((t) => v.primaryType.toLowerCase() === t.toLowerCase()),
+        filters.types!.some((t) => v.primaryType.toLowerCase() === t.toLowerCase())
       );
     }
 

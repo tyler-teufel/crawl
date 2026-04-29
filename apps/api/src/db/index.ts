@@ -20,7 +20,7 @@ export function getDb(): NodePgDatabase<typeof schema> {
     const url = process.env.DATABASE_URL;
     if (!url) {
       throw new Error(
-        'DATABASE_URL is not set. Configure it in .env or switch to in-memory repositories.',
+        'DATABASE_URL is not set. Configure it in .env or switch to in-memory repositories.'
       );
     }
     const pool = new pg.Pool({ connectionString: url });

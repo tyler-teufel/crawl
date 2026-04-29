@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "packageManager": "npm@11.4.2",
+  "engines": {
+    "node": ">=22.0.0 <23.0.0"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"

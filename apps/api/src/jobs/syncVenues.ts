@@ -177,7 +177,8 @@ export async function syncCity(input: SyncCityInput): Promise<SyncCityResult> {
   for (const place of seen.values()) {
     const row = placeToVenue(place, { cityId: city.id, cityName: input.city });
     if (row) rows.push(row);
-    else errors.push({ placeId: place.id, name: place.displayName?.text, error: 'transform skipped' });
+    else
+      errors.push({ placeId: place.id, name: place.displayName?.text, error: 'transform skipped' });
   }
 
   const upserted = await upsertVenues(rows);
@@ -194,8 +195,8 @@ export async function syncCity(input: SyncCityInput): Promise<SyncCityResult> {
         and(
           eq(venues.cityId, city.id),
           isNotNull(venues.googlePlaceId),
-          notInArray(venues.googlePlaceId, activeIds),
-        ),
+          notInArray(venues.googlePlaceId, activeIds)
+        )
       );
   }
 
@@ -207,4 +208,3 @@ export async function syncCity(input: SyncCityInput): Promise<SyncCityResult> {
     errors,
   };
 }
-

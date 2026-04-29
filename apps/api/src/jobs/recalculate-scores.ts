@@ -16,7 +16,7 @@ import type { VenueService } from '../services/venue.service.js';
 
 export function scheduleScoreRecalculation(
   venueService: VenueService,
-  logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void },
+  logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void }
 ): cron.ScheduledTask {
   // Run at the top of every hour: '0 * * * *'
   return cron.schedule(
@@ -30,6 +30,6 @@ export function scheduleScoreRecalculation(
         logger.error('[cron] Score recalculation failed', err);
       }
     },
-    { timezone: 'UTC' },
+    { timezone: 'UTC' }
   );
 }
