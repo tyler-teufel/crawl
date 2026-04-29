@@ -51,7 +51,7 @@ describe('AuthService', () => {
           email: 'dup@example.com',
           password: 'password2',
           displayName: 'Second',
-        }),
+        })
       ).rejects.toMatchObject({ code: 'EMAIL_IN_USE' });
     });
   });

@@ -29,7 +29,7 @@ describe('placeToVenue', () => {
           weekdayDescriptions: ['Monday: 4:00 PM – 11:00 PM', 'Tuesday: 4:00 PM – 11:00 PM'],
         },
       }),
-      ctx,
+      ctx
     );
 
     expect(row).not.toBeNull();
@@ -57,7 +57,7 @@ describe('placeToVenue', () => {
   it('falls back to types[0] when primaryType is missing', () => {
     const row = placeToVenue(
       makePlace({ primaryType: undefined, types: ['night_club', 'bar'] }),
-      ctx,
+      ctx
     );
     expect(row!.primaryType).toBe('night_club');
   });
@@ -89,7 +89,7 @@ describe('placeToVenue', () => {
   it('leaves hours empty when no weekdayDescriptions present', () => {
     expect(placeToVenue(makePlace({ regularOpeningHours: undefined }), ctx)!.hours).toBe('');
     expect(
-      placeToVenue(makePlace({ regularOpeningHours: { weekdayDescriptions: [] } }), ctx)!.hours,
+      placeToVenue(makePlace({ regularOpeningHours: { weekdayDescriptions: [] } }), ctx)!.hours
     ).toBe('');
   });
 

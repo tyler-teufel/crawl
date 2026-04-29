@@ -143,6 +143,27 @@ Expo-router maps the file system to the navigation tree. `app/(tabs)/voting.tsx`
 
 ---
 
+## Error Monitoring: Sentry (`@sentry/react-native`)
+
+**Chosen over:** Bugsnag, Rollbar, raw `console.error` + log shipping, no monitoring
+
+**Why:**
+- **Free tier covers our scale** — 5K errors, 10K performance units, 50 replays per month, org-wide. Enough for a pre-launch app with a small beta cohort.
+- **Expo-first integration path** — `@sentry/react-native/expo` ships an Expo config plugin that wires native modules without requiring `expo prebuild` to be run by hand. Drop-in `Sentry.wrap(RootLayout)` captures unhandled JS errors and React render errors.
+- **Source maps + iOS debug symbols** — the same plugin uploads them at build time so stack traces deminify in the Sentry UI.
+- **Mobile session replay** — captures the last few seconds of UI before a crash for debugging unrepro-ables. We turn off proactive session replay (`replaysSessionSampleRate: 0`) and only record on errors (`replaysOnErrorSampleRate: 1.0`) to stay under quota.
+
+**Configuration choices for free-tier sustainability:**
+- `tracesSampleRate: 0.1` — sample 10% of transactions for performance monitoring.
+- `replaysSessionSampleRate: 0` — no proactive session replays.
+- `replaysOnErrorSampleRate: 1.0` — always replay sessions where an error fired.
+- `enabled: !__DEV__` — never ship dev-mode noise to Sentry.
+- DSN read from `EXPO_PUBLIC_SENTRY_DSN`, never hardcoded, so dev/staging/prod can route to different Sentry projects.
+
+**Trade-off:** Source map upload requires `SENTRY_AUTH_TOKEN` set in the EAS build env (`eas secret:create`). Without it, builds still succeed but stack traces will be minified in Sentry. Documented in `apps/mobile/.env.example`.
+
+---
+
 ## API Framework: Fastify
 
 **Chosen over:** Express, Hono, NestJS

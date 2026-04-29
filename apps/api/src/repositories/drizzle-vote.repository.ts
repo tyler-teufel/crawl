@@ -26,11 +26,7 @@ export class DrizzleVoteRepository implements VoteRepository {
     return rows.map(rowToVote);
   }
 
-  async findByUserVenueDate(
-    userId: string,
-    venueId: string,
-    date: string,
-  ): Promise<Vote | null> {
+  async findByUserVenueDate(userId: string, venueId: string, date: string): Promise<Vote | null> {
     const rows = await this.db
       .select()
       .from(schema.votes)
@@ -38,18 +34,15 @@ export class DrizzleVoteRepository implements VoteRepository {
         and(
           eq(schema.votes.userId, userId),
           eq(schema.votes.venueId, venueId),
-          eq(schema.votes.votedAt, date),
-        ),
+          eq(schema.votes.votedAt, date)
+        )
       )
       .limit(1);
     return rows[0] ? rowToVote(rows[0]) : null;
   }
 
   async create(userId: string, venueId: string): Promise<Vote> {
-    const rows = await this.db
-      .insert(schema.votes)
-      .values({ userId, venueId })
-      .returning();
+    const rows = await this.db.insert(schema.votes).values({ userId, venueId }).returning();
     return rowToVote(rows[0]);
   }
 
@@ -61,8 +54,8 @@ export class DrizzleVoteRepository implements VoteRepository {
         and(
           eq(schema.votes.userId, userId),
           eq(schema.votes.venueId, venueId),
-          eq(schema.votes.votedAt, today),
-        ),
+          eq(schema.votes.votedAt, today)
+        )
       )
       .returning({ id: schema.votes.id });
     return result.length > 0;

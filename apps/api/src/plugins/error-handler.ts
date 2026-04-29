@@ -3,7 +3,7 @@ import type { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 export function errorHandler(
   error: FastifyError,
   request: FastifyRequest,
-  reply: FastifyReply,
+  reply: FastifyReply
 ): void {
   request.log.error({ err: error, url: request.url, method: request.method });
 

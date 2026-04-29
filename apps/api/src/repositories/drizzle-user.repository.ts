@@ -29,11 +29,7 @@ export class DrizzleUserRepository implements UserRepository {
   }
 
   async findById(id: string): Promise<UserRecord | null> {
-    const rows = await this.db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, id))
-      .limit(1);
+    const rows = await this.db.select().from(schema.users).where(eq(schema.users.id, id)).limit(1);
     return rows[0] ? rowToUser(rows[0]) : null;
   }
 

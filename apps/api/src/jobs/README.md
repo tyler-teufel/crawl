@@ -21,11 +21,11 @@ Jobs depend on service methods, not repositories directly. This means the same b
 
 ## Files
 
-| File | Schedule | What it does |
-|---|---|---|
-| `reset-votes.ts` | `0 0 * * *` (midnight UTC) | Deletes all today's votes, resets venue `voteCount` and `hotspotScore` to 0 |
-| `recalculate-scores.ts` | `0 * * * *` (top of every hour) | Recomputes hotspot scores for all venues; marks top scorers as trending |
-| `index.ts` | — | Wires services into each job and calls all `schedule*` functions; imported by `src/index.ts` |
+| File                    | Schedule                        | What it does                                                                                 |
+| ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
+| `reset-votes.ts`        | `0 0 * * *` (midnight UTC)      | Deletes all today's votes, resets venue `voteCount` and `hotspotScore` to 0                  |
+| `recalculate-scores.ts` | `0 * * * *` (top of every hour) | Recomputes hotspot scores for all venues; marks top scorers as trending                      |
+| `index.ts`              | —                               | Wires services into each job and calls all `schedule*` functions; imported by `src/index.ts` |
 
 ## Adding a new job
 
@@ -46,10 +46,10 @@ import type { VenueService } from '../services/venue.service.js';
  */
 export function scheduleVenueSync(
   venueService: VenueService,
-  logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void },
+  logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void }
 ): cron.ScheduledTask {
   return cron.schedule(
-    '0 3 * * *',   // 3:00 AM UTC every day
+    '0 3 * * *', // 3:00 AM UTC every day
     async () => {
       try {
         logger.info('[cron] Starting nightly venue sync...');
@@ -61,7 +61,7 @@ export function scheduleVenueSync(
         logger.error('[cron] Venue sync failed', err);
       }
     },
-    { timezone: 'UTC' },
+    { timezone: 'UTC' }
   );
 }
 ```
@@ -81,13 +81,13 @@ export function startJobs(): void {
 
 ## Cron expression reference
 
-| Expression | Meaning |
-|---|---|
-| `0 0 * * *` | Midnight UTC, every day |
-| `0 * * * *` | Top of every hour |
-| `0 3 * * *` | 3:00 AM UTC, every day |
-| `*/15 * * * *` | Every 15 minutes |
-| `0 0 * * 1` | Monday midnight UTC |
+| Expression     | Meaning                 |
+| -------------- | ----------------------- |
+| `0 0 * * *`    | Midnight UTC, every day |
+| `0 * * * *`    | Top of every hour       |
+| `0 3 * * *`    | 3:00 AM UTC, every day  |
+| `*/15 * * * *` | Every 15 minutes        |
+| `0 0 * * 1`    | Monday midnight UTC     |
 
 ## Conventions
 

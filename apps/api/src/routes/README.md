@@ -18,13 +18,13 @@ Routes receive a typed `opts` object containing the services they need. This is 
 
 ## Files
 
-| File | Endpoints |
-|---|---|
-| `health.ts` | `GET /api/v1/health` — liveness check with DB status and memory usage |
-| `venues.ts` | `GET /api/v1/venues`, `GET /api/v1/venues/:id` — list/detail with city, geo, and text filtering |
-| `votes.ts` | `GET /api/v1/votes`, `POST /api/v1/votes`, `DELETE /api/v1/votes/:venueId` — authenticated daily voting flow |
-| `trending.ts` | `GET /api/v1/trending/:city` — hotspot-ranked venue list for a city |
-| `auth.ts` | `POST /api/v1/auth/register`, `/auth/login`, `/auth/refresh` — JWT token lifecycle |
+| File          | Endpoints                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| `health.ts`   | `GET /api/v1/health` — liveness check with DB status and memory usage                                        |
+| `venues.ts`   | `GET /api/v1/venues`, `GET /api/v1/venues/:id` — list/detail with city, geo, and text filtering              |
+| `votes.ts`    | `GET /api/v1/votes`, `POST /api/v1/votes`, `DELETE /api/v1/votes/:venueId` — authenticated daily voting flow |
+| `trending.ts` | `GET /api/v1/trending/:city` — hotspot-ranked venue list for a city                                          |
+| `auth.ts`     | `POST /api/v1/auth/register`, `/auth/login`, `/auth/refresh` — JWT token lifecycle                           |
 
 ## Adding a new route file
 
@@ -45,7 +45,7 @@ interface HighlightRoutesOptions {
 
 export async function highlightRoutes(
   fastify: FastifyInstance,
-  opts: HighlightRoutesOptions,
+  opts: HighlightRoutesOptions
 ): Promise<void> {
   // withTypeProvider gives fully-typed request.params / .query / .body
   const f = fastify.withTypeProvider<ZodTypeProvider>();
@@ -71,7 +71,7 @@ export async function highlightRoutes(
     },
     async (request) => {
       return opts.highlightService.list(request.query.city, request.query.limit);
-    },
+    }
   );
 
   /**
@@ -100,7 +100,7 @@ export async function highlightRoutes(
         });
       }
       return result;
-    },
+    }
   );
 }
 ```

@@ -4,11 +4,7 @@ import type { Venue, VenueListResponse } from '../schemas/venue.schema.js';
 export class VenueService {
   constructor(private readonly repo: VenueRepository) {}
 
-  async listVenues(
-    filters: VenueFilters,
-    page: number,
-    limit: number,
-  ): Promise<VenueListResponse> {
+  async listVenues(filters: VenueFilters, page: number, limit: number): Promise<VenueListResponse> {
     const { data, total } = await this.repo.findMany(filters, page, limit);
     return {
       data,

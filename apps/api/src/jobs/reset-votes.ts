@@ -12,7 +12,7 @@ import type { VenueService } from '../services/venue.service.js';
 export function scheduleVoteReset(
   voteService: VoteService,
   venueService: VenueService,
-  logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void },
+  logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void }
 ): cron.ScheduledTask {
   // Run at midnight UTC: '0 0 * * *'
   return cron.schedule(
@@ -27,6 +27,6 @@ export function scheduleVoteReset(
         logger.error('[cron] Vote reset failed', err);
       }
     },
-    { timezone: 'UTC' },
+    { timezone: 'UTC' }
   );
 }

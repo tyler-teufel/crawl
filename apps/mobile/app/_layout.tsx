@@ -12,9 +12,12 @@ import { AuthProvider } from '@/context/AuthContext';
 import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
 import { isOnboardingComplete } from '@/lib/onboarding';
+import { Sentry, initSentry } from '@/lib/sentry';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
 
-export default function RootLayout() {
+initSentry();
+
+function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme();
   const scheme = colorScheme ?? 'dark';
 
@@ -57,6 +60,8 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 /**
  * Reads the first-launch flag from AsyncStorage and redirects to (onboarding)

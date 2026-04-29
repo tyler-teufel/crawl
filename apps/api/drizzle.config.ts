@@ -22,19 +22,19 @@ function resolveMigrationUrl(): string {
     throw new Error(
       `drizzle.config: DIRECT_URL is required when NODE_ENV=${env}. ` +
         `Set DIRECT_URL to the Supabase direct / session-pooler connection string ` +
-        `(port 5432). DATABASE_URL (transaction pooler, 6543) is unsafe for migrations.`,
+        `(port 5432). DATABASE_URL (transaction pooler, 6543) is unsafe for migrations.`
     );
   }
 
   if (!database) {
     throw new Error(
-      'drizzle.config: neither DIRECT_URL nor DATABASE_URL is set — check apps/api/.env.',
+      'drizzle.config: neither DIRECT_URL nor DATABASE_URL is set — check apps/api/.env.'
     );
   }
 
   console.warn(
     '[drizzle.config] DIRECT_URL not set; falling back to DATABASE_URL for local dev. ' +
-      'This may fail if DATABASE_URL points at the transaction pooler (port 6543).',
+      'This may fail if DATABASE_URL points at the transaction pooler (port 6543).'
   );
   return database;
 }

@@ -46,7 +46,10 @@ export const venues = pgTable(
     // `types` retains the full filtered array; prefer `primaryType` when a
     // single identifier is needed so callers aren't depending on array order.
     primaryType: text('primary_type').notNull(),
-    types: text('types').array().notNull().default(sql`'{}'::text[]`),
+    types: text('types')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     address: text('address').notNull(),
     // TODO: drop in a future migration once `cityId` is wired through all
     // queries — the `cities` table holds the authoritative city name and this
@@ -65,7 +68,10 @@ export const venues = pgTable(
     hours: text('hours').notNull().default(''),
     description: text('description').notNull().default(''),
     imageUrl: text('image_url'),
-    highlights: text('highlights').array().notNull().default(sql`'{}'::text[]`),
+    highlights: text('highlights')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     hotspotScore: integer('hotspot_score').notNull().default(0),
     voteCount: integer('vote_count').notNull().default(0),
     // NOTE: currently defaults to true and is not maintained by the sync job.
@@ -81,7 +87,7 @@ export const venues = pgTable(
   },
   (table) => ({
     cityIdx: index('venues_city_id_idx').on(table.cityId),
-  }),
+  })
 );
 
 export const users = pgTable('users', {
@@ -103,16 +109,18 @@ export const votes = pgTable(
     venueId: uuid('venue_id')
       .notNull()
       .references(() => venues.id, { onDelete: 'cascade' }),
-    votedAt: date('voted_at').notNull().default(sql`CURRENT_DATE`),
+    votedAt: date('voted_at')
+      .notNull()
+      .default(sql`CURRENT_DATE`),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     uniqueVotePerDay: uniqueIndex('votes_user_venue_date_idx').on(
       table.userId,
       table.venueId,
-      table.votedAt,
+      table.votedAt
     ),
-  }),
+  })
 );
 
 export type DbCity = typeof cities.$inferSelect;

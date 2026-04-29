@@ -63,6 +63,7 @@ Crawl is a nightlife and bar discovery app that lets users explore venues on a m
 | `tailwind-merge`           | Tailwind class conflict resolution                 |
 | `tailwindcss-animate`      | CSS animation utilities for Tailwind               |
 | `@rn-primitives/portal`    | Portal rendering for modals/overlays (used by RNR) |
+| `@sentry/react-native`     | Crash + error monitoring (free-tier configured)    |
 
 ## Quick Start
 

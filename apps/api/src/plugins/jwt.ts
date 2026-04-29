@@ -53,7 +53,7 @@ export const jwtPlugin = fp(async (fastify) => {
         if (header.alg === 'HS256' || !header.kid) {
           if (!env.SUPABASE_JWT_SECRET) {
             throw new Error(
-              'Legacy HS256 Supabase JWT received but SUPABASE_JWT_SECRET is not configured',
+              'Legacy HS256 Supabase JWT received but SUPABASE_JWT_SECRET is not configured'
             );
           }
           return env.SUPABASE_JWT_SECRET;

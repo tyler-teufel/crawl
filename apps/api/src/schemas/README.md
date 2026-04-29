@@ -19,12 +19,12 @@ The `fastify-type-provider-zod` integration means that once a schema is declared
 
 ## Files
 
-| File | Exports |
-|---|---|
-| `common.schema.ts` | `uuidParam`, `paginationQuery`, `errorResponse` — reused across all route files |
-| `venue.schema.ts` | `venueSchema` (full venue object), `venueListQuery` (GET /venues query params), `venueListResponse` (paginated wrapper) |
-| `vote.schema.ts` | `voteStateSchema`, `castVoteBody`, `removeVoteParams` |
-| `auth.schema.ts` | `registerBody`, `loginBody`, `refreshBody`, `userSchema`, `tokenPairSchema`, `authResponseSchema`, `refreshResponseSchema` |
+| File               | Exports                                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `common.schema.ts` | `uuidParam`, `paginationQuery`, `errorResponse` — reused across all route files                                            |
+| `venue.schema.ts`  | `venueSchema` (full venue object), `venueListQuery` (GET /venues query params), `venueListResponse` (paginated wrapper)    |
+| `vote.schema.ts`   | `voteStateSchema`, `castVoteBody`, `removeVoteParams`                                                                      |
+| `auth.schema.ts`   | `registerBody`, `loginBody`, `refreshBody`, `userSchema`, `tokenPairSchema`, `authResponseSchema`, `refreshResponseSchema` |
 
 ## Adding a new schema file
 

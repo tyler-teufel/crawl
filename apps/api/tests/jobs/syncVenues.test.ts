@@ -140,7 +140,7 @@ describe('syncCity', () => {
   it('throws if GOOGLE_PLACES_API_KEY is unset', async () => {
     delete process.env.GOOGLE_PLACES_API_KEY;
     await expect(syncCity({ city: 'Charlotte', state: 'NC' })).rejects.toThrow(
-      /GOOGLE_PLACES_API_KEY/,
+      /GOOGLE_PLACES_API_KEY/
     );
   });
 
@@ -162,11 +162,8 @@ describe('syncCity', () => {
   it('applies shouldKeep filter — drops low-rating places', async () => {
     searchTextMock.mockImplementation(async ({ includedType }) =>
       includedType === 'bar'
-        ? ok([
-            makePlace('keep-1', { rating: 4.5 }),
-            makePlace('drop-1', { rating: 2.0 }),
-          ])
-        : ok([]),
+        ? ok([makePlace('keep-1', { rating: 4.5 }), makePlace('drop-1', { rating: 2.0 })])
+        : ok([])
     );
 
     const res = await syncCity({ city: 'Charlotte', state: 'NC' });
@@ -181,7 +178,7 @@ describe('syncCity', () => {
   it('dedupes a place that appears under multiple included types', async () => {
     const shared = makePlace('shared-1');
     searchTextMock.mockImplementation(async ({ includedType }) =>
-      ['bar', 'night_club'].includes(includedType) ? ok([shared]) : ok([]),
+      ['bar', 'night_club'].includes(includedType) ? ok([shared]) : ok([])
     );
 
     const res = await syncCity({ city: 'Charlotte', state: 'NC' });
@@ -230,7 +227,7 @@ describe('syncCity', () => {
 
   it('issues soft-deactivate update when any venues were upserted', async () => {
     searchTextMock.mockImplementation(async ({ includedType }) =>
-      includedType === 'bar' ? ok([makePlace('p1')]) : ok([]),
+      includedType === 'bar' ? ok([makePlace('p1')]) : ok([])
     );
 
     await syncCity({ city: 'Charlotte', state: 'NC' });
@@ -250,8 +247,11 @@ describe('syncCity', () => {
   it('reports transform-skipped places as errors (missing location)', async () => {
     searchTextMock.mockImplementation(async ({ includedType }) =>
       includedType === 'bar'
-        ? ok([makePlace('ok-1'), makePlace('no-loc', { location: undefined as unknown as Place['location'] })])
-        : ok([]),
+        ? ok([
+            makePlace('ok-1'),
+            makePlace('no-loc', { location: undefined as unknown as Place['location'] }),
+          ])
+        : ok([])
     );
 
     const res = await syncCity({ city: 'Charlotte', state: 'NC' });

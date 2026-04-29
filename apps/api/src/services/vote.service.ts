@@ -14,7 +14,7 @@ function nextMidnightUtc(): string {
 export class VoteService {
   constructor(
     private readonly voteRepo: VoteRepository,
-    private readonly venueRepo: VenueRepository,
+    private readonly venueRepo: VenueRepository
   ) {}
 
   async getVoteState(userId: string): Promise<VoteState> {
@@ -67,7 +67,7 @@ export class VoteService {
 export class VoteError extends Error {
   constructor(
     public readonly code: string,
-    message: string,
+    message: string
   ) {
     super(message);
     this.name = 'VoteError';

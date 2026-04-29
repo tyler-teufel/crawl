@@ -21,11 +21,11 @@ Services receive their repository dependencies via constructor injection. They d
 
 ## Files
 
-| File | Responsibility |
-|---|---|
-| `venue.service.ts` | `listVenues` (filtered + paginated), `getVenue`, `getTrendingVenues`, `recalculateHotspotScores`, `resetDailyMetrics` |
-| `vote.service.ts` | `getVoteState`, `castVote` (enforces 3/day and dedup), `removeVote`, `resetDailyVotes`. Throws `VoteError` with typed `code` strings. |
-| `auth.service.ts` | `register` (bcrypt hash, dedup check), `login` (bcrypt compare), `findById`, `toPublicUser` (strips `passwordHash`). Throws `AuthError`. |
+| File               | Responsibility                                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `venue.service.ts` | `listVenues` (filtered + paginated), `getVenue`, `getTrendingVenues`, `recalculateHotspotScores`, `resetDailyMetrics`                    |
+| `vote.service.ts`  | `getVoteState`, `castVote` (enforces 3/day and dedup), `removeVote`, `resetDailyVotes`. Throws `VoteError` with typed `code` strings.    |
+| `auth.service.ts`  | `register` (bcrypt hash, dedup check), `login` (bcrypt compare), `findById`, `toPublicUser` (strips `passwordHash`). Throws `AuthError`. |
 
 ## Adding a new service
 
@@ -33,14 +33,14 @@ Services receive their repository dependencies via constructor injection. They d
 
 ```ts
 // src/services/highlight.service.ts
-import type { HighlightRepository, HighlightFilters } from '../repositories/highlight.repository.js';
+import type {
+  HighlightRepository,
+  HighlightFilters,
+} from '../repositories/highlight.repository.js';
 
 // Define a typed error class so routes can catch and map to HTTP status codes
 export class HighlightError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-  ) {
+  constructor(public readonly code: string, message: string) {
     super(message);
     this.name = 'HighlightError';
   }
@@ -64,7 +64,7 @@ export class HighlightService {
     if (existing >= 5) {
       throw new HighlightError(
         'HIGHLIGHT_LIMIT_REACHED',
-        'A venue cannot have more than 5 active highlights.',
+        'A venue cannot have more than 5 active highlights.'
       );
     }
     return this.repo.create(data);

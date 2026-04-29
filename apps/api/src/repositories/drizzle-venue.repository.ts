@@ -35,7 +35,7 @@ export class DrizzleVenueRepository implements VenueRepository {
   async findMany(
     filters: VenueFilters,
     page: number,
-    limit: number,
+    limit: number
   ): Promise<{ data: Venue[]; total: number }> {
     const conditions = [];
 
@@ -47,14 +47,12 @@ export class DrizzleVenueRepository implements VenueRepository {
         or(
           ilike(schema.venues.name, `%${filters.q}%`),
           ilike(schema.venues.primaryType, `%${filters.q}%`),
-          ilike(schema.venues.description, `%${filters.q}%`),
-        ),
+          ilike(schema.venues.description, `%${filters.q}%`)
+        )
       );
     }
     if (filters.types && filters.types.length > 0) {
-      conditions.push(
-        or(...filters.types.map((t) => ilike(schema.venues.primaryType, t))),
-      );
+      conditions.push(or(...filters.types.map((t) => ilike(schema.venues.primaryType, t))));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;

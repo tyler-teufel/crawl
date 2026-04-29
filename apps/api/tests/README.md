@@ -32,21 +32,21 @@ Because all repositories are in-memory, every test starts with a fresh, determin
 
 ### `tests/routes/`
 
-| File | What it tests |
-|---|---|
-| `health.test.ts` | `GET /api/v1/health` — status, timestamp, DB check, memory |
-| `venues.test.ts` | `GET /api/v1/venues` (city filter, text search, pagination limits) and `GET /api/v1/venues/:id` (found, 404, bad UUID) |
-| `votes.test.ts` | Full authenticated vote flow — 401 without token, cast, dedup, remove, 3-vote limit, unknown venue |
-| `trending.test.ts` | `GET /api/v1/trending/:city` — sort order, limit, unknown city, limit > 50 |
-| `auth.test.ts` | Register (201, duplicate 409, validation), login (200, wrong password, unknown email), refresh (valid, invalid, access-token-as-refresh) |
+| File               | What it tests                                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `health.test.ts`   | `GET /api/v1/health` — status, timestamp, DB check, memory                                                                               |
+| `venues.test.ts`   | `GET /api/v1/venues` (city filter, text search, pagination limits) and `GET /api/v1/venues/:id` (found, 404, bad UUID)                   |
+| `votes.test.ts`    | Full authenticated vote flow — 401 without token, cast, dedup, remove, 3-vote limit, unknown venue                                       |
+| `trending.test.ts` | `GET /api/v1/trending/:city` — sort order, limit, unknown city, limit > 50                                                               |
+| `auth.test.ts`     | Register (201, duplicate 409, validation), login (200, wrong password, unknown email), refresh (valid, invalid, access-token-as-refresh) |
 
 ### `tests/services/`
 
-| File | What it tests |
-|---|---|
-| `venue.service.test.ts` | `listVenues` (city filter, text search, pagination, totalPages), `getVenue` (found, null), `getTrendingVenues` (sort order, limit) |
-| `vote.service.test.ts` | `getVoteState`, `castVote` (vote count increments, ALREADY_VOTED, NO_VOTES_REMAINING, VENUE_NOT_FOUND), `removeVote` (count decrements, VOTE_NOT_FOUND) |
-| `auth.service.test.ts` | `register` (hash stored, lowercase email, EMAIL_IN_USE), `login` (correct credentials, wrong password, unknown email, case-insensitive), `toPublicUser` (passwordHash stripped) |
+| File                    | What it tests                                                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `venue.service.test.ts` | `listVenues` (city filter, text search, pagination, totalPages), `getVenue` (found, null), `getTrendingVenues` (sort order, limit)                                              |
+| `vote.service.test.ts`  | `getVoteState`, `castVote` (vote count increments, ALREADY_VOTED, NO_VOTES_REMAINING, VENUE_NOT_FOUND), `removeVote` (count decrements, VOTE_NOT_FOUND)                         |
+| `auth.service.test.ts`  | `register` (hash stored, lowercase email, EMAIL_IN_USE), `login` (correct credentials, wrong password, unknown email, case-insensitive), `toPublicUser` (passwordHash stripped) |
 
 ## Adding a new route test file
 
@@ -76,13 +76,13 @@ describe('Highlights routes', () => {
   let token: string;
 
   beforeAll(async () => {
-    app = buildApp();          // fresh in-memory state every test suite
+    app = buildApp(); // fresh in-memory state every test suite
     await app.ready();
     token = await registerAndLogin(app, `highlights-${Date.now()}@example.com`);
   });
 
   afterAll(async () => {
-    await app.close();         // always close to release resources
+    await app.close(); // always close to release resources
   });
 
   describe('GET /api/v1/highlights', () => {
@@ -136,7 +136,7 @@ import { HighlightService, HighlightError } from '../../src/services/highlight.s
 import { InMemoryHighlightRepository } from '../../src/repositories/highlight.repository.js';
 
 const VENUE_ID = '11111111-1111-1111-1111-111111111111';
-const USER_ID  = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 describe('HighlightService', () => {
   let service: HighlightService;
@@ -158,7 +158,7 @@ describe('HighlightService', () => {
         await service.create({ venueId: VENUE_ID, title: `Highlight ${i}`, addedBy: USER_ID });
       }
       await expect(
-        service.create({ venueId: VENUE_ID, title: 'Sixth', addedBy: USER_ID }),
+        service.create({ venueId: VENUE_ID, title: 'Sixth', addedBy: USER_ID })
       ).rejects.toMatchObject({ code: 'HIGHLIGHT_LIMIT_REACHED' });
     });
 
@@ -166,7 +166,9 @@ describe('HighlightService', () => {
       for (let i = 0; i < 5; i++) {
         await service.create({ venueId: VENUE_ID, title: `H${i}`, addedBy: USER_ID });
       }
-      const err = await service.create({ venueId: VENUE_ID, title: 'X', addedBy: USER_ID }).catch(e => e);
+      const err = await service
+        .create({ venueId: VENUE_ID, title: 'X', addedBy: USER_ID })
+        .catch((e) => e);
       expect(err).toBeInstanceOf(HighlightError);
     });
   });
