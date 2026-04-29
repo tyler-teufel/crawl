@@ -38,6 +38,14 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "tyler-teufel",
+          "project": "react-native",
+          "url": "https://sentry.io/"
+        }
       ]
     ],
     "orientation": "portrait",
