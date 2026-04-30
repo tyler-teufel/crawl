@@ -25,10 +25,10 @@ on:
       channel:
         description: 'EAS channel / profile'
         required: true
-        default: 'staging'
+        default: 'preview'
         type: choice
         options:
-          - staging
+          - preview
           - production
       submit:
         description: 'Submit to stores after binary build (production only)'
@@ -48,7 +48,7 @@ jobs:
     name: Mobile release (${{ inputs.release_type }} → ${{ inputs.channel }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    environment: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
+    environment: ${{ inputs.channel == 'production' && 'production' || 'preview' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -130,7 +130,7 @@ jobs:
             --non-interactive
 
       # Store submit is gated to production + explicit opt-in via the
-      # `submit` input. We do NOT submit on staging, ever. The opt-in
+      # `submit` input. We do NOT submit on preview, ever. The opt-in
       # input prevents an accidental production release from also
       # firing a store submission in the same run.
       - name: EAS Submit (production only, opt-in)
