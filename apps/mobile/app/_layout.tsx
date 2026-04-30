@@ -11,7 +11,7 @@ import { queryClient } from '@/api/query-client';
 import { AuthProvider } from '@/context/AuthContext';
 import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
-import { isOnboardingComplete } from '@/lib/onboarding';
+import { isOnboardingComplete, subscribeToOnboardingStatus } from '@/lib/onboarding';
 import { Sentry, initSentry } from '@/lib/sentry';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
 
@@ -74,17 +74,27 @@ function OnboardingGate() {
 
   React.useEffect(() => {
     let mounted = true;
-    isOnboardingComplete()
-      .then((done) => {
-        if (mounted) setStatus(done ? 'done' : 'onboarding');
-      })
-      .catch(() => {
-        // If AsyncStorage throws, default to showing onboarding rather than
-        // skipping it — better to over-prompt than to leave a new user stranded.
-        if (mounted) setStatus('onboarding');
-      });
+
+    const refresh = () => {
+      isOnboardingComplete()
+        .then((done) => {
+          if (mounted) setStatus(done ? 'done' : 'onboarding');
+        })
+        .catch(() => {
+          // If AsyncStorage throws, default to showing onboarding rather than
+          // skipping it — better to over-prompt than to leave a new user stranded.
+          if (mounted) setStatus('onboarding');
+        });
+    };
+
+    refresh();
+    // Re-read the flag when markOnboardingComplete fires so finishing the
+    // onboarding flow doesn't get bounced straight back to the splash.
+    const unsubscribe = subscribeToOnboardingStatus(refresh);
+
     return () => {
       mounted = false;
+      unsubscribe();
     };
   }, []);
 
