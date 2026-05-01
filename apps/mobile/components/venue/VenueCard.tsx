@@ -59,7 +59,7 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
 
       {/* Highlights */}
       <View className="mt-3 flex-row flex-wrap gap-1">
-        {venue.highlights.slice(0, 3).map((h) => (
+        {venue.highlights.slice(0, 3).map((h: string) => (
           <View key={h} className="rounded-full bg-crawl-surface px-2 py-1">
             <Text className="text-xs text-crawl-purple-light">{h}</Text>
           </View>

@@ -51,7 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const u = await ensureSignedIn();
         if (mounted) {
           setUser(u);
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           setAuthToken(session?.access_token ?? null);
         }
       } catch (err) {
