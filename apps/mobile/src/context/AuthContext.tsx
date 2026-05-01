@@ -7,6 +7,7 @@ import {
   signInWithGoogle,
   signOut as authSignOut,
 } from '@/lib/auth';
+import { setAuthToken } from '@/api/client';
 
 export interface UserLocation {
   latitude: number;
@@ -48,7 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const u = await ensureSignedIn();
-        if (mounted) setUser(u);
+        if (mounted) {
+          setUser(u);
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          setAuthToken(session?.access_token ?? null);
+        }
       } catch (err) {
         // In Expo Go without env vars, supabase calls will throw. Log and
         // leave user=null so the UI can still render the onboarding flow.
@@ -63,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setUser(session?.user ?? null);
+      setAuthToken(session?.access_token ?? null);
     });
 
     return () => {

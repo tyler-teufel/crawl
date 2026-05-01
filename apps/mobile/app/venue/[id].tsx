@@ -189,7 +189,7 @@ export default function VenueDetailScreen() {
         <View className="mt-6 px-4">
           <Text className="text-base font-bold text-white">Highlights</Text>
           <View className="mt-2 flex-row flex-wrap gap-2">
-            {venue.highlights.map((h) => (
+            {venue.highlights.map((h: string) => (
               <View key={h} className="flex-row items-center rounded-full bg-crawl-card px-3 py-2">
                 <Ionicons name="sparkles" size={14} color="#a855f7" />
                 <Text className="ml-1 text-sm text-crawl-purple-light">{h}</Text>

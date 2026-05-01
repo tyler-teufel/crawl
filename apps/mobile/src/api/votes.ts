@@ -79,7 +79,7 @@ export function useRemoveVote(city: string) {
         return {
           ...current,
           remainingVotes: current.remainingVotes + 1,
-          votedVenueIds: current.votedVenueIds.filter((id) => id !== venueId),
+          votedVenueIds: current.votedVenueIds.filter((id: string) => id !== venueId),
         };
       }
       return apiClient<VoteState>(`/votes/${venueId}`, { method: 'DELETE' });

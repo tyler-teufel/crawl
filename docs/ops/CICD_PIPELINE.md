@@ -159,9 +159,12 @@ Expo computes a hash over your native dependencies. Each binary is bound to that
 | Profile (eas.json) | Channel       | Distribution                |
 | ------------------ | ------------- | --------------------------- |
 | `development`      | `development` | Dev client (internal)       |
-| `preview`          | `staging`     | Internal QA                 |
-| `staging`          | `staging`     | (alias of `preview`)        |
+| `staging`          | `staging`     | Internal QA / pre-production |
 | `production`       | `production`  | App Store / Google Play     |
+
+> **Note on `preview-build.yml`:** That workflow is named "preview" in the sense of a post-merge
+> build for human review — it does not correspond to a "preview" environment. It builds with the
+> `staging` profile and publishes to the `staging` channel.
 
 OTA updates publish to a channel; the binary picks up updates from whichever channel it was built for.
 
