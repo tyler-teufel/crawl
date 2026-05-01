@@ -334,10 +334,11 @@ Native module imports are wrapped in `try/catch` so the JS bundle still boots in
 
 ### `src/lib/onboarding.ts`
 
-Two helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
+Helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
 
 - `isOnboardingComplete()` — read flag.
-- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/auth.tsx` once the user picks any auth path).
+- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/auth.tsx` once the user picks any auth path) and notify any subscribers so the OnboardingGate re-reads the flag without polling.
+- `subscribeToOnboardingStatus(listener)` — register a listener that fires when the flag flips. Used by `OnboardingGate` so finishing onboarding doesn't bounce the user back to the splash.
 
 ### `src/lib/supabase.ts`
 
