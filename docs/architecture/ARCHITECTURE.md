@@ -214,6 +214,23 @@ VenueProvider (app/_layout.tsx, beneath AuthProvider)
 `user` and `isAnonymous` fields update automatically when an anonymous
 user is upgraded to a permanent identity via Apple or Google linking.
 
+#### Auth Flow Diagram
+
+The complete end-to-end auth flow — including anonymous boot, identity upgrade,
+authenticated API requests, and token lifecycle — is documented as an SVG diagram:
+
+**[`docs/architecture/auth-flow.svg`](./auth-flow.svg)**
+
+The diagram covers four phases:
+1. **App Boot** — `ensureSignedIn()` checks AsyncStorage; creates an anonymous Supabase
+   session if none exists; injects `access_token` into the API client via `setAuthToken()`.
+2. **Identity Upgrade** — user links Apple (iOS) or Google via `signInWithIdToken()`;
+   Supabase upgrades the anonymous user in-place, preserving the UUID and all existing data.
+3. **Authenticated API Requests** — `apiClient` attaches `Authorization: Bearer <token>` to
+   every request; Fastify verifies the JWT using `SUPABASE_JWT_SECRET`.
+4. **Token Lifecycle** — Supabase auto-refreshes the access token before expiry; `signOut()`
+   clears the session and sets the API client token to `null`.
+
 ### Why Context at Root?
 
 The filter modal (`/filters`) is rendered as a separate route outside the tab navigator. If the provider lived inside `(tabs)/_layout.tsx`, the modal couldn't access filter state. Hoisting the provider to `app/_layout.tsx` ensures all routes — tabs, modals, and stack screens — share the same state.

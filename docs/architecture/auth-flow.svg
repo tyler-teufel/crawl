@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1010" width="920" height="1010"
+     font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,5 L0,10 z" fill="#64748b"/>
+    </marker>
+    <marker id="ah-v" viewBox="0 0 10 10" refX="8" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,5 L0,10 z" fill="#a78bfa"/>
+    </marker>
+    <marker id="ah-g" viewBox="0 0 10 10" refX="8" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,5 L0,10 z" fill="#34d399"/>
+    </marker>
+    <marker id="ah-s" viewBox="0 0 10 10" refX="8" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,5 L0,10 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+
+  <!-- ── LANE BACKGROUNDS ─────────────────────────────────────── -->
+  <rect width="920" height="1010" fill="#0d1117"/>
+  <rect x="0"   y="0" width="307" height="1010" fill="#0d0e1a"/>
+  <rect x="307" y="0" width="307" height="1010" fill="#060e0a"/>
+  <rect x="614" y="0" width="306" height="1010" fill="#060b18"/>
+
+  <!-- ── LANE HEADERS ─────────────────────────────────────────── -->
+  <rect x="0"   y="0" width="307" height="52" fill="#1a1040"/>
+  <text x="153" y="22" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" letter-spacing="1.5">MOBILE APP</text>
+  <text x="153" y="39" text-anchor="middle" fill="#7c3aed" font-size="9">AuthContext · API Client (src/api/client.ts)</text>
+
+  <rect x="307" y="0" width="307" height="52" fill="#022c16"/>
+  <text x="460" y="22" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="700" letter-spacing="1.5">SUPABASE AUTH</text>
+  <text x="460" y="39" text-anchor="middle" fill="#10b981" font-size="9">supabase-js · AsyncStorage session persistence</text>
+
+  <rect x="614" y="0" width="306" height="52" fill="#0c1a30"/>
+  <text x="767" y="22" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700" letter-spacing="1.5">EXTERNAL SERVICES · CRAWL API</text>
+  <text x="767" y="39" text-anchor="middle" fill="#3b82f6" font-size="9">Apple · Google · Fastify on Railway</text>
+
+  <!-- ── LANE DIVIDERS ────────────────────────────────────────── -->
+  <line x1="307" y1="52" x2="307" y2="1010" stroke="#1e293b" stroke-width="1.5"/>
+  <line x1="614" y1="52" x2="614" y2="1010" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 1 — APP BOOT                                        -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="0" y="52" width="920" height="20" fill="#161b22"/>
+  <text x="14" y="66" fill="#475569" font-size="9" font-weight="700" letter-spacing="2">① APP BOOT</text>
+
+  <!-- N1: App Launches -->
+  <rect x="54" y="78" width="200" height="36" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="101" text-anchor="middle" fill="#e9d5ff" font-size="12" font-weight="500">App Launches</text>
+
+  <!-- N1 → N2 -->
+  <line x1="154" y1="114" x2="154" y2="128" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+
+  <!-- N2: ensureSignedIn() -->
+  <rect x="54" y="128" width="200" height="36" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="151" text-anchor="middle" fill="#e9d5ff" font-size="12" font-weight="500">ensureSignedIn()</text>
+
+  <!-- N2 → N3: getSession() -->
+  <line x1="254" y1="146" x2="361" y2="146" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#ah-v)"/>
+  <text x="307" y="140" text-anchor="middle" fill="#a78bfa" font-size="9">getSession()</text>
+
+  <!-- N3: Check AsyncStorage -->
+  <rect x="361" y="128" width="200" height="36" rx="5" fill="#022c16" stroke="#10b981" stroke-width="1.5"/>
+  <text x="461" y="151" text-anchor="middle" fill="#d1fae5" font-size="12" font-weight="500">Check AsyncStorage</text>
+
+  <!-- N3 → N4: no session branch -->
+  <line x1="461" y1="164" x2="461" y2="182" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+  <text x="480" y="178" fill="#6b7280" font-size="8" font-style="italic">no session</text>
+
+  <!-- N4: signInAnonymously() -->
+  <rect x="361" y="182" width="200" height="36" rx="5" fill="#022c16" stroke="#10b981" stroke-width="1.5"/>
+  <text x="461" y="205" text-anchor="middle" fill="#d1fae5" font-size="12" font-weight="500">signInAnonymously()</text>
+
+  <!-- N4 → N5 -->
+  <line x1="461" y1="218" x2="461" y2="236" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+
+  <!-- N5: Anon user + JWT issued -->
+  <rect x="361" y="236" width="200" height="46" rx="5" fill="#022c16" stroke="#10b981" stroke-width="1.5"/>
+  <text x="461" y="257" text-anchor="middle" fill="#d1fae5" font-size="11" font-weight="500">Anon user created</text>
+  <text x="461" y="274" text-anchor="middle" fill="#6ee7b7" font-size="9">session.access_token issued</text>
+
+  <!-- N5 → N6: new JWT back to Mobile -->
+  <line x1="361" y1="259" x2="254" y2="259" stroke="#34d399" stroke-width="1.5" marker-end="url(#ah-g)"/>
+  <text x="307" y="253" text-anchor="middle" fill="#34d399" font-size="9">access_token</text>
+
+  <!-- Existing session shortcut: dashed path N3 → N6 -->
+  <path d="M361,146 L308,146 L308,259 L254,259" fill="none"
+        stroke="#34d399" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah-g)"/>
+  <text x="296" y="202" fill="#34d399" font-size="8" font-style="italic"
+        transform="rotate(-90,296,202)">existing</text>
+
+  <!-- N6: setAuthToken -->
+  <rect x="54" y="236" width="200" height="46" rx="5" fill="#1e1040" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="154" y="257" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">setAuthToken(access_token)</text>
+  <text x="154" y="274" text-anchor="middle" fill="#a78bfa" font-size="9">injected into API client module</text>
+
+  <!-- N6 → N7 (dashed) -->
+  <line x1="154" y1="282" x2="154" y2="300" stroke="#374151" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- N7: Listener note -->
+  <rect x="54" y="300" width="200" height="34" rx="5" fill="#111827" stroke="#374151" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="154" y="319" text-anchor="middle" fill="#6b7280" font-size="9">onAuthStateChange listener registered</text>
+  <text x="154" y="331" text-anchor="middle" fill="#4b5563" font-size="8">fires on every future session change</text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 2 — IDENTITY UPGRADE                                -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="0" y="354" width="920" height="20" fill="#161b22"/>
+  <text x="14" y="368" fill="#475569" font-size="9" font-weight="700" letter-spacing="2">② IDENTITY UPGRADE  —  anonymous users can link Apple or Google at any time</text>
+
+  <!-- N8: User selects Sign In -->
+  <rect x="54" y="382" width="200" height="46" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="401" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">User selects Sign In provider</text>
+  <text x="154" y="418" text-anchor="middle" fill="#9ca3af" font-size="9">Apple (iOS only) · Google (iOS + Android)</text>
+
+  <!-- N8 → N9: native auth request -->
+  <line x1="254" y1="405" x2="668" y2="405" stroke="#93c5fd" stroke-width="1.5" marker-end="url(#ah-s)"/>
+  <text x="461" y="399" text-anchor="middle" fill="#93c5fd" font-size="9">signInAsync() · GoogleSignin.signIn()</text>
+
+  <!-- N9: External auth dialog -->
+  <rect x="668" y="382" width="200" height="46" rx="5" fill="#0c1a30" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="768" y="401" text-anchor="middle" fill="#bfdbfe" font-size="11" font-weight="500">Apple / Google Auth</text>
+  <text x="768" y="418" text-anchor="middle" fill="#93c5fd" font-size="9">user authenticates, token issued</text>
+
+  <!-- N9 → N10: identityToken back to Mobile -->
+  <line x1="668" y1="430" x2="254" y2="456" stroke="#93c5fd" stroke-width="1.5" marker-end="url(#ah-s)"/>
+  <text x="461" y="445" text-anchor="middle" fill="#93c5fd" font-size="9">identityToken / idToken returned</text>
+
+  <!-- N10: signInWithIdToken -->
+  <rect x="54" y="456" width="200" height="46" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="475" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">supabase.auth.signInWithIdToken()</text>
+  <text x="154" y="492" text-anchor="middle" fill="#9ca3af" font-size="9">{ provider: 'apple' | 'google', token }</text>
+
+  <!-- N10 → N11: to Supabase -->
+  <line x1="254" y1="479" x2="361" y2="479" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#ah-v)"/>
+  <text x="307" y="473" text-anchor="middle" fill="#a78bfa" font-size="9">verify id_token</text>
+
+  <!-- N11: Verify + Upgrade -->
+  <rect x="361" y="456" width="200" height="46" rx="5" fill="#022c16" stroke="#10b981" stroke-width="1.5"/>
+  <text x="461" y="475" text-anchor="middle" fill="#d1fae5" font-size="11" font-weight="500">Verify token · Upgrade anon user</text>
+  <text x="461" y="492" text-anchor="middle" fill="#6ee7b7" font-size="9">UUID preserved · existing data carried over</text>
+
+  <!-- N11 → N12: onAuthStateChange -->
+  <line x1="361" y1="479" x2="254" y2="526" stroke="#34d399" stroke-width="1.5" marker-end="url(#ah-g)"/>
+  <text x="295" y="498" text-anchor="middle" fill="#34d399" font-size="9">onAuthStateChange</text>
+  <text x="295" y="510" text-anchor="middle" fill="#34d399" font-size="8">(upgraded session)</text>
+
+  <!-- N12: setAuthToken new token -->
+  <rect x="54" y="526" width="200" height="36" rx="5" fill="#1e1040" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="154" y="549" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">setAuthToken(new_access_token)</text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 3 — AUTHENTICATED API REQUESTS                      -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="0" y="582" width="920" height="20" fill="#161b22"/>
+  <text x="14" y="596" fill="#475569" font-size="9" font-weight="700" letter-spacing="2">③ AUTHENTICATED API REQUESTS</text>
+
+  <!-- N13: TanStack Query hook -->
+  <rect x="54" y="610" width="200" height="46" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="629" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">TanStack Query hook fires</text>
+  <text x="154" y="646" text-anchor="middle" fill="#9ca3af" font-size="9">e.g. useVoteState(city)</text>
+
+  <!-- N13 → N14 -->
+  <line x1="154" y1="656" x2="154" y2="670" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+
+  <!-- N14: apiClient call -->
+  <rect x="54" y="670" width="200" height="46" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="689" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">apiClient('/votes?city=...')</text>
+  <text x="154" y="706" text-anchor="middle" fill="#a78bfa" font-size="9">Authorization: Bearer &lt;token&gt; attached</text>
+
+  <!-- N14 → N15: long arrow to API -->
+  <line x1="254" y1="693" x2="668" y2="693" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#ah-s)"/>
+  <text x="461" y="687" text-anchor="middle" fill="#38bdf8" font-size="9">GET /api/v1/votes  ·  Bearer token in header</text>
+
+  <!-- N15: Fastify verifies JWT -->
+  <rect x="668" y="670" width="200" height="46" rx="5" fill="#0c1a30" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="768" y="689" text-anchor="middle" fill="#bae6fd" font-size="11" font-weight="500">Fastify verifies JWT</text>
+  <text x="768" y="706" text-anchor="middle" fill="#38bdf8" font-size="9">@fastify/jwt · SUPABASE_JWT_SECRET</text>
+
+  <!-- N15 → N16: response back -->
+  <line x1="668" y1="718" x2="254" y2="742" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#ah-s)"/>
+  <text x="461" y="733" text-anchor="middle" fill="#38bdf8" font-size="9">{ remainingVotes, votedVenueIds }  ·  200 OK</text>
+
+  <!-- N16: Hook returns live data -->
+  <rect x="54" y="742" width="200" height="36" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="765" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">Hook returns live data to UI</text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 4 — TOKEN LIFECYCLE                                 -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="0" y="798" width="920" height="20" fill="#161b22"/>
+  <text x="14" y="812" fill="#475569" font-size="9" font-weight="700" letter-spacing="2">④ TOKEN LIFECYCLE</text>
+
+  <!-- AUTO-REFRESH sub-label -->
+  <text x="14" y="836" fill="#6b7280" font-size="8" font-weight="600" letter-spacing="1">AUTO-REFRESH</text>
+
+  <!-- N17: Supabase auto-refresh -->
+  <rect x="361" y="842" width="200" height="46" rx="5" fill="#022c16" stroke="#10b981" stroke-width="1.5"/>
+  <text x="461" y="861" text-anchor="middle" fill="#d1fae5" font-size="11" font-weight="500">Supabase auto-refresh</text>
+  <text x="461" y="878" text-anchor="middle" fill="#6ee7b7" font-size="9">before access_token expiry</text>
+
+  <!-- N17 → N18 -->
+  <line x1="361" y1="865" x2="254" y2="865" stroke="#34d399" stroke-width="1.5" marker-end="url(#ah-g)"/>
+  <text x="307" y="859" text-anchor="middle" fill="#34d399" font-size="9">onAuthStateChange</text>
+
+  <!-- N18: setAuthToken refreshed -->
+  <rect x="54" y="842" width="200" height="46" rx="5" fill="#1e1040" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="154" y="861" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">setAuthToken(refreshed_token)</text>
+  <text x="154" y="878" text-anchor="middle" fill="#7c3aed" font-size="9">transparent to in-flight requests</text>
+
+  <!-- SIGN OUT divider -->
+  <line x1="0" y1="904" x2="920" y2="904" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,4"/>
+  <text x="14" y="918" fill="#6b7280" font-size="8" font-weight="600" letter-spacing="1">SIGN OUT</text>
+
+  <!-- N19: authSignOut() -->
+  <rect x="54" y="926" width="200" height="36" rx="5" fill="#1e1040" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="154" y="949" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="500">authSignOut() called</text>
+
+  <!-- N19 → N20 -->
+  <line x1="254" y1="944" x2="361" y2="944" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#ah-v)"/>
+  <text x="307" y="938" text-anchor="middle" fill="#a78bfa" font-size="9">supabase.auth.signOut()</text>
+
+  <!-- N20: Session cleared -->
+  <rect x="361" y="926" width="200" height="36" rx="5" fill="#022c16" stroke="#10b981" stroke-width="1.5"/>
+  <text x="461" y="949" text-anchor="middle" fill="#d1fae5" font-size="11" font-weight="500">Session cleared (AsyncStorage)</text>
+
+  <!-- N20 → N21: onAuthStateChange(null) -->
+  <path d="M461,962 L461,990 L254,990" fill="none"
+        stroke="#34d399" stroke-width="1.5" marker-end="url(#ah-g)"/>
+  <text x="380" y="984" text-anchor="middle" fill="#34d399" font-size="9">onAuthStateChange(null)</text>
+
+  <!-- N21: setAuthToken(null) -->
+  <rect x="54" y="976" width="200" height="36" rx="5" fill="#1e1040" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="154" y="999" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="500">setAuthToken(null)</text>
+
+</svg>
