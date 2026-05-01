@@ -1,3 +1,6 @@
+# Builds and publishes to the staging EAS channel on every push to main.
+# "Preview" here means a post-merge build for human review — not the pre-production environment.
+# The pre-production environment is called "staging" everywhere in this project.
 name: Preview Build
 
 on:
@@ -27,5 +30,5 @@ jobs:
 
       - run: npm ci
 
-      - name: Build iOS & Android (preview)
-        run: eas build --platform all --profile preview --non-interactive
+      - name: Build iOS & Android (staging)
+        run: eas build --platform all --profile staging --non-interactive
