@@ -32,4 +32,5 @@ jobs:
       - run: npm ci
 
       - name: Build iOS & Android (staging)
+        working-directory: apps/mobile
         run: eas build --platform all --profile staging --non-interactive
