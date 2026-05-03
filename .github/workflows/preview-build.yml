@@ -31,6 +31,9 @@ jobs:
 
       - run: npm ci
 
-      - name: Build iOS & Android (staging)
+      # iOS internal-distribution credentials are not yet configured on EAS.
+      # Once `eas credentials` has been run and Apple creds are stored, change
+      # --platform android back to --platform all.
+      - name: Build Android (staging)
         working-directory: apps/mobile
-        run: eas build --platform all --profile staging --non-interactive
+        run: eas build --platform android --profile staging --non-interactive
