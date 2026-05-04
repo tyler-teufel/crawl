@@ -126,5 +126,20 @@ describe('Auth routes', () => {
       });
       expect(res.statusCode).toBe(401);
     });
+
+    it('returns 401 USER_NOT_FOUND when token is valid but user does not exist', async () => {
+      const ghostToken = app.jwt.refresh.sign({
+        sub: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+        email: 'ghost@example.com',
+        type: 'refresh',
+      });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/refresh',
+        payload: { refreshToken: ghostToken },
+      });
+      expect(res.statusCode).toBe(401);
+      expect(res.json().error).toBe('USER_NOT_FOUND');
+    });
   });
 });

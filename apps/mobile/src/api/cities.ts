@@ -29,7 +29,7 @@ export const cityKeys = {
   list: ['cities', 'list'] as const,
 };
 
-function rowToCity(row: CityRow): City {
+export function rowToCity(row: CityRow): City {
   return {
     id: row.id,
     slug: row.slug,
