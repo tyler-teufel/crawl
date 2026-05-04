@@ -92,4 +92,28 @@ describe('VoteService', () => {
       });
     });
   });
+
+  describe('resetDailyVotes', () => {
+    it('returns 0 when no votes exist', async () => {
+      const count = await service.resetDailyVotes();
+      expect(count).toBe(0);
+    });
+
+    it('returns the count of today\'s votes deleted', async () => {
+      await service.castVote(USER_ID, VENUE_ID);
+      await service.castVote(USER_ID, VENUE_ID_2);
+      await service.castVote(USER_ID, VENUE_ID_3);
+      const count = await service.resetDailyVotes();
+      expect(count).toBe(3);
+    });
+
+    it('restores full vote allowance after reset', async () => {
+      await service.castVote(USER_ID, VENUE_ID);
+      await service.castVote(USER_ID, VENUE_ID_2);
+      await service.resetDailyVotes();
+      const state = await service.getVoteState(USER_ID);
+      expect(state.remainingVotes).toBe(3);
+      expect(state.votedVenueIds).toHaveLength(0);
+    });
+  });
 });

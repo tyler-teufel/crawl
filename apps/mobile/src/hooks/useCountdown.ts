@@ -24,7 +24,7 @@ export function useCountdown() {
   };
 }
 
-function getTimeUntilMidnight(): number {
+export function getTimeUntilMidnight(): number {
   const now = new Date();
   const midnight = new Date(now);
   midnight.setHours(24, 0, 0, 0);

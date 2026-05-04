@@ -101,4 +101,23 @@ describe('AuthService', () => {
       expect(pub.email).toBe(user.email);
     });
   });
+
+  describe('findById', () => {
+    it('returns the user record for a registered user', async () => {
+      const user = await service.register({
+        email: 'findme@example.com',
+        password: 'password123',
+        displayName: 'Find Me',
+      });
+      const found = await service.findById(user.id);
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe(user.id);
+      expect(found!.email).toBe('findme@example.com');
+    });
+
+    it('returns null for an unknown id', async () => {
+      const found = await service.findById('00000000-0000-0000-0000-000000000000');
+      expect(found).toBeNull();
+    });
+  });
 });

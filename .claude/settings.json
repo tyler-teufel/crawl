@@ -10,6 +10,15 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import sys, json, os; data = json.load(sys.stdin); path = data.get('tool_input', {}).get('file_path', ''); print(f'[hook] {os.path.basename(path)} created \\u2014 does it need a test?') if '/src/' in path and 'test' not in path.lower() else None\" 2>/dev/null || true"
+          }
+        ]
       }
     ]
   }

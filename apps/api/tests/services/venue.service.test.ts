@@ -4,9 +4,11 @@ import { InMemoryVenueRepository } from '../../src/repositories/venue.repository
 
 describe('VenueService', () => {
   let service: VenueService;
+  let venueRepo: InMemoryVenueRepository;
 
   beforeEach(() => {
-    service = new VenueService(new InMemoryVenueRepository());
+    venueRepo = new InMemoryVenueRepository();
+    service = new VenueService(venueRepo);
   });
 
   describe('listVenues', () => {
@@ -65,6 +67,33 @@ describe('VenueService', () => {
     it('respects limit', async () => {
       const venues = await service.getTrendingVenues('Charlotte', 1);
       expect(venues.length).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe('resetDailyMetrics', () => {
+    it('resets voteCount, hotspotScore, and isTrending to zero on all venues', async () => {
+      // Seed venue '11111111-...' starts with voteCount:134, hotspotScore:85, isTrending:true
+      await service.resetDailyMetrics();
+      const venue = await venueRepo.findById('11111111-1111-1111-1111-111111111111');
+      expect(venue!.voteCount).toBe(0);
+      expect(venue!.hotspotScore).toBe(0);
+      expect(venue!.isTrending).toBe(false);
+    });
+
+    it('resets all seeded venues, not just the first', async () => {
+      await service.resetDailyMetrics();
+      const venues = await service.listVenues({}, 1, 100);
+      for (const v of venues.data) {
+        expect(v.voteCount).toBe(0);
+        expect(v.hotspotScore).toBe(0);
+        expect(v.isTrending).toBe(false);
+      }
+    });
+  });
+
+  describe('recalculateHotspotScores', () => {
+    it('resolves without throwing (placeholder no-op)', async () => {
+      await expect(service.recalculateHotspotScores()).resolves.toBeUndefined();
     });
   });
 });
