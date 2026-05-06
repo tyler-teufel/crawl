@@ -59,7 +59,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: npm
 
       - name: Install deps
@@ -94,7 +94,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: npm
 
       - name: Compute new version
@@ -211,7 +211,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25
           cache: npm
 
       - name: Install deps
