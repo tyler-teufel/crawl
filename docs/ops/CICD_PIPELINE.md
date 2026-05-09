@@ -71,7 +71,7 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 │   • release_type: ota | binary   │  │   • bump: patch|minor|major │
 │   • bump:    patch|minor|major   │  │   • environment:            │
 │   • channel: staging|production  │  │       staging | production  │
-│   • submit:  bool (binary+prod)  │  │   • run_migrations: bool    │
+│   • submit:  bool (binary, opt-in)│  │   • run_migrations: bool    │
 │                                  │  │                             │
 │  Steps:                          │  │  Steps:                     │
 │   1. Validate (lint+typecheck)   │  │   1. Validate (lint+tc+test)│
@@ -79,8 +79,8 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 │   3a. OTA: eas update --channel  │  │   3. Bump apps/api/ver,     │
 │       Tag mobile-vX.Y.Z-ota.<ts> │  │      commit + push          │
 │   3b. Binary: eas build          │  │   4. Tag api-vX.Y.Z         │
-│       (+ eas submit if opt-in    │  │      (or -staging suffix)   │
-│       and channel == prod)       │  │   5. Deploy via Railway CLI │
+│       (+ eas submit --ios        │  │      (or -staging suffix)   │
+│       if opt-in, any channel)    │  │   5. Deploy via Railway CLI │
 │       Tag mobile-vX.Y.Z          │  │      (gated by GH env)      │
 │   4. Push tag back to repo       │  │   6. Optional drizzle migrate│
 └─────────────────────────────────┘  └─────────────────────────────┘
@@ -97,7 +97,7 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 | `.github/workflows/release-version.yml`    | `push → main`                    | Open / update Changesets "Version Packages" PR         |
 | `.github/workflows/release-mobile.yml`     | `workflow_dispatch`              | OTA or binary release of `apps/mobile` via EAS         |
 | `.github/workflows/release-api.yml`        | `workflow_dispatch`              | Bump + tag + Railway deploy of `apps/api`              |
-| `.github/workflows/preview-build.yml`      | `push → main` (kept)             | Internal-distribution EAS preview build                |
+| `.github/workflows/staging-build.yml`      | `push → main`                    | EAS staging build (iOS → TestFlight, Android → internal) |
 | `.github/workflows/sync-venues.yml`        | scheduled / manual               | Operational job — unrelated to releases                |
 | `.github/workflows/dependabot-auto.yml.txt`| (disabled — see commit b9c7d75)  | Held in `.txt` form; Dependabot is currently off       |
 
@@ -162,9 +162,7 @@ Expo computes a hash over your native dependencies. Each binary is bound to that
 | `staging`          | `staging`     | Internal QA / pre-production |
 | `production`       | `production`  | App Store / Google Play     |
 
-> **Note on `preview-build.yml`:** That workflow is named "preview" in the sense of a post-merge
-> build for human review — it does not correspond to a "preview" environment. It builds with the
-> `staging` profile and publishes to the `staging` channel.
+`staging-build.yml` triggers automatically on every merge to `main`. It builds with the `staging` profile: iOS uses `app-store` distribution (can be submitted to TestFlight), Android uses internal distribution (EAS download link).
 
 OTA updates publish to a channel; the binary picks up updates from whichever channel it was built for.
 
@@ -254,7 +252,7 @@ Releases never cancel each other — partial deploys are worse than queued ones.
 
 ## What changed from the previous pipeline
 
-This pipeline supersedes the older `preview-build.yml` / `release.yml` / `ota-update.yml` / `api-deploy.yml` setup, which was tag-triggered with no version bookkeeping and no fingerprint-based OTA gating. The replacement enforces:
+This pipeline supersedes the older tag-triggered `release.yml` / `ota-update.yml` / `api-deploy.yml` setup, which had no version bookkeeping and no fingerprint-based OTA gating. The replacement enforces:
 
 - **No automatic deploys.** Tag pushes alone don't deploy anything; a human dispatches.
 - **Fingerprint-based OTA compatibility** so JS bundles never reach incompatible binaries.

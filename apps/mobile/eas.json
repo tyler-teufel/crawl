@@ -16,9 +16,12 @@
       }
     },
     "staging": {
-      "distribution": "internal",
       "channel": "staging",
+      "android": {
+        "distribution": "internal"
+      },
       "ios": {
+        "distribution": "app-store",
         "simulator": false
       }
     },
@@ -28,10 +31,16 @@
     }
   },
   "submit": {
+    "staging": {
+      "ios": {
+        "appleId": "tdteufel@gmail.com",
+        "ascAppId": "YOUR_ASC_APP_ID"
+      }
+    },
     "production": {
       "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "your-app-store-connect-app-id"
+        "appleId": "tdteufel@gmail.com",
+        "ascAppId": "YOUR_ASC_APP_ID"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json"

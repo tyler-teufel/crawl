@@ -1,7 +1,7 @@
 # Builds and publishes to the staging EAS channel on every push to main.
-# "Preview" here means a post-merge build for human review — not the pre-production environment.
-# The pre-production environment is called "staging" everywhere in this project.
-name: Preview Build
+# iOS builds use app-store distribution so the binary can be submitted to TestFlight.
+# Android builds use internal distribution (download via EAS dashboard link).
+name: Staging Build
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: preview-build
+  group: staging-build
   cancel-in-progress: true
 
 jobs:
@@ -31,9 +31,6 @@ jobs:
 
       - run: npm ci
 
-      # iOS internal-distribution credentials are not yet configured on EAS.
-      # Once `eas credentials` has been run and Apple creds are stored, change
-      # --platform android back to --platform all.
-      - name: Build Android (staging)
+      - name: Build (staging)
         working-directory: apps/mobile
-        run: eas build --platform android --profile staging --non-interactive
+        run: eas build --platform all --profile staging --non-interactive
