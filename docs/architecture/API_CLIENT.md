@@ -245,8 +245,7 @@ There are two approaches for injecting the URL in CI/CD:
 ```json
 {
   "build": {
-    "preview": {
-      "distribution": "internal",
+    "staging": {
       "env": {
         "EXPO_PUBLIC_API_URL": "https://staging-api.crawl.app/api/v1"
       }
@@ -261,28 +260,27 @@ There are two approaches for injecting the URL in CI/CD:
 }
 ```
 
-This keeps the URL tied to the build profile. Preview builds hit staging; production builds hit prod.
+This keeps the URL tied to the build profile. Staging builds hit the staging API; production builds hit prod.
 
 **Option B — GitHub Actions environment variable:**
 
 Store the URL as a GitHub secret (`EXPO_PUBLIC_API_URL`) in Settings → Secrets and variables → Actions, then inject it in the workflow:
 
 ```yaml
-- name: Build preview
+- name: Build (staging)
   env:
     EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
-  run: eas build --platform all --profile preview --non-interactive
+  run: eas build --platform all --profile staging --non-interactive
 ```
 
 ### Current State of CI/CD Workflows
 
-| Workflow            | Trigger         | Relevant Secrets |
-| ------------------- | --------------- | ---------------- |
-| `preview-build.yml` | Push to `main`  | `EXPO_TOKEN`     |
-| `release.yml`       | Push tag `v*`   | `EXPO_TOKEN`     |
-| `ota-update.yml`    | Manual dispatch | `EXPO_TOKEN`     |
+| Workflow               | Trigger         | Relevant Secrets |
+| ---------------------- | --------------- | ---------------- |
+| `staging-build.yml`    | Push to `main`  | `EXPO_TOKEN`     |
+| `release-mobile.yml`   | Manual dispatch | `EXPO_TOKEN`     |
 
-None of these currently inject `EXPO_PUBLIC_API_URL`. This will need to be added when the backend goes live.
+Neither currently injects `EXPO_PUBLIC_API_URL`. Add it to the `env` block in `eas.json` (Option A above) when the backend goes live.
 
 ---
 

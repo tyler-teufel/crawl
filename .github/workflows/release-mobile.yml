@@ -129,15 +129,15 @@ jobs:
             --platform all \
             --non-interactive
 
-      # Store submit is gated to production + explicit opt-in via the
-      # `submit` input. We do NOT submit on staging, ever. The opt-in
-      # input prevents an accidental production release from also
-      # firing a store submission in the same run.
-      - name: EAS Submit (production only, opt-in)
-        if: inputs.release_type == 'binary' && inputs.channel == 'production' && inputs.submit == true
+      # Submit is opt-in via the `submit` input to prevent accidental store
+      # submissions. Staging submits iOS to TestFlight internal testers only.
+      # Production submits iOS to the App Store (Android TBD — needs Google
+      # Play service account).
+      - name: EAS Submit (opt-in)
+        if: inputs.release_type == 'binary' && inputs.submit == true
         working-directory: apps/mobile
         run: |
-          eas submit --profile production --platform all --non-interactive
+          eas submit --profile "${{ inputs.channel }}" --platform ios --non-interactive
 
       - name: Commit version bump (binary)
         if: inputs.release_type == 'binary'
