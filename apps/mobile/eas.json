@@ -21,7 +21,7 @@
         "distribution": "internal"
       },
       "ios": {
-        "distribution": "app-store",
+        "distribution": "store",
         "simulator": false
       }
     },
