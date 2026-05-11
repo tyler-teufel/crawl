@@ -32,16 +32,10 @@
   },
   "submit": {
     "staging": {
-      "ios": {
-        "appleId": "tdteufel@gmail.com",
-        "ascAppId": "YOUR_ASC_APP_ID"
-      }
+      "ios": {}
     },
     "production": {
-      "ios": {
-        "appleId": "tdteufel@gmail.com",
-        "ascAppId": "YOUR_ASC_APP_ID"
-      },
+      "ios": {},
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json"
       }

@@ -136,6 +136,9 @@ jobs:
       - name: EAS Submit (opt-in)
         if: inputs.release_type == 'binary' && inputs.submit == true
         working-directory: apps/mobile
+        env:
+          EXPO_APPLE_ID: ${{ secrets.APPLE_ID }}
+          EXPO_ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
           eas submit --profile "${{ inputs.channel }}" --platform ios --non-interactive
 
