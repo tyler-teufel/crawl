@@ -22,12 +22,12 @@ jobs:
     env:
       TURBO_TELEMETRY_DISABLED: '1'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           # Required for Turbo affected detection (`...[origin/main]`)
           fetch-depth: 0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 25
           cache: npm
@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload API coverage (if produced)
         if: always() && hashFiles('apps/api/coverage/**') != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: api-coverage
           path: apps/api/coverage
@@ -74,9 +74,9 @@ jobs:
     outputs:
       fingerprint-hash: ${{ steps.fingerprint.outputs.hash }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: 25
           cache: npm
