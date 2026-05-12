@@ -16,6 +16,7 @@
       }
     },
     "staging": {
+      "environment": "staging",
       "channel": "staging",
       "android": {
         "distribution": "internal"
