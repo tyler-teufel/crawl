@@ -31,6 +31,19 @@ jobs:
 
       - run: npm ci
 
+      - name: Set build number
+        working-directory: apps/mobile
+        run: |
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            cfg.expo.ios = cfg.expo.ios || {};
+            cfg.expo.ios.buildNumber = '${{ github.run_number }}';
+            cfg.expo.android = cfg.expo.android || {};
+            cfg.expo.android.versionCode = ${{ github.run_number }};
+            fs.writeFileSync('app.json', JSON.stringify(cfg, null, 2));
+          "
+
       - name: Build (staging)
         working-directory: apps/mobile
         run: eas build --platform all --profile staging --non-interactive
