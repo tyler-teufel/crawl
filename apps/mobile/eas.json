@@ -37,10 +37,14 @@
   },
   "submit": {
     "staging": {
-      "ios": {}
+      "ios": {
+        "ascAppId": "6768117951"
+      }
     },
     "production": {
-      "ios": {},
+      "ios": {
+        "ascAppId": "6768117951"
+      },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json"
       }
