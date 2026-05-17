@@ -70,7 +70,7 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 │  Inputs:                         │  │  Inputs:                    │
 │   • release_type: ota | binary   │  │   • bump: patch|minor|major │
 │   • bump:    patch|minor|major   │  │   • environment:            │
-│   • channel: staging|production  │  │       staging | production  │
+│   • channel: preview|production  │  │       preview | production  │
 │   • submit:  bool (binary, opt-in)│  │   • run_migrations: bool    │
 │                                  │  │                             │
 │  Steps:                          │  │  Steps:                     │
@@ -79,7 +79,7 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 │   3a. OTA: eas update --channel  │  │   3. Bump apps/api/ver,     │
 │       Tag mobile-vX.Y.Z-ota.<ts> │  │      commit + push          │
 │   3b. Binary: eas build          │  │   4. Tag api-vX.Y.Z         │
-│       (+ eas submit --ios        │  │      (or -staging suffix)   │
+│       (+ eas submit --ios        │  │      (or -preview suffix)   │
 │       if opt-in, any channel)    │  │   5. Deploy via Railway CLI │
 │       Tag mobile-vX.Y.Z          │  │      (gated by GH env)      │
 │   4. Push tag back to repo       │  │   6. Optional drizzle migrate│
@@ -97,7 +97,7 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 | `.github/workflows/release-version.yml`    | `push → main`                    | Open / update Changesets "Version Packages" PR         |
 | `.github/workflows/release-mobile.yml`     | `workflow_dispatch`              | OTA or binary release of `apps/mobile` via EAS         |
 | `.github/workflows/release-api.yml`        | `workflow_dispatch`              | Bump + tag + Railway deploy of `apps/api`              |
-| `.github/workflows/staging-build.yml`      | `push → main`                    | EAS staging build (iOS → TestFlight, Android → internal) |
+| `.github/workflows/preview-build.yml`      | `push → main`                    | EAS preview build (iOS → TestFlight, Android → internal) |
 | `.github/workflows/sync-venues.yml`        | scheduled / manual               | Operational job — unrelated to releases                |
 | `.github/workflows/dependabot-auto.yml.txt`| (disabled — see commit b9c7d75)  | Held in `.txt` form; Dependabot is currently off       |
 
@@ -159,14 +159,14 @@ Expo computes a hash over your native dependencies. Each binary is bound to that
 | Profile (eas.json) | Channel       | Distribution                |
 | ------------------ | ------------- | --------------------------- |
 | `development`      | `development` | Dev client (internal)       |
-| `staging`          | `staging`     | Internal QA / pre-production |
+| `preview`          | `preview`     | Internal QA / pre-production |
 | `production`       | `production`  | App Store / Google Play     |
 
-`staging-build.yml` triggers automatically on every merge to `main`. It builds with the `staging` profile: iOS uses `app-store` distribution (can be submitted to TestFlight), Android uses internal distribution (EAS download link).
+`preview-build.yml` triggers automatically on every merge to `main`. It builds with the `preview` profile: iOS uses `app-store` distribution (can be submitted to TestFlight), Android uses internal distribution (EAS download link).
 
 OTA updates publish to a channel; the binary picks up updates from whichever channel it was built for.
 
-**Promotion model:** OTAs ship to `staging` first, get verified, then a separate dispatch ships the same change to `production`. Don't dispatch straight to `production` for anything risky.
+**Promotion model:** OTAs ship to `preview` first, get verified, then a separate dispatch ships the same change to `production`. Don't dispatch straight to `production` for anything risky.
 
 ---
 
@@ -175,7 +175,7 @@ OTA updates publish to a channel; the binary picks up updates from whichever cha
 The API release workflow does four things in order:
 
 1. **Validate** — lint, typecheck, vitest. A failure here aborts the rest.
-2. **Bump + tag** — `npm version` in `apps/api`, commit, tag (`api-vX.Y.Z` for production, `api-vX.Y.Z-staging` for staging).
+2. **Bump + tag** — `npm version` in `apps/api`, commit, tag (`api-vX.Y.Z` for production, `api-vX.Y.Z-preview` for preview).
 3. **Deploy** — `railway up --service <service>` against the configured Railway service. Production is gated by the `production` GitHub Environment with required reviewers (configure in repo Settings → Environments).
 4. **Migrate (optional, opt-in)** — when `run_migrations: true`, runs `drizzle-kit migrate` against the target `DATABASE_URL`. Drizzle's `migrate` is forward-only; anything destructive (drops, `db:push --force`) must be done manually with eyes on it.
 
@@ -190,7 +190,7 @@ The Railway service name is read from `vars.RAILWAY_SERVICE_STAGING` and `vars.R
 | Secret   | `EXPO_TOKEN`                  | `release-mobile.yml`     | EAS auth                                       |
 | Secret   | `RAILWAY_TOKEN`               | `release-api.yml`        | Railway CLI auth                               |
 | Secret   | `DATABASE_URL`                | `release-api.yml` (migrate job) | Only set in the GitHub Environment that runs migrations |
-| Variable | `RAILWAY_SERVICE_STAGING`     | `release-api.yml`        | Railway service name (per environment)         |
+| Variable | `RAILWAY_SERVICE_PREVIEW`     | `release-api.yml`        | Railway service name (per environment)         |
 | Variable | `RAILWAY_SERVICE_PRODUCTION`  | `release-api.yml`        | Railway service name (per environment)         |
 | Variable | `STAGING_URL`, `PRODUCTION_URL` | `release-api.yml`      | Used in workflow summary URLs                  |
 | Secret   | `GITHUB_TOKEN`                | All                      | Provided automatically                         |
@@ -203,7 +203,7 @@ CodeQL needs the `security-events: write` permission, which is set on the workfl
 
 | Environment   | Used by                           | Required reviewers? |
 | ------------- | --------------------------------- | ------------------- |
-| `staging`     | `release-mobile.yml`, `release-api.yml` | No                  |
+| `preview`     | `release-mobile.yml`, `release-api.yml` | No                  |
 | `production`  | `release-mobile.yml`, `release-api.yml` | **Yes** — configure in Settings → Environments |
 
 The `production` environment is the second gate (the first being `workflow_dispatch` itself). Even after a maintainer dispatches a production release, a designated reviewer must approve before the deploy job runs.

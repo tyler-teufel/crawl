@@ -1,7 +1,7 @@
-# Builds and publishes to the staging EAS channel on every push to main.
+# Builds and publishes to the preview EAS channel on every push to main.
 # iOS builds use app-store distribution so the binary can be submitted to TestFlight.
 # Android builds use internal distribution (download via EAS dashboard link).
-name: Staging Build
+name: Preview Build
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: staging-build
+  group: preview-build
   cancel-in-progress: true
 
 jobs:
@@ -44,13 +44,13 @@ jobs:
             fs.writeFileSync('app.json', JSON.stringify(cfg, null, 2));
           "
 
-      - name: Build (staging)
+      - name: Build (preview)
         working-directory: apps/mobile
-        run: eas build --platform ios --profile staging --non-interactive
+        run: eas build --platform ios --profile preview --non-interactive
 
-      - name: Submit iOS to TestFlight (staging)
+      - name: Submit iOS to TestFlight (preview)
         working-directory: apps/mobile
         env:
           EXPO_APPLE_ID: ${{ secrets.APPLE_ID }}
           EXPO_ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
-        run: eas submit --platform ios --profile staging --latest --non-interactive
+        run: eas submit --platform ios --profile preview --latest --non-interactive

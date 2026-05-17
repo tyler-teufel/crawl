@@ -377,11 +377,11 @@ Security gates run on PRs, pushes to `main`, and a weekly Monday 08:00 UTC sched
 
 ### `.github/workflows/release-mobile.yml`
 
-`workflow_dispatch`-only mobile release. Inputs: `release_type` (`ota` | `binary`), `bump`, `channel` (`staging` | `production`), `submit` (binary+production opt-in). Validates → computes version → either pushes an `eas update` OTA or runs `eas build` (and optionally `eas submit`) → tags and pushes back. Tag formats: `mobile-vX.Y.Z` for binary, `mobile-vX.Y.Z-ota.<UTC-ts>` for OTA.
+`workflow_dispatch`-only mobile release. Inputs: `release_type` (`ota` | `binary`), `bump`, `channel` (`preview` | `production`), `submit` (binary+production opt-in). Validates → computes version → either pushes an `eas update` OTA or runs `eas build` (and optionally `eas submit`) → tags and pushes back. Tag formats: `mobile-vX.Y.Z` for binary, `mobile-vX.Y.Z-ota.<UTC-ts>` for OTA.
 
 ### `.github/workflows/release-api.yml`
 
-`workflow_dispatch`-only API release. Inputs: `bump`, `environment` (`staging` | `production`), `run_migrations`. Pipeline: `validate` → `release` (bump `apps/api/package.json`, commit, tag) → `deploy` (Railway CLI, gated by GitHub Environment) → optional `migrate` (`drizzle-kit migrate`). Production tag: `api-vX.Y.Z`; staging tag: `api-vX.Y.Z-staging`.
+`workflow_dispatch`-only API release. Inputs: `bump`, `environment` (`preview` | `production`), `run_migrations`. Pipeline: `validate` → `release` (bump `apps/api/package.json`, commit, tag) → `deploy` (Railway CLI, gated by GitHub Environment) → optional `migrate` (`drizzle-kit migrate`). Production tag: `api-vX.Y.Z`; preview tag: `api-vX.Y.Z-preview`.
 
 ### `.github/workflows/release-version.yml`
 

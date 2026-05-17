@@ -25,10 +25,10 @@ on:
       channel:
         description: 'EAS channel / profile'
         required: true
-        default: 'staging'
+        default: 'preview'
         type: choice
         options:
-          - staging
+          - preview
           - production
       submit:
         description: 'Submit to stores after binary build (production only)'
@@ -48,7 +48,7 @@ jobs:
     name: Mobile release (${{ inputs.release_type }} → ${{ inputs.channel }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    environment: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
+    environment: ${{ inputs.channel == 'production' && 'production' || 'preview' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -130,7 +130,7 @@ jobs:
             --non-interactive
 
       # Submit is opt-in via the `submit` input to prevent accidental store
-      # submissions. Staging submits iOS to TestFlight internal testers only.
+      # submissions. Preview submits iOS to TestFlight internal testers only.
       # Production submits iOS to the App Store (Android TBD — needs Google
       # Play service account).
       - name: EAS Submit (opt-in)

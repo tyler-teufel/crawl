@@ -15,9 +15,9 @@
         "simulator": true
       }
     },
-    "staging": {
+    "preview": {
       "environment": "preview",
-      "channel": "staging",
+      "channel": "preview",
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
@@ -35,7 +35,7 @@
     }
   },
   "submit": {
-    "staging": {
+    "preview": {
       "ios": {
         "ascAppId": "6768117951"
       }

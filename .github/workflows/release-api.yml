@@ -1,11 +1,11 @@
 name: Release — API
 
-# Production safety: dispatch ONLY for production. A separate auto-staging
-# path triggers on `api-v*-staging` tag push (the staging tag is itself
-# created via dispatch with `environment: staging`).
+# Production safety: dispatch ONLY for production. A separate auto-preview
+# path triggers on `api-v*-preview` tag push (the preview tag is itself
+# created via dispatch with `environment: preview`).
 #
 # Tags produced by this workflow:
-#   - api-v<new>-staging   (when environment == staging)
+#   - api-v<new>-preview   (when environment == preview)
 #   - api-v<new>           (when environment == production)
 on:
   workflow_dispatch:
@@ -22,10 +22,10 @@ on:
       environment:
         description: 'Deploy target'
         required: true
-        default: 'staging'
+        default: 'preview'
         type: choice
         options:
-          - staging
+          - preview
           - production
       run_migrations:
         description: 'Run drizzle-kit migrate against the target DB (NON-DESTRUCTIVE only)'
@@ -134,7 +134,7 @@ jobs:
           if [ "${{ inputs.environment }}" = "production" ]; then
             TAG="api-v${{ steps.version.outputs.new }}"
           else
-            TAG="api-v${{ steps.version.outputs.new }}-staging"
+            TAG="api-v${{ steps.version.outputs.new }}-preview"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           git tag "$TAG"
