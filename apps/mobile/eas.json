@@ -18,6 +18,9 @@
     "staging": {
       "environment": "staging",
       "channel": "staging",
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
       "android": {
         "distribution": "internal"
       },
