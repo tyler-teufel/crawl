@@ -16,7 +16,7 @@
       }
     },
     "staging": {
-      "environment": "staging",
+      "environment": "preview",
       "channel": "staging",
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
