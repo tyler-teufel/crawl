@@ -21,7 +21,8 @@
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EXPO_PUBLIC_SUPABASE_URL": "https://gcixoqaxahuawklcqzyq.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_PMnCcvrtgrfnYn0EGXUbdA_h4by8wFi"
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_PMnCcvrtgrfnYn0EGXUbdA_h4by8wFi",
+        "EXPO_PUBLIC_API_URL": "https://crawl-production-f025.up.railway.app/api/v1"
       },
       "android": {
         "distribution": "internal"
