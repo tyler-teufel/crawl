@@ -19,7 +19,9 @@
       "environment": "staging",
       "channel": "staging",
       "env": {
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gcixoqaxahuawklcqzyq.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_PMnCcvrtgrfnYn0EGXUbdA_h4by8wFi"
       },
       "android": {
         "distribution": "internal"
