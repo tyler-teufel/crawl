@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 /**
  * Auth helpers for Crawl.
@@ -28,6 +28,12 @@ declare const process: { env: Record<string, string | undefined> };
  * is persisted in AsyncStorage, sign in anonymously. Returns the user.
  */
 export async function ensureSignedIn() {
+  // No live backend in this build — skip the network round-trip to the
+  // placeholder client. The app runs anonymously against mock data.
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured in this build.');
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession();
