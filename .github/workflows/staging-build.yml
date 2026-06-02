@@ -48,27 +48,32 @@ jobs:
             fs.writeFileSync('app.json', JSON.stringify(cfg, null, 2));
           "
 
-      # EAS cloud builds do not inherit the runner's environment, so the value
-      # must be written into eas.json before `eas build` for Metro to inline it
-      # into the bundle (EXPO_PUBLIC_* are resolved at bundle time). Keeps the
-      # URL out of the repo — it lives only in the staging GitHub Environment.
-      - name: Inject staging API URL into eas.json
+      # EAS cloud builds do not inherit the runner's environment, so EXPO_PUBLIC_*
+      # values must be written into eas.json before `eas build` for Metro to
+      # inline them into the bundle (they are resolved at bundle time). These
+      # stay out of the repo — they live only in the staging GitHub Environment.
+      #   - EXPO_PUBLIC_API_URL:    Railway API base (unset → app uses mock data)
+      #   - EXPO_PUBLIC_SENTRY_DSN: enables runtime crash reporting (unset → off)
+      - name: Inject staging env into eas.json
         working-directory: apps/mobile
         env:
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
         run: |
           node -e "
             const fs = require('fs');
-            const url = process.env.EXPO_PUBLIC_API_URL;
-            if (!url) {
-              console.log('::warning::EXPO_PUBLIC_API_URL is not set for the staging environment — the app will fall back to bundled mock data');
-              process.exit(0);
-            }
             const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
             eas.build.staging.env = eas.build.staging.env || {};
-            eas.build.staging.env.EXPO_PUBLIC_API_URL = url;
+            for (const key of ['EXPO_PUBLIC_API_URL', 'EXPO_PUBLIC_SENTRY_DSN']) {
+              const val = process.env[key];
+              if (val) {
+                eas.build.staging.env[key] = val;
+                console.log('Injected ' + key + ' into eas.json staging env');
+              } else {
+                console.log('::warning::' + key + ' is not set for the staging environment');
+              }
+            }
             fs.writeFileSync('eas.json', JSON.stringify(eas, null, 2));
-            console.log('Injected EXPO_PUBLIC_API_URL into eas.json staging env');
           "
 
       - name: Build (staging)

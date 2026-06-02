@@ -1,3 +1,8 @@
+// Import Sentry FIRST so its global error handlers are installed before any
+// other module below evaluates. This is what allows Sentry to capture crashes
+// thrown during initial bundle evaluation (e.g. a throw at module load in the
+// auth/data chain) instead of dying silently before init, as happened before.
+import { Sentry } from '@/lib/sentry';
 import '../global.css';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -12,10 +17,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
 import { isOnboardingComplete, subscribeToOnboardingStatus } from '@/lib/onboarding';
-import { Sentry, initSentry } from '@/lib/sentry';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
-
-initSentry();
 
 function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme();
