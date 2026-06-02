@@ -16,6 +16,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Scopes vars.EXPO_PUBLIC_API_URL to the "staging" GitHub Environment, so
+    # the staging build points at the staging Railway API. The production build
+    # path resolves the same variable name from the "production" environment.
+    environment: staging
     steps:
       - uses: actions/checkout@v6
 
@@ -42,6 +46,29 @@ jobs:
             cfg.expo.android = cfg.expo.android || {};
             cfg.expo.android.versionCode = ${{ github.run_number }};
             fs.writeFileSync('app.json', JSON.stringify(cfg, null, 2));
+          "
+
+      # EAS cloud builds do not inherit the runner's environment, so the value
+      # must be written into eas.json before `eas build` for Metro to inline it
+      # into the bundle (EXPO_PUBLIC_* are resolved at bundle time). Keeps the
+      # URL out of the repo — it lives only in the staging GitHub Environment.
+      - name: Inject staging API URL into eas.json
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const url = process.env.EXPO_PUBLIC_API_URL;
+            if (!url) {
+              console.log('::warning::EXPO_PUBLIC_API_URL is not set for the staging environment — the app will fall back to bundled mock data');
+              process.exit(0);
+            }
+            const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+            eas.build.staging.env = eas.build.staging.env || {};
+            eas.build.staging.env.EXPO_PUBLIC_API_URL = url;
+            fs.writeFileSync('eas.json', JSON.stringify(eas, null, 2));
+            console.log('Injected EXPO_PUBLIC_API_URL into eas.json staging env');
           "
 
       - name: Build (staging)
