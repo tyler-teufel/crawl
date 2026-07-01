@@ -14,25 +14,29 @@
 
 declare const process: { env: Record<string, string | undefined> };
 
-/** Read an env var, treating empty strings as unset. */
-function read(key: string): string | undefined {
-  const value = process.env[key];
+/** Treat empty strings as unset. */
+function clean(value: string | undefined): string | undefined {
   return value && value.length > 0 ? value : undefined;
 }
 
+// NOTE: each var MUST be read via static `process.env.EXPO_PUBLIC_*` access.
+// Expo/Metro only inlines EXPO_PUBLIC_* values into the bundle for static member
+// expressions — dynamic access (`process.env[key]`) is NOT replaced and would
+// read as undefined in the built app. The `expo/no-dynamic-env-var` lint rule
+// enforces this.
 export const env = {
   /** Railway API base, e.g. https://host/api/v1. Unset → app uses mock data. */
-  apiUrl: read('EXPO_PUBLIC_API_URL'),
+  apiUrl: clean(process.env.EXPO_PUBLIC_API_URL),
   /** Supabase project URL (auth provider). */
-  supabaseUrl: read('EXPO_PUBLIC_SUPABASE_URL'),
+  supabaseUrl: clean(process.env.EXPO_PUBLIC_SUPABASE_URL),
   /** Supabase publishable/anon key (non-secret, safe to ship). */
-  supabaseKey: read('EXPO_PUBLIC_SUPABASE_KEY'),
+  supabaseKey: clean(process.env.EXPO_PUBLIC_SUPABASE_KEY),
   /** Sentry DSN (semi-public). Unset → crash reporting disabled. */
-  sentryDsn: read('EXPO_PUBLIC_SENTRY_DSN'),
+  sentryDsn: clean(process.env.EXPO_PUBLIC_SENTRY_DSN),
   /** Google OAuth web client ID — the audience Supabase verifies id_tokens against. */
-  googleWebClientId: read('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID'),
+  googleWebClientId: clean(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID),
   /** Google OAuth iOS client ID. */
-  googleIosClientId: read('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID'),
+  googleIosClientId: clean(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID),
 } as const;
 
 /** True when a real API base is configured (routes reads/writes through it). */
