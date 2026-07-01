@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { hasSupabase } from '@/lib/env';
 
 export interface City {
   id: string;
@@ -21,8 +22,7 @@ interface CityRow {
   center_lng: string | number;
 }
 
-const USE_SUPABASE =
-  !!process.env.EXPO_PUBLIC_SUPABASE_URL && !!process.env.EXPO_PUBLIC_SUPABASE_KEY;
+const USE_SUPABASE = hasSupabase;
 
 export const cityKeys = {
   all: ['cities'] as const,

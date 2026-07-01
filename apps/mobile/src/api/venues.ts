@@ -3,10 +3,10 @@ import { Venue } from '@/types/venue';
 import { mockVenues } from '@/data/venues';
 import { supabase } from '@/lib/supabase';
 import { apiClient } from './client';
+import { hasApi, hasSupabase } from '@/lib/env';
 
-const USE_REAL_API = !!process.env.EXPO_PUBLIC_API_URL;
-const USE_SUPABASE =
-  !!process.env.EXPO_PUBLIC_SUPABASE_URL && !!process.env.EXPO_PUBLIC_SUPABASE_KEY;
+const USE_REAL_API = hasApi;
+const USE_SUPABASE = hasSupabase;
 
 export const venueKeys = {
   all: ['venues'] as const,

@@ -12,7 +12,9 @@
     "web": "expo start --web",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "verify:env": "node scripts/verify-env.mjs",
+    "bundle:check": "expo export --platform ios --output-dir dist"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

@@ -5,8 +5,8 @@
 import { Sentry } from '@/lib/sentry';
 import '../global.css';
 import * as React from 'react';
-import { View } from 'react-native';
-import { Stack, Redirect, useSegments } from 'expo-router';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Stack, Redirect, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'nativewind';
@@ -64,6 +64,60 @@ function RootLayout() {
 }
 
 export default Sentry.wrap(RootLayout);
+
+/**
+ * Root error boundary. expo-router renders this whenever a child route throws
+ * during render. Without it, a render-time crash white-screens the app with no
+ * fallback and no report; here we forward the error to Sentry and offer a retry
+ * so a single bad screen can't strand the whole session.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  React.useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
+  return (
+    <View style={errorStyles.container}>
+      <Text style={errorStyles.title}>Something went wrong</Text>
+      <Text style={errorStyles.message}>{error.message}</Text>
+      <Pressable onPress={retry} style={errorStyles.button}>
+        <Text style={errorStyles.buttonLabel}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const errorStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#0a0a0f',
+  },
+  title: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  message: {
+    color: '#9ca3af',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  button: {
+    backgroundColor: '#7c3aed',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 999,
+  },
+  buttonLabel: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+});
 
 /**
  * Reads the first-launch flag from AsyncStorage and redirects to (onboarding)

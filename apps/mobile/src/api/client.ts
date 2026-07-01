@@ -1,6 +1,6 @@
-declare const process: { env: Record<string, string | undefined> };
+import { env } from '@/lib/env';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
+const API_BASE = env.apiUrl ?? 'http://localhost:3000/api/v1';
 
 let _authToken: string | null = null;
 

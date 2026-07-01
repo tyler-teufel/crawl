@@ -1,16 +1,12 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-
-declare const process: { env: Record<string, string | undefined> };
-
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
+import { env, hasSupabase } from './env';
 
 // Whether a live Supabase backend is configured for this build. Callers that
 // need real data (auth, venue reads) should branch on this; the app must still
 // boot when it is false.
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
+export const isSupabaseConfigured = hasSupabase;
 
 if (!isSupabaseConfigured) {
   // Do NOT throw here. This module is imported from the root layout's boot
@@ -28,8 +24,8 @@ if (!isSupabaseConfigured) {
 }
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseKey || 'placeholder-anon-key',
+  env.supabaseUrl || 'https://placeholder.supabase.co',
+  env.supabaseKey || 'placeholder-anon-key',
   {
     auth: {
       storage: AsyncStorage,

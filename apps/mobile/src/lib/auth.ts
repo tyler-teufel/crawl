@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { env } from './env';
 
 /**
  * Auth helpers for Crawl.
@@ -16,8 +17,6 @@ import { supabase, isSupabaseConfigured } from './supabase';
  * modules are unavailable. Calls to signInWithApple / signInWithGoogle in Expo Go
  * will throw a descriptive error rather than white-screen the app.
  */
-
-declare const process: { env: Record<string, string | undefined> };
 
 // ---------------------------------------------------------------------------
 // Anonymous
@@ -114,8 +113,8 @@ function configureGoogle() {
     );
   }
 
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+  const webClientId = env.googleWebClientId;
+  const iosClientId = env.googleIosClientId;
   if (!webClientId) {
     throw new Error('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set.');
   }

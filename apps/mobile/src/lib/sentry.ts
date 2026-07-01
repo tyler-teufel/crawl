@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import { env } from './env';
 
 // Sample rates tuned for Sentry's free-tier quotas (5K errors, 10K perf
 // units, 50 replays per month, org-wide). Errors are always captured;
@@ -12,7 +13,7 @@ let initialized = false;
 export function initSentry() {
   if (initialized) return;
 
-  const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+  const dsn = env.sentryDsn;
   if (!dsn) {
     if (__DEV__) {
       console.warn('[sentry] EXPO_PUBLIC_SENTRY_DSN not set — Sentry disabled');

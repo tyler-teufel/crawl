@@ -115,17 +115,20 @@ failure class that currently only TestFlight would.
 | 0 | Local Expo Go / dev client | seconds | most logic/UI bugs | have it (`expo-dev-client`) |
 | 1 | `lint` + `typecheck` + `test` (CI) | ~1–2 min | type errors, unit regressions | have it |
 | 2 | **`expo-doctor`** (CI) | ~30 s | version mismatches, plugin/config drift | **add** |
-| 3 | **`expo export` production bundle** (CI) | ~2–3 min | **module-load throws, missing env inlines, Metro/Babel breakage — i.e. the exact class that broke TestFlight** | **add — highest leverage** |
-| 4 | **Env schema validation** (`env.ts` via zod, runs during export) | build-time | missing/typo'd `EXPO_PUBLIC_*`, fails with a named message | **add** |
-| 5 | **Boot smoke test** (render root under test renderer w/ native mocks) | ~1 min | provider/context crashes, bad hook order | **add** |
+| 3 | **`expo export` production bundle** (CI) | ~2–3 min | import-resolution, syntax, Metro/Babel/plugin-config, asset errors; produces the real shippable bundle | **add** |
+| 4 | **Central env module** (`src/lib/env.ts`) + `verify-env` matrix check | build-time | scattered/typo'd `EXPO_PUBLIC_*`; a named, logged config matrix per build | **add** |
+| 5 | **Boot smoke test** (execute boot-chain modules w/ native leaves mocked) | ~1 min | **module-load throws — the exact class that broke TestFlight** — plus provider/context crashes | **add — highest leverage** |
 | 6 | **EAS `simulator` build + launch check** (Maestro/Detox) | ~10–15 min | native-layer + true launch crashes, no Apple round-trip | optional / milestone |
 | 7 | TestFlight | ~30 min + review | device-only issues, real-tester UX | **release gate, not a debugger** |
 
-**The single most valuable addition is stage 3.** `npx expo export --platform ios`
-actually evaluates the module graph and produces the JS bundle Metro would ship —
-so a top-level `throw`, an un-inlined env var, or a transform error becomes a red
-CI check in ~3 minutes instead of a silent TestFlight crash. Run it with
-production-like env so "missing env" is caught here, not on a device.
+**Two complementary gates, because bundling ≠ executing.** `npx expo export`
+builds the real shippable JS bundle and catches import-resolution, syntax,
+transform, plugin-config, and asset errors — but Metro *bundles* code without
+*running* it, so a top-level `throw` (the failure that stalled the project)
+does **not** fire during export. Catching that requires actually executing the
+boot-chain modules, which is what the stage-5 boot smoke test does in ~1 minute
+(native leaves mocked). Together they cover both "does it bundle?" and "does it
+survive being run?" — the two questions TestFlight used to answer for us.
 
 **Guardrails to add alongside:**
 - **Root error boundary** — expo-router supports exporting `ErrorBoundary` from a
