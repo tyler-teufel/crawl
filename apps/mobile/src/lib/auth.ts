@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
+import { env } from './env';
 
 /**
  * Auth helpers for Crawl.
@@ -17,8 +18,6 @@ import { supabase } from './supabase';
  * will throw a descriptive error rather than white-screen the app.
  */
 
-declare const process: { env: Record<string, string | undefined> };
-
 // ---------------------------------------------------------------------------
 // Anonymous
 // ---------------------------------------------------------------------------
@@ -28,6 +27,12 @@ declare const process: { env: Record<string, string | undefined> };
  * is persisted in AsyncStorage, sign in anonymously. Returns the user.
  */
 export async function ensureSignedIn() {
+  // No live backend in this build — skip the network round-trip to the
+  // placeholder client. The app runs anonymously against mock data.
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured in this build.');
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -108,8 +113,8 @@ function configureGoogle() {
     );
   }
 
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+  const webClientId = env.googleWebClientId;
+  const iosClientId = env.googleIosClientId;
   if (!webClientId) {
     throw new Error('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set.');
   }

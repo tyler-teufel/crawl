@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { VoteState } from '@/types/venue';
 import { apiClient, castVote as castVoteApi } from './client';
 import { venueKeys } from './venues';
+import { hasApi } from '@/lib/env';
 
-const USE_REAL_API = !!process.env.EXPO_PUBLIC_API_URL;
+const USE_REAL_API = hasApi;
 
 export const voteKeys = {
   all: ['votes'] as const,

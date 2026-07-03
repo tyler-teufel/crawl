@@ -43,7 +43,7 @@ const DEFAULT_VOTE_STATE: VoteState = {
   votedVenueIds: [],
 };
 
-const FALLBACK_CITY = 'Austin, TX';
+const FALLBACK_CITY = 'Charlotte, NC';
 
 export function VenueProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<FilterOption[]>(defaultFilters);

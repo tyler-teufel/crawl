@@ -66,6 +66,49 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # ── Mobile bundle gate (catch build/boot failures before TestFlight) ──
+  # Shift-left: fail here in ~minutes instead of 30 minutes downstream at
+  # TestFlight. `expo export` builds the real shippable JS bundle (catches
+  # import/resolve/transform/config errors); the vitest boot-smoke suite in the
+  # `validate` job executes the boot-chain modules (catches module-load throws
+  # that bundling alone cannot).
+  mobile-bundle:
+    name: Mobile — Doctor + Export bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: npm
+
+      - run: npm ci
+
+      # Advisory for now (flags dependency/version drift, e.g. unpinned deps).
+      # Promote to blocking once the reported issues are cleared.
+      - name: Expo Doctor (advisory)
+        working-directory: apps/mobile
+        continue-on-error: true
+        run: npx expo-doctor
+
+      - name: Verify env matrix
+        working-directory: apps/mobile
+        run: node scripts/verify-env.mjs --mode mock
+
+      - name: Export production JS bundle
+        working-directory: apps/mobile
+        env:
+          # Never attempt a Sentry source-map upload from CI.
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+          # Dummy public config so the export represents a fully-configured
+          # build and exercises EXPO_PUBLIC_* inlining. Not real credentials.
+          EXPO_PUBLIC_SUPABASE_URL: 'https://ci-dummy.supabase.co'
+          EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_ci_dummy'
+          EXPO_PUBLIC_API_URL: 'https://ci-dummy.example/api/v1'
+        run: npx expo export --platform ios --output-dir dist
+
   # ── Native fingerprint (Expo OTA eligibility) ─────────────────────
   fingerprint:
     name: Mobile — Native Fingerprint
