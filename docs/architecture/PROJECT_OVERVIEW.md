@@ -1,7 +1,7 @@
 # Project Overview
 
 **App:** Crawl
-**Version:** 1.0.0-alpha
+**Version:** 1.0.0 (staging build 13)
 **Status:** Frontend shell complete — mock data, no backend integration
 
 ---

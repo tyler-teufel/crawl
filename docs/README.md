@@ -1,7 +1,7 @@
 # Crawl App — Documentation
 
-**Version:** 1.0.0-alpha
-**Last Updated:** 2026-04-22
+**Version:** 1.0.0 (staging build 13)
+**Last Updated:** 2026-07-08
 
 Docs are grouped by intent. Pick the folder that matches what you're trying to do.
 
@@ -44,6 +44,7 @@ Forward-looking — what we're building next.
 | Document                                                              | Description                                                                  |
 | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | [Roadmap](./planning/ROADMAP.md)                                      | Prioritized next steps across v1.1, v1.2, and v2.0                           |
+| [Sprint Plan — July 2026](./planning/SPRINT_PLAN_2026-07.md)          | Active root-caused backlog: bugs, polish, and screens scoped to semver releases |
 | [Backend Implementation Plan](./planning/BACKEND_IMPLEMENTATION_PLAN.md) | Phased plan for building the full backend                                 |
 | [Data Pipeline](./planning/DATA_PIPELINE.md)                          | Venue ingest architecture; stays here until first cities are fully seeded    |
 | [Dev / Staging Plan](./planning/DEV_STAGING_PLAN.md)                  | Environment strategy for dev/staging/prod                                    |
@@ -65,6 +66,7 @@ AI/LLM workflow assets.
 
 | Document                                                          | Description                                                  |
 | ----------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Agent Team Charter](./claude/AGENT_TEAM.md)                      | Active agent roster, /scrum orchestration flow, ground rules |
 | [Claude Enhancements](./claude/CLAUDE_ENHANCEMENTS.md)            | Project-level Claude Code tuning, hook ideas, agent notes    |
 | [Claude Directory Overhaul](./claude/CLAUDE_DIRECTORY_PLAN.md)    | Plan for agent roster, hooks, and rule refinements           |
 | [Google Sheets Prompt](./claude/google-sheets-prompt.md)          | Prompt template for the backend-research sheet               |

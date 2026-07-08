@@ -2,6 +2,8 @@
 
 Prioritized next steps for Crawl, organized by release milestone.
 
+> For the active, root-caused, date-scoped backlog (vote reset bug, filtering, layout, splash/branding, Global/Profile screens), see [Sprint Plan — July 2026](./SPRINT_PLAN_2026-07.md).
+
 ---
 
 ## v1.1 — Core Polish (Immediate)

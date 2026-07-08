@@ -1,7 +1,7 @@
 # `.claude/` Directory Overhaul Plan
 
-**Status:** Proposed — not yet implemented.
-**Last updated:** 2026-04-22
+**Status:** Partially implemented — first agent wave shipped 2026-07-08 (see [AGENT_TEAM.md](./AGENT_TEAM.md)): `mobile-engineer`, `qa-engineer`, `docs-writer`, `code-reviewer` agents plus a `/scrum` orchestration skill (a scrum-master layer this plan didn't originally include). Remaining roster (backend/data/devops/security), guardrail hooks, and slash-command wrappers are tracked as Epic E issues in [SPRINT_PLAN_2026-07.md](../planning/SPRINT_PLAN_2026-07.md).
+**Last updated:** 2026-07-08
 
 This document captures the plan for evolving `.claude/` from its current minimal
 state into a purposeful toolkit: an SDLC-aligned roster of agents, useful hooks,
