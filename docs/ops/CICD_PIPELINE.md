@@ -170,6 +170,18 @@ OTA updates publish to a channel; the binary picks up updates from whichever cha
 
 ---
 
+## Build Numbers (iOS / Android)
+
+The iOS `buildNumber` and Android `versionCode` fields in `apps/mobile/app.json` are **never committed**. Instead, they are injected at CI time by `staging-build.yml` (the "Set build number" step, lines 38–49) using `${{ github.run_number }}`, GitHub's monotonically-incrementing run counter.
+
+This guarantees that every build shipped to TestFlight or Google Play gets a unique, sequential build number, preventing App Store / Play Store rejection due to build number conflicts or regressions.
+
+**Version notation:** A release like `1.0.0(13)` reads as:
+- **Semver:** `1.0.0` (from `apps/mobile/app.json` and `package.json`)
+- **Build number:** `13` (from CI run `#13`, auto-incremented by GitHub Actions)
+
+---
+
 ## API release: Railway via dispatch
 
 The API release workflow does four things in order:
