@@ -231,6 +231,17 @@ Colors are defined in three places that must stay in sync when modified:
 
 ---
 
+## Branching Convention
+
+Work is grouped by release branch instead of merging every ticket straight to `main`:
+
+1. Cut `release/vX.Y.Z` from `main` at the start of each sprint/version scope (e.g. `release/v1.0.1`).
+2. Each ticket gets its own branch off that release branch, named `<type>/<short-name>` (e.g. `fix/vote-state-persistence`, `feature/splash-logo`, `chore/version-sync`) — PR'd back into the release branch, not `main`.
+3. Once every ticket for a version has merged into its release branch, the release branch merges into `main` as a single PR. That merge is what triggers `release-version.yml` (changesets Version PR) and `staging-build.yml` (TestFlight staging build), since both trigger on push to `main`.
+4. See [Sprint Plan](../planning/SPRINT_PLAN_2026-07.md) for the current backlog and its branch assignments.
+
+---
+
 ## Code Quality
 
 ### Before Submitting Changes
