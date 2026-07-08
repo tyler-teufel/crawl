@@ -121,6 +121,21 @@ Replace `app/(tabs)/profile.tsx` placeholder with avatar, voting history, stats 
 
 ---
 
+### Epic E — Agent Team Enablement (tooling track, no app semver impact)
+
+Infrastructure for running the sprints above with an agentic software team: specialized worker subagents (`.claude/agents/`) orchestrated by a scrum-master skill (`/scrum`). Full charter: [Agent Team](../claude/AGENT_TEAM.md). Key constraint documented in [Design Decisions](../architecture/DESIGN_DECISIONS.md#agent-team-orchestration-skill-orchestrator-over-nested-agents): subagents cannot spawn subagents, so the scrum master is a main-session skill, not an agent.
+
+| # | Priority | Task | Status | Issue |
+| --- | --- | --- | --- | --- |
+| E-1 | P0 | Team charter & orchestration design doc (`docs/claude/AGENT_TEAM.md`) | ✅ Shipped 2026-07-08 | [#53](https://github.com/tyler-teufel/crawl/issues/53) |
+| E-2 | P0 | Worker agent configs — `mobile-engineer`, `qa-engineer`, `docs-writer`, `code-reviewer` | ✅ Shipped 2026-07-08 | [#53](https://github.com/tyler-teufel/crawl/issues/53) |
+| E-3 | P0 | `/scrum` scrum-master orchestration skill | ✅ Shipped 2026-07-08 | [#53](https://github.com/tyler-teufel/crawl/issues/53) |
+| E-4 | P1 | Documentation integration (CLAUDE.md delegation table, DESIGN_DECISIONS, FILE_REFERENCE, index) | ✅ Shipped 2026-07-08 | [#53](https://github.com/tyler-teufel/crawl/issues/53) |
+| E-5 | P2 | Guardrail hooks (`session-start.sh`, `pre-commit-guard.sh`) | Backlog — before heavy `/scrum auto` use | [#54](https://github.com/tyler-teufel/crawl/issues/54) |
+| E-6 | P3 | Roster expansion wave 2 (`backend-engineer`, `devops-engineer`, `security-reviewer`) | Deferred — trigger conditions in AGENT_TEAM.md | [#55](https://github.com/tyler-teufel/crawl/issues/55) |
+
+---
+
 ## SDLC tooling recommendation
 
 Three options evaluated for letting AI agents operate as the dev team:

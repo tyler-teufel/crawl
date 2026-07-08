@@ -14,6 +14,20 @@ These apply to all tasks. Bias toward caution over speed; use judgment on trivia
 
 **Goal-driven execution.** For multi-step tasks, state a brief plan with verifiable steps before starting. Prefer test-first for bug fixes ("write a test that reproduces it, then make it pass"). Strong success criteria let you loop independently; weak criteria require constant clarification.
 
+## Agent Team
+
+Sprint work is delegated to a roster of specialized subagents (`.claude/agents/`), orchestrated by the `/scrum` skill acting as scrum master (standup → assign → dispatch → verify → report). Charter, orchestration diagram, and ground rules: `docs/claude/AGENT_TEAM.md`.
+
+| Task type | Delegate to |
+| --- | --- |
+| Implement a ticket in `apps/mobile/**` | `mobile-engineer` |
+| Reproduce a bug / write regression tests / verify acceptance criteria | `qa-engineer` |
+| Sync `docs/` after code changes | `docs-writer` |
+| Pre-PR diff review (read-only) | `code-reviewer` |
+| Ticket triage/assignment across the board | run `/scrum` (main session — subagents cannot spawn subagents) |
+
+Workers start cold: every dispatch brief must include the ticket's root cause, fix approach, acceptance criteria, and target branch. Workers report; the main session commits, pushes, and handles GitHub bookkeeping.
+
 ## Git Workflow
 
 - Always check which worktree/branch you're in at the start of a session: `git branch --show-current`

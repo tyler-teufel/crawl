@@ -367,6 +367,19 @@ Idempotent migration adding the indexes that back the dynamic filter predicates 
 
 Claude Code skill definition for the `/docs` command. Provides a structured 6-step process for updating documentation: (1) assess changes via `git diff`/`git log`, (2) map changed files to affected docs using a lookup table, (3) read affected docs and source files, (4) apply targeted updates per doc type, (5) include/update ASCII diagrams, (6) verify internal links and index accuracy.
 
+### `.claude/agents/` — Worker agent roster
+
+One config per specialized subagent, dispatched by the `/scrum` skill (see [Agent Team Charter](../../docs/claude/AGENT_TEAM.md)). Each file's YAML frontmatter scopes tools (and model where relevant); the body defines file-scope ownership, conventions, and a definition of done.
+
+- **`mobile-engineer.md`** — implements tickets in `apps/mobile/**`; must leave lint/typecheck/tests green; never touches api/packages/docs.
+- **`qa-engineer.md`** — owns `tests/**` in both apps; reproduces bugs with failing tests before fixes are accepted; verifies acceptance criteria per-criterion.
+- **`docs-writer.md`** — syncs `docs/` via the `/docs` skill's mapping table; runs on haiku; read-only git access; never touches `wiki/`.
+- **`code-reviewer.md`** — read-only pre-PR diff review (correctness, scope discipline, conventions, regression risk); reports findings, never fixes.
+
+### `.claude/skills/scrum/SKILL.md`
+
+The scrum-master orchestration skill (`/scrum`). Runs standup over `docs/planning/SPRINT_PLAN_2026-07.md` + GitHub Issues, triages and assigns tickets to the worker agents above, dispatches them with self-contained briefs on the correct release-branch topology, verifies results through qa-engineer/code-reviewer before reporting done, and handles issue/changeset bookkeeping. Orchestration lives here (main session) because subagents cannot spawn subagents — see [Design Decisions](./DESIGN_DECISIONS.md#agent-team-orchestration-skill-orchestrator-over-nested-agents).
+
 ### `.github/workflows/ci.yml`
 
 PR + push-to-main validation. Single `validate` job runs `turbo run lint typecheck test` with `--filter=...[origin/<base>]` on PRs (Turbo affected detection) and unfiltered on `main`. Caches `node_modules` and `.turbo`. Uploads `apps/api/coverage/` if produced. Parallel `fingerprint` job emits the Expo native-deps hash for OTA eligibility. See [CI/CD Pipeline](../ops/CICD_PIPELINE.md).

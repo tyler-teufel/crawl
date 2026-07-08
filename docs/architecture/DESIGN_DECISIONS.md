@@ -464,3 +464,27 @@ Every data-driven screen renders one of three states based on the underlying Tan
 **NetInfo as a lazy require.** The banner imports netinfo via `try { require(...) }` so the module's absence (Expo Go without a dev client, or before the package is installed) makes the banner a no-op rather than crashing the app at module load.
 
 **Trade-off:** Three states per screen is more wiring than a single spinner. Mitigated by the shared primitives — each screen adds ~10 lines of conditional rendering, not custom UI. Accepted as the cost of failing gracefully.
+
+---
+
+## Agent Team Orchestration: Skill Orchestrator over Nested Agents
+
+**Chosen over:** a scrum-master *subagent* that spawns worker subagents; external orchestration frameworks; a flat "one Claude does everything" workflow.
+
+The agent team (see [Agent Team Charter](../claude/AGENT_TEAM.md)) pairs specialized worker agents (`.claude/agents/*.md` — mobile-engineer, qa-engineer, docs-writer, code-reviewer) with a scrum-master **skill** (`.claude/skills/scrum/SKILL.md`) that the main session executes.
+
+**Why the orchestrator is a skill, not an agent:**
+
+- **Hard constraint:** Claude Code subagents cannot spawn subagents. A scrum-master agent could plan assignments but never dispatch them — every dispatch would bounce back to the main session anyway. Making the orchestrator a skill removes the pointless hop.
+- **The main session already holds the context** (sprint plan, issue history, user preferences, git state) that assignment decisions need. A subagent would start cold and re-derive all of it.
+- **Approval stays with the user.** The skill runs in the main loop, so assignment confirmation, ambiguity escalation, and destructive-action gates use the normal conversation — a nested orchestrator would bury those decisions.
+
+**Why scoped worker agents instead of one generalist:**
+
+- Tool scoping enforces role boundaries mechanically (code-reviewer is read-only; docs-writer can only run read-only git), not just by convention.
+- Independent verification: the qa-engineer and code-reviewer check the mobile-engineer's work without sharing its context or its blind spots.
+- Cheap right-sizing: docs-writer runs on haiku; implementation roles inherit the session model.
+
+**Why not an external orchestration framework:** GitHub Issues + the sprint plan doc are already the shared state; the Agent tool is already the dispatch mechanism. Adding LangGraph/CrewAI-style machinery would duplicate both.
+
+**Trade-offs accepted:** workers start cold, so every dispatch brief must restate the ticket (root cause, criteria, branch) — more prompt overhead per ticket. Orchestration is serialized through one main session rather than a true concurrent swarm; parallelism is limited to independent tickets in isolated worktrees. Both are acceptable at current team size (one human + agents).
