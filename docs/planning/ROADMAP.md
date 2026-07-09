@@ -37,6 +37,8 @@ Prioritized next steps for Crawl, organized by release milestone.
 
 ## v2.0 — Social & Engagement (Medium Term)
 
+> **Superseded by the [Crawl v2 Product & Design Proposal](./CRAWL_V2_PROPOSAL.md)** (adopted 2026-07-09) — the full v2 direction: brand overhaul, Spotify-style discovery IA, milestone ladder M1–M10, and committed design assets under `docs/design/`. The feature list below survives inside v2 Milestone 7 (Social Features); effort estimates here are stale.
+
 | Task                     | Description                                                                          | Effort |
 | ------------------------ | ------------------------------------------------------------------------------------ | ------ |
 | Real-time vote updates   | WebSocket connection for live score changes. Animate score transitions in real-time. | 2 days |

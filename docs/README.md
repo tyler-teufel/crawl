@@ -45,6 +45,7 @@ Forward-looking — what we're building next.
 | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | [Roadmap](./planning/ROADMAP.md)                                      | Prioritized next steps across v1.1, v1.2, and v2.0                           |
 | [Sprint Plan — July 2026](./planning/SPRINT_PLAN_2026-07.md)          | Active root-caused backlog: bugs, polish, and screens scoped to semver releases |
+| [Crawl v2 Proposal](./planning/CRAWL_V2_PROPOSAL.md)                  | Living v2 foundation: brand overhaul, discovery-first IA, milestone ladder M1–M10; design assets in `docs/design/` |
 | [Backend Implementation Plan](./planning/BACKEND_IMPLEMENTATION_PLAN.md) | Phased plan for building the full backend                                 |
 | [Data Pipeline](./planning/DATA_PIPELINE.md)                          | Venue ingest architecture; stays here until first cities are fully seeded    |
 | [Dev / Staging Plan](./planning/DEV_STAGING_PLAN.md)                  | Environment strategy for dev/staging/prod                                    |
