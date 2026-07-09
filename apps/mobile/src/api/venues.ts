@@ -3,6 +3,7 @@ import { Venue } from '@/types/venue';
 import { mockVenues, mockVenuesByCity } from '@/data/venues';
 import { apiClient } from './client';
 import { hasApi } from '@/lib/env';
+import { filterVenues } from '@/lib/filterVenues';
 
 // Venue data comes from the Railway API when configured, otherwise the bundled
 // mock set. The client does NOT read Supabase venue tables directly — Supabase
@@ -27,7 +28,7 @@ export function useVenues(city: string, filters: string[]) {
         );
         return res.data;
       }
-      return mockVenuesByCity[city] ?? mockVenues;
+      return filterVenues(mockVenuesByCity[city] ?? mockVenues, filters);
     },
     staleTime: 30_000,
   });
