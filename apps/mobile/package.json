@@ -52,7 +52,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "vitest": "^3.2.3",
+    "vitest": "^3.2.6",
     "@react-native-community/cli": "latest",
     "@tanstack/eslint-plugin-query": "^5.96.2",
     "@types/react": "~19.1.10",
