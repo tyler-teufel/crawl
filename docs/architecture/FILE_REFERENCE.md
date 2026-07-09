@@ -351,6 +351,10 @@ Wraps `@sentry/react-native` for the app. Exports:
 - `initSentry()` — called once from `app/_layout.tsx` at module load. Reads `EXPO_PUBLIC_SENTRY_DSN`; if missing, logs a dev-only warning and returns without initializing (so missing DSN never crashes the boot path). When set, calls `Sentry.init` with free-tier-tuned sample rates: `tracesSampleRate: 0.1`, `replaysSessionSampleRate: 0`, `replaysOnErrorSampleRate: 1.0`. `enabled: !__DEV__` keeps dev noise out of Sentry. Registers `mobileReplayIntegration` so error-triggered replays capture UI state.
 - `Sentry` — re-exported namespace so callers can use `Sentry.wrap(Component)`, `Sentry.captureException(err)`, etc., without re-importing the SDK.
 
+### `src/lib/sentry-verify.ts`
+
+Exports `verifySentryDelivery()`, a fire-and-forget heartbeat invoked from an effect in `app/_layout.tsx`. In release builds with a DSN configured, it sends one `info` event per app version (deduped via AsyncStorage, version read from `expo-constants`) so the Sentry project exits its "waiting for first event" onboarding state without needing a real crash, and so a misdirected DSN reveals which project events actually reach. No-ops in dev (`__DEV__`) and when no DSN is set; wrapped so it never throws into the boot path.
+
 ### `src/api/cities.ts`
 
 `useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`. Also exports `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.

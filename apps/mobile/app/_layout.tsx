@@ -17,6 +17,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
 import { isOnboardingComplete, subscribeToOnboardingStatus } from '@/lib/onboarding';
+import { verifySentryDelivery } from '@/lib/sentry-verify';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
 
 function RootLayout() {
@@ -29,6 +30,13 @@ function RootLayout() {
       setColorScheme('dark');
     }
   }, [colorScheme, setColorScheme]);
+
+  // Prove the Sentry delivery path once per release build (no-op in dev / when
+  // no DSN is configured). Without a real crash, this is what takes the project
+  // out of its "waiting for first event" onboarding state.
+  React.useEffect(() => {
+    void verifySentryDelivery();
+  }, []);
 
   return (
     <ThemeProvider value={NAV_THEME[scheme]}>
