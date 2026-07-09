@@ -14,7 +14,7 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
   return (
     <Pressable
       onPress={onPress}
-      style={{ width }}
+      style={{ width, maxHeight: 230 }}
       className="mr-4 overflow-hidden rounded-2xl bg-crawl-card p-4">
       {/* Header row */}
       <View className="flex-row items-start justify-between">
@@ -57,8 +57,8 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
         </View>
       </View>
 
-      {/* Highlights */}
-      <View className="mt-3 flex-row flex-wrap gap-1">
+      {/* Highlights — single line (no wrap) so card height stays fixed at any content */}
+      <View className="mt-3 flex-row gap-1 overflow-hidden">
         {venue.highlights.slice(0, 3).map((h: string) => (
           <View key={h} className="rounded-full bg-crawl-surface px-2 py-1">
             <Text className="text-xs text-crawl-purple-light">{h}</Text>

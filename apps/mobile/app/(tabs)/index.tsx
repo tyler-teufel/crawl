@@ -12,7 +12,7 @@ import { VenueCardSkeleton } from '../../components/venue/VenueCardSkeleton';
 import { CitySelector } from '../../components/voting/CitySelector';
 import { ErrorState, EmptyState } from '../../components/ui/States';
 
-const CARD_WIDTH = Dimensions.get('window').width * 0.8;
+const CARD_WIDTH = Dimensions.get('window').width * 0.62;
 
 // Use the real map when the native module is available (after prebuild + npm install).
 // `require()` is intentional here — it lets us probe for the module at runtime
@@ -78,8 +78,9 @@ export default function ExploreScreen() {
         </ScrollView>
       </View>
 
-      {/* Map — overflow-hidden keeps MapView's native iOS view inside its flex bounds */}
-      <View className="flex-1 overflow-hidden">
+      {/* Map — overflow-hidden keeps MapView's native iOS view inside its flex bounds;
+          min-h guarantees the map stays usable no matter how tall the carousel renders */}
+      <View className="min-h-[240px] flex-1 overflow-hidden">
         {hasNativeMaps ? (
           <CrawlMapView venues={filteredVenues} onVenuePress={handleVenuePress} />
         ) : (
@@ -87,8 +88,8 @@ export default function ExploreScreen() {
         )}
       </View>
 
-      {/* Bottom venue carousel */}
-      <View className="pb-2">
+      {/* Bottom venue carousel — max-h caps it so cards can never squeeze the map above */}
+      <View className="max-h-[240px] pb-2">
         {isVenuesLoading ? (
           <ScrollView
             horizontal
