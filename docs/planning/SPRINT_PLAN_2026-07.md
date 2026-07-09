@@ -136,6 +136,19 @@ Infrastructure for running the sprints above with an agentic software team: spec
 
 ---
 
+### Epic F — Observability (Sentry)
+
+**Ticket 8 — Sentry not operational: dashboard still in setup state** · `bug` · Investigation-first, then fix · Branch: `fix/sentry-reporting` off `release/v1.0.1` (pipeline-only changes have no app semver impact) · [#57](https://github.com/tyler-teufel/crawl/issues/57)
+
+- **Symptom:** Sentry dashboard still shows the "set up Sentry" onboarding screen — the project has never received an event, so staging crash reporting is effectively off.
+- **Leading hypothesis:** `EXPO_PUBLIC_SENTRY_DSN` was never set in the `staging` GitHub Environment; `staging-build.yml:56-76` only emits a `::warning::` when it's missing and ships the build with Sentry disabled (`apps/mobile/src/lib/sentry.ts` silently no-ops without a DSN).
+- **Phase 1 (investigate):** codebase init path (`sentry.ts`, `app.json` plugin org/project pair), `staging` GitHub Environment variables, recent `staging-build.yml` run logs for the missing-DSN warning, Sentry project state. Root cause documented on the issue before any fix.
+- **Phase 2 (fix):** apply the identified fix; make a missing DSN fail the staging build loudly; verify end-to-end with a forced test error; update `docs/ops/CICD_PIPELINE.md`.
+
+**Acceptance criteria:** a staging build delivers events to Sentry and the dashboard exits setup state; a missing DSN fails the build instead of warning-and-shipping. Full sub-task list in [#57](https://github.com/tyler-teufel/crawl/issues/57).
+
+---
+
 ## SDLC tooling recommendation
 
 Three options evaluated for letting AI agents operate as the dev team:
