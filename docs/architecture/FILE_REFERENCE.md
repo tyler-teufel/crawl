@@ -332,6 +332,10 @@ Auth helpers used by `AuthContext` and the onboarding auth screen:
 
 Native module imports are wrapped in `try/catch` so the JS bundle still boots in Expo Go (where the native modules are absent); the helpers throw a descriptive error when invoked there instead.
 
+### `src/lib/filterVenues.ts`
+
+Exports `filterVenues(venues, activeFilterIds)` — maps each filter chip id from `src/data/filters.ts` to a `Venue`-field predicate (`trending` → `isTrending`, `open-now` → `isOpen`, the rest match `highlights` strings like `'Live Music'` and `'Outdoor Patio'`). Multiple active filters combine as AND (intersection); an empty filter list returns all venues; unknown ids match all rather than throwing. Applied by the mock branch of `useVenues` in `src/api/venues.ts` (the real-API branch forwards filters as query params instead), fixing the bug where mock-mode fetches ignored active filters entirely. Highlight strings are matched exactly — a tripwire test in `tests/filterVenues.test.ts` asserts every default filter narrows at least one city, so silent drift between filter ids and mock data fails CI.
+
 ### `src/lib/onboarding.ts`
 
 Helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
