@@ -355,6 +355,10 @@ Wraps `@sentry/react-native` for the app. Exports:
 
 `useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`. Also exports `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.
 
+### `src/api/voteStorage.ts`
+
+AsyncStorage persistence for mock vote state (deleted when real API integrates). Fixes the bug where TanStack Query refetches (stale-time expiry, cache GC, city switches) reset daily vote count to default. Exports `readPersistedVoteState(city)` and `writePersistedVoteState(city, state)`. Single key `crawl.mockVoteState.v1` holds `{ date, byCity }` scoped by today's ISO date; reads return `null` on day rollover (caller falls back to `DEFAULT_VOTE_STATE`), writes discard stale per-city entries on rollover and treat corruption as absent so recovery is clean. Used by `src/api/votes.ts` mock branches; mirrors server design of `apps/api/src/services/vote.service.ts`.
+
 ### `apps/api/drizzle/0001_venue_filter_indexes.sql`
 
 Idempotent migration adding the indexes that back the dynamic filter predicates in `useVenues`: compound `(city, is_active|is_trending|is_open)` indexes (the `_trending` and `_open` variants are partial — `WHERE is_trending = true` etc. — so they stay tiny), a GIN index on `highlights[]` for the tag-based filters, and a partial `cities (is_active) WHERE is_active` index for the city picker. See [Dynamic Venue Filtering Strategy](./DESIGN_DECISIONS.md#dynamic-venue-filtering-strategy) for the predicate map.
