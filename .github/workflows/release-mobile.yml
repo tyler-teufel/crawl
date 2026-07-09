@@ -118,6 +118,7 @@ jobs:
         working-directory: apps/mobile
         run: |
           npm version "${{ steps.version.outputs.new }}" --no-git-tag-version
+          node scripts/sync-expo-version.mjs
 
       - name: EAS Build (binary)
         if: inputs.release_type == 'binary'
@@ -147,7 +148,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/mobile/package.json apps/mobile/package-lock.json package-lock.json 2>/dev/null || true
+          git add apps/mobile/package.json apps/mobile/app.json apps/mobile/package-lock.json package-lock.json 2>/dev/null || true
           git commit -m "chore(mobile): release v${{ steps.version.outputs.new }}" || echo "Nothing to commit"
           git push origin HEAD:${{ github.ref_name }}
 

@@ -242,6 +242,39 @@ Work is grouped by release branch instead of merging every ticket straight to `m
 
 ---
 
+## Versioning
+
+### Mobile Version Sync
+
+For `apps/mobile`, the `package.json.version` and `app.json` `expo.version` fields describe the same shippable artifact and **must always be identical**. This is enforced automatically by `apps/mobile/scripts/sync-expo-version.mjs`, which is chained after `changeset version` in the root `changeset:version` script (invoked by `release-version.yml`). You never need to hand-edit either field.
+
+### How Versions Change
+
+Versions change **only via changesets**. Never hand-edit version numbers in `package.json` or `app.json`:
+
+1. Add a changeset with your PR:
+   ```bash
+   npm run changeset
+   # → answers: which packages, bump type (patch/minor/major), summary
+   ```
+2. The PR goes back to the release branch (e.g. `release/v1.0.1`).
+3. When the release branch merges to `main`, the **Version Packages PR** is triggered (`release-version.yml`).
+4. Merging that PR is the **only thing** that bumps versions and writes `CHANGELOG.md`.
+
+See `docs/ops/CICD_PIPELINE.md` for the full release workflow and `.changeset/README.md` for changeset format details.
+
+### Semver Convention
+
+- **Patch:** Bug fixes, performance improvements, internal refactors with no behavior change
+- **Minor:** New non-breaking features, new screens, new component variants
+- **Major:** Breaking API changes, incompatible database migrations, drop support for old clients
+
+### Workspace Root
+
+The root `package.json` stays at `"0.0.0"` — it is a private workspace root and is never shipped. Only `apps/mobile`, `apps/api`, and `packages/shared-types` have real version numbers.
+
+---
+
 ## Code Quality
 
 ### Before Submitting Changes
