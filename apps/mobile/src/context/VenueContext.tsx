@@ -10,7 +10,7 @@ import React, {
 import { Venue, FilterOption, VoteState } from '@/types/venue';
 import { defaultFilters } from '@/data/filters';
 import { useVenues } from '@/api/venues';
-import { useVoteState, useCastVote, useRemoveVote } from '@/api/votes';
+import { useVoteState, useCastVote, useRemoveVote, DEFAULT_VOTE_STATE } from '@/api/votes';
 import { useCities, findNearestCity } from '@/api/cities';
 import { useAuth } from '@/context/AuthContext';
 
@@ -36,12 +36,6 @@ interface VenueContextValue {
 }
 
 const VenueContext = createContext<VenueContextValue | null>(null);
-
-const DEFAULT_VOTE_STATE: VoteState = {
-  remainingVotes: 3,
-  maxVotes: 3,
-  votedVenueIds: [],
-};
 
 const FALLBACK_CITY = 'Charlotte, NC';
 

@@ -332,6 +332,10 @@ Auth helpers used by `AuthContext` and the onboarding auth screen:
 
 Native module imports are wrapped in `try/catch` so the JS bundle still boots in Expo Go (where the native modules are absent); the helpers throw a descriptive error when invoked there instead.
 
+### `src/lib/filterVenues.ts`
+
+Exports `filterVenues(venues, activeFilterIds)` — maps each filter chip id from `src/data/filters.ts` to a `Venue`-field predicate (`trending` → `isTrending`, `open-now` → `isOpen`, the rest match `highlights` strings like `'Live Music'` and `'Outdoor Patio'`). Multiple active filters combine as AND (intersection); an empty filter list returns all venues; unknown ids match all rather than throwing. Applied by the mock branch of `useVenues` in `src/api/venues.ts` (the real-API branch forwards filters as query params instead), fixing the bug where mock-mode fetches ignored active filters entirely. Highlight strings are matched exactly — a tripwire test in `tests/filterVenues.test.ts` asserts every default filter narrows at least one city, so silent drift between filter ids and mock data fails CI.
+
 ### `src/lib/onboarding.ts`
 
 Helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
@@ -358,6 +362,10 @@ Exports `verifySentryDelivery()`, a fire-and-forget heartbeat invoked from an ef
 ### `src/api/cities.ts`
 
 `useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`. Also exports `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.
+
+### `src/api/voteStorage.ts`
+
+AsyncStorage persistence for mock vote state (deleted when real API integrates). Fixes the bug where TanStack Query refetches (stale-time expiry, cache GC, city switches) reset daily vote count to default. Exports `readPersistedVoteState(city)` and `writePersistedVoteState(city, state)`. Single key `crawl.mockVoteState.v1` holds `{ date, byCity }` scoped by today's ISO date; reads return `null` on day rollover (caller falls back to `DEFAULT_VOTE_STATE`), writes discard stale per-city entries on rollover and treat corruption as absent so recovery is clean. Used by `src/api/votes.ts` mock branches; mirrors server design of `apps/api/src/services/vote.service.ts`.
 
 ### `apps/api/drizzle/0001_venue_filter_indexes.sql`
 

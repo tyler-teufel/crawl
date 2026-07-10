@@ -28,6 +28,7 @@ Semver convention going forward: **patch** = bug fixes, **minor** = new non-brea
 | Sprint 2 | Jul 15 – Jul 21 | Splash/logo, fonts, onboarding+login refresh | v1.1.0 |
 | Sprint 3 | Jul 22 – Jul 28 | Global Rankings screen | v1.2.0 |
 | Sprint 4 | Jul 29 – Aug 4 | Profile screen | v1.3.0 |
+| Sprint 5+ | Aug 5 → | Crawl v2 track — audit first, then milestone ladder (Epic G) | v2.x planning |
 
 ---
 
@@ -92,11 +93,13 @@ See [Contributing Guide](../guides/CONTRIBUTING.md#branching-convention) for the
 
 ### Epic C — Splash, Branding & Onboarding Polish (v1.1.0, Sprint 2)
 
+> **Design direction delivered 2026-07-09** — the [Crawl v2 proposal](./CRAWL_V2_PROPOSAL.md) and committed design assets (`docs/design/crawl-v2-*.png`) resolve this epic's open design questions. Sprint 2 implements the v2 visual language on the current IA; it is the first slice of v2 Milestone 1, not throwaway polish.
+
 **Ticket 4 — Logo + animated splash** · `feature` · Branch: `feature/splash-logo` off `release/v1.1.0` · [#48](https://github.com/tyler-teufel/crawl/issues/48)
 
 - **Current state:** static-only `app.json` splash config, no `expo-splash-screen` usage anywhere, no animation, no `preventAutoHideAsync`.
 - **Scope:** produce a logo (mark + wordmark, purple `#7f13ec` accent per `DESIGN_DECISIONS.md`); wire `expo-splash-screen` with a custom animated transition (reanimated, already a dependency).
-- **Flag:** logo artwork is a design deliverable, not code — needs a design pass or asset handoff before implementation starts.
+- ~~**Flag:** logo artwork is a design deliverable, not code — needs a design pass or asset handoff before implementation starts.~~ **Resolved:** logo suite delivered in `docs/design/crawl-v2-brand-sheet.png` — lowercase wordmark with pin-counter "a", martini-pin symbol, monochrome + full-color + horizontal lockup variants; app icon = martini pin. Splash reference: the "Loading hotspots…" frame in `docs/design/crawl-v2-onboarding-flow.png`. Production vector export (SVG/PDF) still needed from the design source before native asset generation.
 
 **Acceptance criteria:** branded animated cold-launch splash on iOS/Android; no more than ~1s added latency.
 
@@ -104,12 +107,15 @@ See [Contributing Guide](../guides/CONTRIBUTING.md#branching-convention) for the
 
 - **Current state:** no `expo-font`/`useFonts` anywhere — system default font throughout; `app/(onboarding)/index.tsx` and `auth.tsx` are minimal centered layouts (icon placeholder, stacked buttons).
 - **Scope:** evaluate 2-3 candidate typefaces (e.g. `expo-google-fonts`) fitting the nightlife/purple palette; wire `expo-font` loading app-wide; redesign onboarding + auth screen visuals (motion, imagery) without touching the existing Apple/Google/anonymous auth logic.
+- **Design direction (v2):** candidate to beat is **Satoshi** (UI/body) + **Clash Grotesk** (display) per the v2 brand sheet — both Fontshare faces, so vendor font files under `assets/fonts/` + `expo-font` (not `@expo-google-fonts`); verify ITF Free Font License terms. Onboarding/auth target screens are fully mocked in `docs/design/crawl-v2-onboarding-flow.png` (welcome w/ skyline + pagination dots, location permission, "Make it yours" auth screen keeping Apple/Google/anonymous). Also adopt the four new palette tokens + `text-muted` retint from the [v2 proposal](./CRAWL_V2_PROPOSAL.md#color-system) while in the styling layer.
 
 **Acceptance criteria:** chosen font loads without flash-of-default-font; auth flow behavior regression-tested unchanged.
 
 ---
 
 ### Epic D — Placeholder Screen Build-Out (Sprints 3-4, each its own minor release)
+
+> **v2 note:** both screens should build against the v2 visual language (Satoshi, v2 tokens) once Sprint 2 lands, and with extraction in mind — the v2 IA has no Global tab (rankings likely become a Discover collection / Home rail), so #50's screen should be a thin wrapper over reusable list components. See [v2 proposal — Open Decisions](./CRAWL_V2_PROPOSAL.md#reconciliation-with-current-state--open-decisions).
 
 **Ticket 6 — Build Global Rankings screen** · `feature` · Sprint 3, v1.2.0 · Branch: `feature/global-rankings` off `release/v1.2.0` · [#50](https://github.com/tyler-teufel/crawl/issues/50)
 
@@ -141,11 +147,23 @@ Infrastructure for running the sprints above with an agentic software team: spec
 **Ticket 8 — Sentry not operational: dashboard still in setup state** · `bug` · Investigation-first, then fix · Branch: `fix/sentry-reporting` off `release/v1.0.1` (pipeline-only changes have no app semver impact) · [#57](https://github.com/tyler-teufel/crawl/issues/57)
 
 - **Symptom:** Sentry dashboard still shows the "set up Sentry" onboarding screen — the project has never received an event, so staging crash reporting is effectively off.
-- **Leading hypothesis:** `EXPO_PUBLIC_SENTRY_DSN` was never set in the `staging` GitHub Environment; `staging-build.yml:56-76` only emits a `::warning::` when it's missing and ships the build with Sentry disabled (`apps/mobile/src/lib/sentry.ts` silently no-ops without a DSN).
-- **Phase 1 (investigate):** codebase init path (`sentry.ts`, `app.json` plugin org/project pair), `staging` GitHub Environment variables, recent `staging-build.yml` run logs for the missing-DSN warning, Sentry project state. Root cause documented on the issue before any fix.
-- **Phase 2 (fix):** apply the identified fix; make a missing DSN fail the staging build loudly; verify end-to-end with a forced test error; update `docs/ops/CICD_PIPELINE.md`.
+- **Root cause (confirmed):** the DSN *is* injected into the staging bundle and the init path is correct — but reporting is gated to release builds (`enabled: !__DEV__`), the app doesn't crash on its own, and nothing ever sent a deliberate event, so Sentry never processed event #1 and stayed on the onboarding screen. (The earlier "DSN never set in the `staging` GitHub Environment" hypothesis was ruled out from the pipeline logs.)
+- **Fix (shipped in [#58](https://github.com/tyler-teufel/crawl/pull/58)):** `verifySentryDelivery()` sends one per-version heartbeat on release builds so a healthy staging build exits setup state; `staging-build.yml` now fails the job on a missing DSN instead of warning-and-shipping; regression tests + docs added.
 
 **Acceptance criteria:** a staging build delivers events to Sentry and the dashboard exits setup state; a missing DSN fails the build instead of warning-and-shipping. Full sub-task list in [#57](https://github.com/tyler-teufel/crawl/issues/57).
+
+---
+
+### Epic G — Crawl v2 Overhaul (planning track, Sprints 5+)
+
+The [Crawl v2 Product & Design Proposal](./CRAWL_V2_PROPOSAL.md) (adopted 2026-07-09) is the living foundation for everything after the v1.3.0 sprint ladder. Design deliverables are committed under `docs/design/` (brand sheet, onboarding flow, core screens). Summary of how it lands on this plan:
+
+- **Sprints 2–4 are unchanged in scope** but now execute against delivered design direction (see the Epic C and Epic D notes above) — Sprint 2 is effectively the first slice of v2 Milestone 1.
+- **Sprint 5 opens the v2 track with the comprehensive audit** (repo / UX / design / database, ✅ Keep · 🔄 Refactor · ❌ Replace · ➕ Add) defined in the proposal's [First v2 Task](./CRAWL_V2_PROPOSAL.md#first-v2-task--comprehensive-audit-m1-proposed-sprint-5). No v2 implementation beyond Sprints 2–4 starts before the audit lands. The database portion needs the **Supabase connector authorized** and the #66 baseline confirmation.
+- **Milestone ladder M1–M10** (Foundation → Launch Readiness) with sprint mapping lives in the [proposal's Milestones section](./CRAWL_V2_PROPOSAL.md#milestones); GitHub milestones get created when each phase's tickets are cut, starting with the audit's output.
+- **Open decisions before M2 starts** (each gets a `DESIGN_DECISIONS.md` entry when made): Supabase-all-in vs. Fastify split; where Daily Hotspot Votes lives in the 5-tab IA; Global Rankings' v2 home; token-naming migration; docs-structure mapping. Detail: [Reconciliation section](./CRAWL_V2_PROPOSAL.md#reconciliation-with-current-state--open-decisions).
+
+Tracked as [#71](https://github.com/tyler-teufel/crawl/issues/71) (epic umbrella).
 
 ---
 
