@@ -249,13 +249,41 @@ explicit decision (filed in `docs/architecture/DESIGN_DECISIONS.md` when made):
 
 1. **Supabase vs. custom Fastify API.** The v2 stack line says "Supabase."
    Today Supabase already handles **auth** (`src/lib/supabase.ts`,
-   `AuthContext`), while `apps/api` is a Fastify + Drizzle + Postgres server
+   `AuthContext`) **and hosts the core domain tables** (see the verified
+   snapshot below), while `apps/api` is a Fastify + Drizzle + Postgres server
    per BACKEND_IMPLEMENTATION_PLAN.md. Options: (a) all-in on Supabase
    (Postgres + PostGIS + RLS + realtime; `apps/api` retired or reduced to edge
    functions), (b) keep the split (Supabase = auth only, Fastify = domain API),
    (c) hybrid. This is the biggest architectural fork in M2 — decide before
-   any backend buildout resumes. The database review in the v2 audit needs the
-   **Supabase connector authorized** in the working session.
+   any backend buildout resumes. The snapshot below reframes it: Supabase is
+   already more than an auth provider here, so the split (option b) would mean
+   *migrating* the existing `venues`/`votes`/`cities`/`users` tables off
+   Supabase, not just leaving them there. Weigh that against `apps/api`'s
+   Drizzle schema (confirm whether the two describe the same tables or have
+   already diverged — part of the Sprint 5 audit).
+
+   **Verified Supabase snapshot — 2026-07-09** (read-only, via connector once
+   authorized; project `gcixoqaxahuawklcqzyq` "Crawl", Postgres 17.6,
+   us-east-1, `ACTIVE_HEALTHY`):
+
+   | Table | RLS | Rows |
+   | --- | --- | --- |
+   | `public.cities` | enabled | 0 |
+   | `public.venues` | enabled | 0 |
+   | `public.users` | enabled | 0 |
+   | `public.votes` | enabled | 0 |
+
+   - Four tables exist with **RLS enabled across the board**; all are **empty
+     (0 rows)** — nothing seeded yet, so the data pipeline (`DATA_PIPELINE.md`)
+     has not run against this project.
+   - The v2 data model calls for much more — `crawls`, social graph,
+     `check-ins`, `collections`, `activity feed` — **none of which exist yet**.
+     That gap is the core of the Sprint 5 database review.
+   - **Deferred to Sprint 5 (not done now):** per-table columns / constraints /
+     relationships, RLS *policy* contents (enabled ≠ correctly scoped),
+     `get_advisors` security + performance lints, whether the Supabase schema
+     matches `apps/api`'s Drizzle definitions, and PostGIS availability for the
+     geospatial queries the product depends on.
 2. **Where does voting live in the 5-tab IA?** Daily Hotspot Votes is the
    current app's core loop and the mockups keep it as a tab; the v2 IA
    (Home/Discover/Map/Social/Profile) doesn't name it. Candidates: fold into
@@ -294,8 +322,9 @@ work: a full audit producing recommendations labeled **✅ Keep · 🔄 Refactor
   photography, motion, branding.
 - **Database:** normalization, relationships, venue/user models, crawls,
   social graph, activity feed, check-ins, votes, collections — with schema
-  recommendations. (Requires Supabase connector auth + the deployed-schema
-  reality check from #66.)
+  recommendations. Starting point: the verified 2026-07-09 snapshot in Open
+  Decision #1 (4 tables, RLS on, empty). Connector access **confirmed working**
+  2026-07-09; still pair with the deployed-schema reality check from #66.
 
 Output: `docs/planning/CRAWL_V2_AUDIT.md` + follow-up tickets, PR'd for review.
 No v2 implementation (beyond Sprints 2–4 as scoped) starts before the audit
