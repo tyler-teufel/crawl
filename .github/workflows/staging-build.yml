@@ -21,7 +21,7 @@ jobs:
     # path resolves the same variable name from the "production" environment.
     environment: staging
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
