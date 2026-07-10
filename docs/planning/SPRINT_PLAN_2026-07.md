@@ -144,7 +144,7 @@ Infrastructure for running the sprints above with an agentic software team: spec
 
 ### Epic F — Observability (Sentry)
 
-**Ticket 8 — Sentry not operational: dashboard still in setup state** · `bug` · Investigation-first, then fix · Branch: `fix/sentry-reporting` off `release/v1.0.1` (pipeline-only changes have no app semver impact) · [#57](https://github.com/tyler-teufel/crawl/issues/57)
+**Ticket 8 — Sentry not operational: dashboard still in setup state** · `bug` · Investigation-first, then fix · Branch: `claude/sentry-setup-investigation-vejzoz` → `release/v1.0.2` (ships app code — `sentry-verify.ts` + a `_layout.tsx` effect — under a `@crawl/mobile` patch changeset) · [#57](https://github.com/tyler-teufel/crawl/issues/57)
 
 - **Symptom:** Sentry dashboard still shows the "set up Sentry" onboarding screen — the project has never received an event, so staging crash reporting is effectively off.
 - **Root cause (confirmed):** the DSN *is* injected into the staging bundle and the init path is correct — but reporting is gated to release builds (`enabled: !__DEV__`), the app doesn't crash on its own, and nothing ever sent a deliberate event, so Sentry never processed event #1 and stayed on the onboarding screen. (The earlier "DSN never set in the `staging` GitHub Environment" hypothesis was ruled out from the pipeline logs.)
