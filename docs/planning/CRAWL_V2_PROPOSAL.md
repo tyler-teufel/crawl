@@ -242,12 +242,118 @@ The v2 GitHub milestone ladder, and how it meets the in-flight July sprint plan:
   planned, but should build against the v2 visual language (tokens, Satoshi)
   once Sprint 2 lands, so they're not immediately reskinned in M4.
 
+## Backend Architecture & Scaling Strategy
+
+**Decided 2026-07-10 (resolves Open Decision #1): ratify the hybrid for v1;
+Supabase-native as the long-term center of gravity; a dedicated API tier
+returns only where a measured bottleneck earns it.**
+
+The recurring worry — *"how does this scale long-term reading Supabase
+directly, with no API?"* — rests on a false premise. **"Supabase-direct" does
+not mean "no backend."** It means the API tier stops being a single Node
+process we host and instead composes from Supabase's server-side primitives.
+The logic, the authorization, and the trust boundary all still exist — they
+move closer to the data.
+
+### The API doesn't disappear — it decomposes
+
+```
+                    Supabase project (single trust boundary: RLS)
+ mobile app  ┌────────────────────────────────────────────────────┐
+ (anon key + │  PostgREST     ── auto REST/GraphQL over tables     │
+  user JWT)  │  RPC / SQL fns ── transactional business rules      │──► Postgres 17
+ ───────────►│  Edge Functions── custom logic, secrets, 3rd-party  │    + PostGIS
+             │  Realtime      ── logical replication → websockets   │    + pg_cron
+             └────────────────────────────────────────────────────┘
+                       every path gated by Row-Level Security
+```
+
+Four layers replace the one Fastify tier, each earning its place:
+
+| Concern | Supabase-native mechanism | Why it scales |
+| --- | --- | --- |
+| **Reads** (venues, cities, rankings) | PostgREST over the tables, gated by RLS | Bulk of traffic; standard Postgres read scaling — indexes, PostGIS GiST, pooling, read replicas, materialized views for feeds |
+| **Trusted writes** (vote cap, dedup) | Postgres RPC (`cast_vote`, `SECURITY DEFINER`) + constraints | Rule lives *inside the transaction* — a client can't bypass it, unlike app-tier checks |
+| **Secrets / 3rd-party** (Places sync, push, images) | Edge Functions (Deno) + scheduled jobs (`pg_cron`/`pg_net`, both installed) | Secrets stay server-side; jobs run detached from the client |
+| **Live activity** (hotspot pulse, social) | Realtime (Postgres → websockets) | Free and native; on Fastify this means hand-rolling a socket tier |
+| **Authorization** | RLS policies on every table | One enforcement point regardless of entry path — this is what makes "direct" *safe* |
+
+### Why "direct" is safe, not reckless
+
+The client ships a **public anon key** — by design. It grants nothing on its
+own: **Row-Level Security is the authorization layer**, enforced in the
+database on every query no matter who calls it. Today's policies already scope
+this correctly — `venues`/`cities` public-read, `votes`/`users` own-row-only —
+so a client holding the anon key still can't read another user's votes or write
+outside policy. In the Fastify model that same authorization is hand-written
+middleware we maintain; here it is declarative and lives with the data.
+
+### How far it scales, and the levers
+
+Because it is **just Postgres**, it scales the way Postgres scales — nothing
+exotic:
+
+- **Vertical** — larger compute/RAM (a config change).
+- **Connection pooling** — Supavisor/pgBouncer front the DB so thousands of
+  mobile clients don't exhaust connections.
+- **Indexes + PostGIS GiST** — geo radius queries (`ST_DWithin`) stay fast
+  (#75; the spatial column isn't wired yet).
+- **Materialized views / cached aggregates** — the Spotify-style Home feed and
+  rankings precompute rather than recomputing per request.
+- **Client + edge cache** — TanStack Query already dedupes/caches on-device; a
+  CDN/edge cache fronts read-heavy anonymous endpoints.
+
+For an app of this shape (read-dominant discovery, geospatial, a modest write
+loop) this comfortably covers launch through significant growth. Cost scales
+predictably with DB size, egress, function invocations, realtime connections,
+and MAUs — and it avoids the *fixed* always-on compute bill a separate Fastify
+tier (Railway) adds regardless of traffic.
+
+### When a dedicated API tier comes back — by measurement, not fear
+
+Supabase-native is the default, not a dogma. A thin backend service re-enters
+the moment a **specific, measured** need appears:
+
+- Complex multi-step orchestration awkward to express in SQL/Edge Functions.
+- Aggregating several third-party APIs with bespoke caching/rate-limiting.
+- Very high write throughput needing custom batching.
+- Vendor-portability requirements (wanting to sit behind our own tier).
+
+The critical property: **adding it later is not a re-architecture.** Edge
+Functions already *are* that tier, incrementally — a function grows into a
+service only where the bottleneck is. And the data layer stays **vanilla
+Postgres + open-source PostgREST/GoTrue**, so there is no data-layer lock-in: if
+Supabase is ever outgrown, the database migrates to any Postgres host and a
+custom API drops back in front. We keep `apps/api` (Fastify/Drizzle) as exactly
+that escape hatch — retained and reduced, not deleted.
+
+### What this means concretely
+
+- **v1 (now):** flip reads to Supabase-direct behind the existing
+  `USE_REAL_API`/`hasApi` flag (data + RLS already there — #78); votes stay mock
+  or move to a `cast_vote` RPC; **Railway stays unpaid** (#78).
+- **v2 function overhaul:** live activity, social, crawls, and check-ins land on
+  Realtime + RLS + Edge Functions — the features that most wanted a bespoke
+  backend are the ones Supabase gives for free.
+- **Escape hatch:** `apps/api` stays in the monorepo as the measured-bottleneck
+  tier; the Sprint 5 audit re-confirms the boundary as the data model grows.
+
+---
+
 ## Reconciliation with Current State — Open Decisions
 
 Flagged per the "state assumptions explicitly" ground rule. Each needs an
 explicit decision (filed in `docs/architecture/DESIGN_DECISIONS.md` when made):
 
-1. **Supabase vs. custom Fastify API.** The v2 stack line says "Supabase."
+1. **Supabase vs. custom Fastify API.** ✅ **RESOLVED 2026-07-10** — ratified
+   **hybrid for v1, Supabase-native as the v2 center of gravity**; rationale and
+   scaling model in [Backend Architecture & Scaling Strategy](#backend-architecture--scaling-strategy)
+   above, formal entry pending in `DESIGN_DECISIONS.md`. Follow-ups cut: #75
+   (PostGIS spatial column), #76 (schema/migration-ledger drift), #77 (retire
+   dead custom-auth), #78 (read cutover + Railway billing). Original framing
+   retained below for the record.
+
+   The v2 stack line says "Supabase."
    Today Supabase already handles **auth** (`src/lib/supabase.ts`,
    `AuthContext`) **and hosts the core domain tables** (see the verified
    snapshot below), while `apps/api` is a Fastify + Drizzle + Postgres server
@@ -262,28 +368,33 @@ explicit decision (filed in `docs/architecture/DESIGN_DECISIONS.md` when made):
    Drizzle schema (confirm whether the two describe the same tables or have
    already diverged — part of the Sprint 5 audit).
 
-   **Verified Supabase snapshot — 2026-07-09** (read-only, via connector once
-   authorized; project `gcixoqaxahuawklcqzyq` "Crawl", Postgres 17.6,
-   us-east-1, `ACTIVE_HEALTHY`):
+   **Verified Supabase snapshot — updated live 2026-07-10** (connector now
+   authorized; project `gcixoqaxahuawklcqzyq` "Crawl", Postgres 17.6, us-east-1,
+   `ACTIVE_HEALTHY`):
 
-   | Table | RLS | Rows |
+   | Table | RLS | Rows (2026-07-10) |
    | --- | --- | --- |
-   | `public.cities` | enabled | 0 |
-   | `public.venues` | enabled | 0 |
-   | `public.users` | enabled | 0 |
-   | `public.votes` | enabled | 0 |
+   | `public.cities` | enabled, public-read | 4 |
+   | `public.venues` | enabled, public-read | 240 |
+   | `public.users` | enabled, own-row | 1 |
+   | `public.votes` | enabled, own-row | 0 |
 
-   - Four tables exist with **RLS enabled across the board**; all are **empty
-     (0 rows)** — nothing seeded yet, so the data pipeline (`DATA_PIPELINE.md`)
-     has not run against this project.
-   - The v2 data model calls for much more — `crawls`, social graph,
+   - **Data is now live** — the 2026-07-09 snapshot showed all tables empty; the
+     seed has since run (240 venues, 4 cities). Real read data is a flag flip
+     away (#78), not a build-out.
+   - **PostGIS is enabled** (3.3.7) but unused — `venues.location` is `text` and
+     lookups filter city text (`ilike`), no `ST_DWithin` (#75).
+   - **RLS policy contents verified** and sensibly scoped (public-read on
+     venues/cities, own-row on votes/users). The advisor's "anonymous access"
+     WARN is expected given anonymous browsing — a conscious sign-off, not a
+     hole.
+   - **No migration ledger** (`list_migrations` empty; schema pushed via
+     `drizzle-kit push`) and deployed columns exceed `shared-types` — drift to
+     reconcile (#76). Dead `users.password_hash` lingers from the retired
+     custom-auth path (#77).
+   - The v2 data model still calls for more — `crawls`, social graph,
      `check-ins`, `collections`, `activity feed` — **none of which exist yet**.
-     That gap is the core of the Sprint 5 database review.
-   - **Deferred to Sprint 5 (not done now):** per-table columns / constraints /
-     relationships, RLS *policy* contents (enabled ≠ correctly scoped),
-     `get_advisors` security + performance lints, whether the Supabase schema
-     matches `apps/api`'s Drizzle definitions, and PostGIS availability for the
-     geospatial queries the product depends on.
+     That gap remains the core of the Sprint 5 database review.
 2. **Where does voting live in the 5-tab IA?** Daily Hotspot Votes is the
    current app's core loop and the mockups keep it as a tab; the v2 IA
    (Home/Discover/Map/Social/Profile) doesn't name it. Candidates: fold into
