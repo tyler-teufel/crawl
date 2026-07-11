@@ -13,6 +13,14 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['ClashGrotesk-SemiBold'],
+        'display-bold': ['ClashGrotesk-Bold'],
+        'display-medium': ['ClashGrotesk-Medium'],
+        sans: ['Satoshi-Regular'],
+        'sans-medium': ['Satoshi-Medium'],
+        'sans-bold': ['Satoshi-Bold'],
+      },
       colors: {
         crawl: {
           purple: '#7f13ec',

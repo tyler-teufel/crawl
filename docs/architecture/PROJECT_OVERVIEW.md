@@ -64,6 +64,8 @@ Crawl is a nightlife and bar discovery app that lets users explore venues on a m
 | `tailwindcss-animate`      | CSS animation utilities for Tailwind               |
 | `@rn-primitives/portal`    | Portal rendering for modals/overlays (used by RNR) |
 | `@sentry/react-native`     | Crash + error monitoring (free-tier configured)    |
+| `expo-font`                | Loads Clash Grotesk + Satoshi custom fonts         |
+| `expo-splash-screen`       | Holds splash screen until fonts finish loading     |
 
 ## Quick Start
 
