@@ -3,7 +3,7 @@
     "name": "crawl",
     "slug": "crawl",
     "owner": "crawl-app",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "runtimeVersion": {
       "policy": "fingerprint"
     },
