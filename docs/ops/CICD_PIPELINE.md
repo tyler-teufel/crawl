@@ -205,9 +205,28 @@ The Railway service name is read from `vars.RAILWAY_SERVICE_STAGING` and `vars.R
 | Variable | `RAILWAY_SERVICE_STAGING`     | `release-api.yml`        | Railway service name (per environment)         |
 | Variable | `RAILWAY_SERVICE_PRODUCTION`  | `release-api.yml`        | Railway service name (per environment)         |
 | Variable | `STAGING_URL`, `PRODUCTION_URL` | `release-api.yml`      | Used in workflow summary URLs                  |
+| Variable | `EXPO_PUBLIC_API_URL`         | `staging-build.yml`      | Injected into `eas.json` at build time; unset → app uses mock data (warning only) |
+| Variable | `EXPO_PUBLIC_SENTRY_DSN`      | `staging-build.yml`      | Injected into `eas.json` at build time; **unset → staging build fails** (see below) |
 | Secret   | `GITHUB_TOKEN`                | All                      | Provided automatically                         |
 
 CodeQL needs the `security-events: write` permission, which is set on the workflow itself. No additional secret is required.
+
+### Sentry DSN injection (staging)
+
+EAS cloud builds do not inherit the runner's environment, so `staging-build.yml`
+writes the `EXPO_PUBLIC_*` variables from the `staging` GitHub Environment into
+`eas.json`'s `build.staging.env` before `eas build`, where Metro inlines them
+into the JS bundle. `EXPO_PUBLIC_SENTRY_DSN` is the one crash-reporting relies
+on — the runtime reads it via `src/lib/env.ts`, and `src/lib/sentry.ts` no-ops
+when it is absent.
+
+Because a missing DSN produces a build that *looks* fine but ships with Sentry
+silently disabled, the inject step **fails the job** (`::error::` + exit 1) when
+`EXPO_PUBLIC_SENTRY_DSN` is unset, rather than warning and continuing. A healthy
+release build then confirms the delivery path itself: `verifySentryDelivery()`
+(wired in `app/_layout.tsx`) sends one `info` event per app version, which takes
+the Sentry project out of its "waiting for first event" onboarding state and
+surfaces where events actually land if the DSN points at the wrong project.
 
 ---
 
