@@ -1,6 +1,6 @@
 {
   "name": "@crawl/mobile",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "scripts": {
     "android": "expo run:android",
     "ios": "expo run:ios",
