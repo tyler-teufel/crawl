@@ -69,6 +69,13 @@ jobs:
               if (val) {
                 eas.build.staging.env[key] = val;
                 console.log('Injected ' + key + ' into eas.json staging env');
+              } else if (key === 'EXPO_PUBLIC_SENTRY_DSN') {
+                // Hard-fail: a staging build without a DSN ships with crash
+                // reporting silently disabled, which is how Sentry went unwired
+                // and the dashboard stayed stuck on setup. Set it as a variable
+                // on the 'staging' GitHub Environment.
+                console.log('::error::EXPO_PUBLIC_SENTRY_DSN is not set for the staging environment — crash reporting would ship disabled. Set it as a variable on the staging GitHub Environment.');
+                process.exit(1);
               } else {
                 console.log('::warning::' + key + ' is not set for the staging environment');
               }

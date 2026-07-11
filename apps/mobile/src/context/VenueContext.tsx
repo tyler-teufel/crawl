@@ -40,7 +40,7 @@ const VenueContext = createContext<VenueContextValue | null>(null);
 const FALLBACK_CITY = 'Charlotte, NC';
 
 export function VenueProvider({ children }: { children: React.ReactNode }) {
-  const [filters, setFilters] = useState<FilterOption[]>(defaultFilters);
+  const [filters, setFilters] = useState<FilterOption[]>([...defaultFilters]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState(FALLBACK_CITY);
 
@@ -99,7 +99,7 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetFilters = useCallback(() => {
-    setFilters(defaultFilters);
+    setFilters([...defaultFilters]);
   }, []);
 
   const castVote = useCallback(

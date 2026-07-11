@@ -1,6 +1,6 @@
 import { FilterOption } from '@/types/venue';
 
-export const defaultFilters: FilterOption[] = [
+export const defaultFilters = [
   { id: 'trending', label: 'Trending', icon: 'flame', enabled: false },
   { id: 'open-now', label: 'Open Now', icon: 'time', enabled: false },
   { id: 'live-music', label: 'Live Music', icon: 'musical-notes', enabled: false },
@@ -11,4 +11,4 @@ export const defaultFilters: FilterOption[] = [
   { id: 'sports', label: 'Sports Bar', icon: 'football', enabled: false },
   { id: 'dancing', label: 'Dancing', icon: 'disc', enabled: false },
   { id: 'outdoor', label: 'Outdoor Patio', icon: 'leaf', enabled: false },
-];
+] as const satisfies readonly FilterOption[];

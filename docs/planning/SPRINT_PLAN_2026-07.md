@@ -142,6 +142,18 @@ Infrastructure for running the sprints above with an agentic software team: spec
 
 ---
 
+### Epic F — Observability (Sentry)
+
+**Ticket 8 — Sentry not operational: dashboard still in setup state** · `bug` · Investigation-first, then fix · Branch: `claude/sentry-setup-investigation-vejzoz` → `release/v1.0.2` (ships app code — `sentry-verify.ts` + a `_layout.tsx` effect — under a `@crawl/mobile` patch changeset) · [#57](https://github.com/tyler-teufel/crawl/issues/57)
+
+- **Symptom:** Sentry dashboard still shows the "set up Sentry" onboarding screen — the project has never received an event, so staging crash reporting is effectively off.
+- **Root cause (confirmed):** the DSN *is* injected into the staging bundle and the init path is correct — but reporting is gated to release builds (`enabled: !__DEV__`), the app doesn't crash on its own, and nothing ever sent a deliberate event, so Sentry never processed event #1 and stayed on the onboarding screen. (The earlier "DSN never set in the `staging` GitHub Environment" hypothesis was ruled out from the pipeline logs.)
+- **Fix (shipped in [#58](https://github.com/tyler-teufel/crawl/pull/58)):** `verifySentryDelivery()` sends one per-version heartbeat on release builds so a healthy staging build exits setup state; `staging-build.yml` now fails the job on a missing DSN instead of warning-and-shipping; regression tests + docs added.
+
+**Acceptance criteria:** a staging build delivers events to Sentry and the dashboard exits setup state; a missing DSN fails the build instead of warning-and-shipping. Full sub-task list in [#57](https://github.com/tyler-teufel/crawl/issues/57).
+
+---
+
 ### Epic G — Crawl v2 Overhaul (planning track, Sprints 5+)
 
 The [Crawl v2 Product & Design Proposal](./CRAWL_V2_PROPOSAL.md) (adopted 2026-07-09) is the living foundation for everything after the v1.3.0 sprint ladder. Design deliverables are committed under `docs/design/` (brand sheet, onboarding flow, core screens). Summary of how it lands on this plan:

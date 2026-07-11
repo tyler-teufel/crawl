@@ -28,4 +28,5 @@ export interface VoteState {
   remainingVotes: number;
   maxVotes: number;
   votedVenueIds: string[];
+  resetAt?: string; // ISO 8601 datetime; present on real API responses, omitted in mock mode
 }
