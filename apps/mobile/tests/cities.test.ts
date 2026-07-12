@@ -1,10 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
+import { findNearestCity, rowToCity } from '@/api/cities';
+import type { City } from '@/api/cities';
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 vi.mock('@tanstack/react-query', () => ({ useQuery: vi.fn() }));
-
-import { findNearestCity, rowToCity } from '@/api/cities';
-import type { City } from '@/api/cities';
 
 // ---------------------------------------------------------------------------
 // Test helpers

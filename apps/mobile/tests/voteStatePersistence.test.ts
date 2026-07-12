@@ -4,6 +4,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // state used to live only in the React Query cache, so any refetch returned
 // the hardcoded default (3 remaining / 0 voted). It is now persisted per
 // date + city via AsyncStorage, mocked here with an in-memory map.
+
+import { getMockVoteState, castMockVote, removeMockVote, DEFAULT_VOTE_STATE } from '@/api/votes';
+
 const storage = vi.hoisted(() => new Map<string, string>());
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
@@ -13,8 +16,6 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
     }),
   },
 }));
-
-import { getMockVoteState, castMockVote, removeMockVote, DEFAULT_VOTE_STATE } from '@/api/votes';
 
 const CITY = 'Charlotte, NC';
 

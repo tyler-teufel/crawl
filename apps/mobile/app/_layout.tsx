@@ -22,7 +22,7 @@ import { isOnboardingComplete, subscribeToOnboardingStatus } from '@/lib/onboard
 import { verifySentryDelivery } from '@/lib/sentry-verify';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
 
-SplashScreen.preventAutoHideAsync().catch(() => { });
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme();
