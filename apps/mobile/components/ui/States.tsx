@@ -28,17 +28,17 @@ export function ErrorState({
 }: ErrorStateProps) {
   return (
     <View className="items-center justify-center px-8 py-12">
-      <Ionicons name={icon} size={36} color="#9ca3af" />
-      <Text className="mt-3 text-center text-base font-semibold text-white">{title}</Text>
+      <Ionicons name={icon} size={36} color="#8b8ba5" />
+      <Text className="mt-3 text-center font-display text-base text-white">{title}</Text>
       {message ? (
-        <Text className="mt-1 text-center text-sm text-crawl-text-muted">{message}</Text>
+        <Text className="mt-1 text-center font-sans text-sm text-crawl-text-muted">{message}</Text>
       ) : null}
       {onRetry ? (
         <Pressable
           onPress={onRetry}
           accessibilityRole="button"
           className="mt-4 rounded-full bg-crawl-purple px-5 py-2 active:opacity-80">
-          <Text className="text-sm font-semibold text-white">{retryLabel}</Text>
+          <Text className="font-sans-bold text-sm text-white">{retryLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -63,17 +63,17 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View className="items-center justify-center px-8 py-12">
-      <Ionicons name={icon} size={36} color="#9ca3af" />
-      <Text className="mt-3 text-center text-base font-semibold text-white">{title}</Text>
+      <Ionicons name={icon} size={36} color="#8b8ba5" />
+      <Text className="mt-3 text-center font-display text-base text-white">{title}</Text>
       {message ? (
-        <Text className="mt-1 text-center text-sm text-crawl-text-muted">{message}</Text>
+        <Text className="mt-1 text-center font-sans text-sm text-crawl-text-muted">{message}</Text>
       ) : null}
       {onRetry ? (
         <Pressable
           onPress={onRetry}
           accessibilityRole="button"
           className="mt-4 rounded-full bg-crawl-card px-5 py-2 active:opacity-80">
-          <Text className="text-sm font-semibold text-white">{retryLabel}</Text>
+          <Text className="font-sans-bold text-sm text-white">{retryLabel}</Text>
         </Pressable>
       ) : null}
     </View>

@@ -11,12 +11,12 @@ interface SearchBarProps {
 export function SearchBar({ value, onChangeText, onFilterPress }: SearchBarProps) {
   return (
     <View className="flex-row items-center gap-3 px-4">
-      <View className="flex-1 flex-row items-center rounded-full bg-crawl-card px-4 py-3">
-        <Ionicons name="search" size={18} color="#9ca3af" />
+      <View className="flex-1 flex-row items-center rounded-full border border-crawl-border bg-crawl-surface px-4 py-3">
+        <Ionicons name="search" size={18} color="#8b8ba5" />
         <TextInput
-          className="ml-2 flex-1 text-base text-white"
+          className="ml-2 flex-1 font-sans text-base text-white"
           placeholder="Search bars & venues..."
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor="#8b8ba5"
           value={value}
           onChangeText={onChangeText}
         />

@@ -186,6 +186,10 @@ Small rounded pill badge for status indicators. Three variants:
 
 All variants render uppercase bold white text.
 
+### `components/ui/Button.tsx`
+
+Shared reusable button component. Variant-driven styling: `primary` (filled bg-crawl-purple), `secondary` (purple outline), `tertiary` (ghost). Optional leading Ionicons `icon` prop. Uses `cn()` for class merging and spreads all `PressableProps`. Currently consumed by `VenueCard`.
+
 ### `components/ui/Skeleton.tsx`
 
 The single skeleton primitive used everywhere. Renders a `bg-crawl-card` block sized via Tailwind classes (`<Skeleton className="h-4 w-32 rounded" />`); a Reanimated 3 opacity loop runs on the UI thread. Per-surface "shapes" (`VenueCardSkeleton`, `VenueListItemSkeleton`) compose this primitive — there is no per-screen variant.

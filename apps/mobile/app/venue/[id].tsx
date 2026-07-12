@@ -204,7 +204,7 @@ export default function VenueDetailScreen() {
           <View className="mt-2 flex-row items-center gap-2 rounded-2xl bg-crawl-card p-4">
             <Ionicons name="location" size={20} color="#a855f7" />
             <Text className="flex-1 text-sm text-crawl-text-muted">{venue.address}</Text>
-            <Ionicons name="navigate" size={18} color="#9ca3af" />
+            <Ionicons name="navigate" size={18} color="#8b8ba5" />
           </View>
         </View>
       </ScrollView>

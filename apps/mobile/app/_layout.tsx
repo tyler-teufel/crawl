@@ -132,7 +132,7 @@ const errorStyles = StyleSheet.create({
     marginBottom: 8,
   },
   message: {
-    color: '#9ca3af',
+    color: '#8b8ba5',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 24,
