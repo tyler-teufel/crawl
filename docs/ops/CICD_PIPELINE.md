@@ -97,7 +97,7 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 | `.github/workflows/release-version.yml`    | `push → main`                    | Open / update Changesets "Version Packages" PR         |
 | `.github/workflows/release-mobile.yml`     | `workflow_dispatch`              | OTA or binary release of `apps/mobile` via EAS         |
 | `.github/workflows/release-api.yml`        | `workflow_dispatch`              | Bump + tag + Railway deploy of `apps/api`              |
-| `.github/workflows/staging-build.yml`      | `push → main`                    | EAS staging build (iOS → TestFlight, Android → internal) |
+| `.github/workflows/staging-build.yml`      | `push → main` (path-filtered)    | EAS staging build (iOS → TestFlight, Android → internal) |
 | `.github/workflows/sync-venues.yml`        | scheduled / manual               | Operational job — unrelated to releases                |
 | `.github/workflows/dependabot-auto.yml.txt`| (disabled — see commit b9c7d75)  | Held in `.txt` form; Dependabot is currently off       |
 
@@ -162,7 +162,7 @@ Expo computes a hash over your native dependencies. Each binary is bound to that
 | `staging`          | `staging`     | Internal QA / pre-production |
 | `production`       | `production`  | App Store / Google Play     |
 
-`staging-build.yml` triggers automatically on every merge to `main`. It builds with the `staging` profile: iOS uses `app-store` distribution (can be submitted to TestFlight), Android uses internal distribution (EAS download link).
+`staging-build.yml` triggers automatically on merges to `main`, **except** when a push changes only files that can't affect the shipped app — CI config (`.github/**`), docs (`docs/**`, `wiki/**`, `**/*.md`), or API-only code (`apps/api/**`). This `paths-ignore` filter keeps Dependabot Action bumps, workflow tweaks, and doc-only merges from burning EAS build quota. (A root `package-lock.json` change such as a devDependency bump still triggers a build, since path filters can't classify lockfile hunks.) It builds with the `staging` profile: iOS uses `app-store` distribution (can be submitted to TestFlight), Android uses internal distribution (EAS download link).
 
 OTA updates publish to a channel; the binary picks up updates from whichever channel it was built for.
 
