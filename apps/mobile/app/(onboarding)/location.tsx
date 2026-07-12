@@ -50,34 +50,43 @@ export default function OnboardingLocation() {
   return (
     <View
       className="flex-1 items-center justify-between bg-crawl-bg px-6"
-      style={{ paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 }}>
-      <View className="items-center">
-        <View className="h-24 w-24 items-center justify-center rounded-full bg-crawl-purple/20">
-          <Ionicons name="location" size={44} color="#a855f7" />
+      style={{ paddingTop: insets.top + 56, paddingBottom: insets.bottom + 32 }}>
+      <View className="items-center gap-6">
+        <View className="h-40 w-40 items-center justify-center rounded-full border border-crawl-border">
+          <View className="h-28 w-28 items-center justify-center rounded-full border border-crawl-divider">
+            <View className="h-20 w-20 items-center justify-center rounded-full bg-crawl-purple/20">
+              <Ionicons name="location" size={44} color="#a855f7" />
+            </View>
+          </View>
         </View>
-        <Text className="mt-6 text-2xl font-bold text-white">Find venues near you</Text>
-        <Text className="mt-3 text-center text-base text-crawl-text-muted">
-          Crawl uses your location to surface nearby bars, clubs, and tonight&apos;s hottest spots.
-          You can change this later in Settings.
-        </Text>
+        <View className="items-center gap-4">
+          <Text className="font-display-bold text-3xl text-white">Find venues near you</Text>
+          <Text className="text-center font-sans text-base leading-6 text-crawl-text-secondary">
+            Crawl uses your location to surface nearby bars, clubs, and tonight&apos;s hottest
+            spots. You can change this later in Settings.
+          </Text>
+        </View>
       </View>
 
       <View className="w-full">
         <Pressable
           onPress={requestLocation}
           disabled={requesting}
-          className="items-center rounded-2xl bg-crawl-purple px-6 py-4 active:opacity-80 disabled:opacity-60">
+          className="flex-row items-center justify-center gap-2 rounded-crawl-lg bg-crawl-purple px-6 py-4 active:opacity-80 disabled:opacity-60">
           {requesting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text className="text-base font-semibold text-white">Enable Location</Text>
+            <>
+              <Ionicons name="navigate" size={18} color="#fff" />
+              <Text className="font-sans-bold text-base text-white">Enable Location</Text>
+            </>
           )}
         </Pressable>
         <Pressable
           onPress={goNext}
           disabled={requesting}
           className="mt-3 items-center px-6 py-3 active:opacity-80">
-          <Text className="text-sm font-medium text-crawl-text-muted">Not now</Text>
+          <Text className="font-sans-medium text-sm text-crawl-purple-light">Not now</Text>
         </Pressable>
       </View>
     </View>
