@@ -22,7 +22,10 @@ module.exports = {
           card: '#1a1a2e',
           surface: '#16162a',
           green: '#22c55e',
-          'text-muted': '#9ca3af',
+          'text-secondary': '#c3c3cf',
+          'text-muted': '#8b8ba5',
+          border: '#27273d',
+          divider: '#222235',
         },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -62,9 +65,23 @@ module.exports = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        // Crawl v2 radius scale (namespaced to avoid clobbering RNR lg/md/sm)
+        'crawl-sm': '8px',
+        'crawl-md': '12px',
+        'crawl-lg': '16px',
+        'crawl-xl': '24px',
       },
       borderWidth: {
         hairline: hairlineWidth(),
+      },
+      // Crawl v2 z-index scale (values coincide with Tailwind defaults; declared
+      // explicitly so the design-token set is self-documenting)
+      zIndex: {
+        0: '0',
+        10: '10',
+        20: '20',
+        30: '30',
+        40: '40',
       },
       keyframes: {
         'accordion-down': {
