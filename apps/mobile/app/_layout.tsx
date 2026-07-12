@@ -10,6 +10,8 @@ import { Stack, Redirect, useSegments, type ErrorBoundaryProps } from 'expo-rout
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'nativewind';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/api/query-client';
@@ -20,9 +22,19 @@ import { isOnboardingComplete, subscribeToOnboardingStatus } from '@/lib/onboard
 import { verifySentryDelivery } from '@/lib/sentry-verify';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
 
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme();
   const scheme = colorScheme ?? 'dark';
+  const [fontsLoaded, fontError] = useFonts({
+    'ClashGrotesk-Medium': require('../assets/fonts/ClashGrotesk-Medium.otf'),
+    'ClashGrotesk-SemiBold': require('../assets/fonts/ClashGrotesk-Semibold.otf'),
+    'ClashGrotesk-Bold': require('../assets/fonts/ClashGrotesk-Bold.otf'),
+    'Satoshi-Regular': require('../assets/fonts/Satoshi-Regular.otf'),
+    'Satoshi-Medium': require('../assets/fonts/Satoshi-Medium.otf'),
+    'Satoshi-Bold': require('../assets/fonts/Satoshi-Bold.otf'),
+  });
 
   // Force dark mode for Crawl's dark-themed UI
   React.useEffect(() => {
@@ -37,6 +49,16 @@ function RootLayout() {
   React.useEffect(() => {
     void verifySentryDelivery();
   }, []);
+
+  React.useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <ThemeProvider value={NAV_THEME[scheme]}>

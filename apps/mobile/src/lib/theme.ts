@@ -39,7 +39,7 @@ export const THEME = {
     secondary: 'hsl(240 33% 12%)', // crawl-surface #16162a
     secondaryForeground: 'hsl(0 0% 98%)',
     muted: 'hsl(240 33% 12%)', // crawl-surface
-    mutedForeground: 'hsl(220 9% 64%)', // crawl-text-muted #9ca3af
+    mutedForeground: 'hsl(220 9% 64%)', // legacy #9ca3af; crawl-text-muted retinted #8b8ba5, semantic consolidation deferred (M3)
     accent: 'hsl(270 85% 50%)', // crawl-purple
     accentForeground: 'hsl(0 0% 98%)',
     destructive: 'hsl(0 70.9% 59.4%)',
@@ -54,6 +54,53 @@ export const THEME = {
     chart5: 'hsl(340 75% 55%)',
   },
 };
+
+// Crawl v2 elevation ramp (0–4). React Native has no Tailwind/NativeWind home for
+// shadows, so the scale lives here for inline styles: iOS shadow props + Android
+// `elevation`. Mirrors the radius/z-index scales in tailwind.config.js.
+export const ELEVATION = {
+  0: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  1: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  2: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  3: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  4: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+} as const;
+
+// Crawl v2 motion scale. Spring/transition durations (ms) for reanimated —
+// there is no natural Tailwind home for motion tokens.
+export const MOTION = {
+  spring: { fast: 200, base: 300, slow: 500 },
+} as const;
 
 export const NAV_THEME: Record<'light' | 'dark', Theme> = {
   light: {

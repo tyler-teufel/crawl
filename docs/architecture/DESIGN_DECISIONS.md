@@ -52,6 +52,24 @@ Expo-router maps the file system to the navigation tree. `app/(tabs)/voting.tsx`
 
 ---
 
+## Clash Grotesk + Satoshi Custom Fonts
+
+**Chosen over:** System default font, Google Fonts (Inter/Space Grotesk)
+
+Crawl's brand typography (defined in the Figma design system) pairs **Clash Grotesk** (display/headings) with **Satoshi** (body text). Both are commercial Fontshare families, licensed and loaded as static `.otf` files rather than pulled from Google Fonts.
+
+**Why:**
+
+- **Brand fidelity** — matches the typography specified in the Figma design system exactly, rather than substituting a visually-similar free alternative.
+- **Static weights over variable font** — Expo's `expo-font` loads named weight files directly (`ClashGrotesk-SemiBold.otf`, `Satoshi-Medium.otf`, etc.) rather than the variable `.ttf`, since React Native has no `font-variation-settings` support for dynamically selecting weight from a single variable font file.
+- **Curated weight subset** — only the weights actually used in the UI are bundled (Clash Grotesk: Medium/SemiBold/Bold; Satoshi: Regular/Medium/Bold), keeping bundle size down instead of shipping the full family (which also includes Light/Extralight/Black/Italics).
+
+**Implementation:** Font files live in `apps/mobile/assets/fonts/`, loaded via `useFonts` in `app/_layout.tsx` (gated behind `expo-splash-screen`'s `preventAutoHideAsync`/`hideAsync` so there's no flash of the system font), and exposed as NativeWind classes (`font-display`, `font-display-medium`, `font-display-bold`, `font-sans`, `font-sans-medium`, `font-sans-bold`) via `tailwind.config.js`.
+
+**Trade-off:** Adds ~270KB across 6 font files to the bundle, and license files (`ClashGrotesk-LICENSE.txt`, `Satoshi-LICENSE.txt`) must ship alongside the fonts per Fontshare's terms.
+
+---
+
 ## Map Placeholder Instead of react-native-maps
 
 **Chosen over:** Immediate `react-native-maps` integration
