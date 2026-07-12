@@ -5,7 +5,7 @@ import { Skeleton } from '../ui/Skeleton';
 /** Matches the rough silhouette of `VenueListItem` for the voting screen. */
 export function VenueListItemSkeleton() {
   return (
-    <View className="mb-3 flex-row items-center gap-3 rounded-2xl bg-crawl-card p-3">
+    <View className="mb-3 flex-row items-center gap-3 rounded-crawl-lg border border-crawl-border bg-crawl-card p-3">
       <Skeleton className="h-8 w-6 rounded" />
       <View className="flex-1">
         <Skeleton className="h-4 w-2/3 rounded" />

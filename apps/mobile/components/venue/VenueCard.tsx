@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Venue } from '@/types/venue';
+import { ELEVATION } from '@/lib/theme';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 
 interface VenueCardProps {
   venue: Venue;
@@ -10,69 +12,82 @@ interface VenueCardProps {
   width: number;
 }
 
+const HERO_HEIGHT = 96;
+
 export function VenueCard({ venue, onPress, width }: VenueCardProps) {
+  const priceLevel = venue.priceLevel;
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={{ width, maxHeight: 230 }}
-      className="mr-4 overflow-hidden rounded-2xl bg-crawl-card p-4">
-      {/* Header row */}
-      <View className="flex-row items-start justify-between">
-        <View className="flex-1">
-          <Text className="text-lg font-bold text-white" numberOfLines={1}>
+    // Outer wrapper carries the elevation shadow + shape (NO overflow-hidden, which
+    // would clip the drop shadow on iOS); inner view clips the hero image corners.
+    <View
+      style={[{ width, maxHeight: 230 }, ELEVATION[2]]}
+      className="mr-4 rounded-crawl-lg border border-crawl-border bg-crawl-card">
+      <Pressable onPress={onPress} className="overflow-hidden rounded-crawl-lg">
+        {/* Hero — photography-first; graceful tinted placeholder when imageUrl is absent */}
+        <View style={{ height: HERO_HEIGHT }} className="w-full overflow-hidden bg-crawl-surface">
+          {venue.imageUrl ? (
+            <Image source={{ uri: venue.imageUrl }} resizeMode="cover" className="h-full w-full" />
+          ) : (
+            <View className="h-full w-full items-center justify-center bg-crawl-purple/10">
+              <Ionicons name="wine" size={28} color="#a855f7" />
+            </View>
+          )}
+
+          {/* Badges over the image */}
+          <View className="absolute bottom-2 left-2 flex-row gap-1">
+            {venue.isTrending && <Badge label="Trending" variant="trending" />}
+            {venue.isOpen && <Badge label="Open Now" variant="open" />}
+          </View>
+
+          {/* Bookmark affordance — presentational only; real save-venue is follow-up work */}
+          <View className="absolute right-2 top-2 h-8 w-8 items-center justify-center rounded-full bg-crawl-bg/60">
+            <Ionicons name="bookmark-outline" size={16} color="#fff" />
+          </View>
+        </View>
+
+        {/* Content */}
+        <View className="p-3">
+          <Text className="font-display-bold text-lg text-white" numberOfLines={1}>
             {venue.name}
           </Text>
-          <Text className="mt-0.5 text-sm text-crawl-text-muted">
-            {venue.primaryType} · {venue.distance}
-          </Text>
-        </View>
-        <View className="items-end gap-1">
-          {venue.isTrending && <Badge label="Trending" variant="trending" />}
-          {venue.isOpen && <Badge label="Open" variant="open" />}
-        </View>
-      </View>
-
-      {/* Score and votes */}
-      <View className="mt-3 flex-row items-center justify-between">
-        <View className="flex-row items-center">
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-crawl-purple">
-            <Text className="text-sm font-bold text-white">{venue.hotspotScore}</Text>
-          </View>
-          <View className="ml-2">
-            <Text className="text-xs text-crawl-text-muted">Hotspot Score</Text>
-            <Text className="text-sm font-semibold text-white">{venue.voteCount} votes</Text>
-          </View>
-        </View>
-        <View className="flex-row items-center gap-1">
-          {[...Array(venue.priceLevel ?? 0)].map((_, i) => (
-            <Text key={i} className="text-sm font-bold text-crawl-green">
-              $
+          <View className="mt-0.5 flex-row items-center">
+            {priceLevel != null && (
+              <Text className="font-sans-medium text-sm">
+                {[0, 1, 2, 3].map((i) => (
+                  <Text
+                    key={i}
+                    className={i < priceLevel ? 'text-crawl-green' : 'text-crawl-text-muted'}>
+                    $
+                  </Text>
+                ))}
+                <Text className="text-crawl-text-muted"> · </Text>
+              </Text>
+            )}
+            <Text className="flex-1 font-sans text-sm text-crawl-text-muted" numberOfLines={1}>
+              {`${venue.primaryType} · ${venue.distance}`}
             </Text>
-          ))}
-          {[...Array(4 - (venue.priceLevel ?? 0))].map((_, i) => (
-            <Text key={i} className="text-sm text-crawl-text-muted">
-              $
-            </Text>
-          ))}
-        </View>
-      </View>
-
-      {/* Highlights — single line (no wrap) so card height stays fixed at any content */}
-      <View className="mt-3 flex-row gap-1 overflow-hidden">
-        {venue.highlights.slice(0, 3).map((h: string) => (
-          <View key={h} className="rounded-full bg-crawl-surface px-2 py-1">
-            <Text className="text-xs text-crawl-purple-light">{h}</Text>
           </View>
-        ))}
-      </View>
 
-      {/* CTA */}
-      <Pressable
-        onPress={onPress}
-        className="mt-3 flex-row items-center justify-center rounded-full bg-crawl-purple py-2">
-        <Ionicons name="arrow-forward" size={16} color="#fff" />
-        <Text className="ml-1 text-sm font-semibold text-white">View Details</Text>
+          <View className="mt-3 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-1">
+              <View className="h-7 w-7 items-center justify-center rounded-full bg-crawl-purple">
+                <Text className="font-sans-bold text-xs text-white">{venue.hotspotScore}</Text>
+              </View>
+              <Text className="font-sans text-xs text-crawl-text-muted">
+                {venue.voteCount} votes
+              </Text>
+            </View>
+            <Button
+              label="Details"
+              variant="primary"
+              icon="arrow-forward"
+              onPress={onPress}
+              className="px-3 py-1.5"
+            />
+          </View>
+        </View>
       </Pressable>
-    </Pressable>
+    </View>
   );
 }

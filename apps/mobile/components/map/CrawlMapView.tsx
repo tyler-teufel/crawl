@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f0f13',
     padding: 24,
   },
-  fallbackText: { color: '#9ca3af', textAlign: 'center', fontSize: 13 },
+  fallbackText: { color: '#8b8ba5', textAlign: 'center', fontSize: 13 },
   callout: {
     backgroundColor: '#1a1a2e',
     borderRadius: 8,

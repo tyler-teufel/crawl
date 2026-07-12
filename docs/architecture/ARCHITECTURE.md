@@ -431,9 +431,10 @@ Provides the worklet runtime that reanimated uses to execute animation code on t
     (SVG + anim)           chips
 
                  Shared
-        ┌────────────────────┐
-        │     Badge          │ ◄── used by VenueCard,
-        │     Ionicons       │     VenueListItem,
-        │     cn()           │     Venue Detail
-        └────────────────────┘
+        ┌──────────────────────────┐
+        │     Button               │ ◄── used by VenueCard
+        │     Badge                │ ◄── used by VenueCard,
+        │     Ionicons, cn()       │     VenueListItem,
+        │                          │     Venue Detail
+        └──────────────────────────┘
 ```

@@ -20,7 +20,7 @@ export function CitySelector() {
         className="flex-row items-center gap-1 rounded-full bg-crawl-card px-4 py-2">
         <Ionicons name="location" size={16} color="#a855f7" />
         <Text className="text-sm font-medium text-white">{selectedCity}</Text>
-        <Ionicons name="chevron-down" size={14} color="#9ca3af" />
+        <Ionicons name="chevron-down" size={14} color="#8b8ba5" />
       </Pressable>
 
       <Modal visible={open} animationType="fade" transparent onRequestClose={() => setOpen(false)}>
