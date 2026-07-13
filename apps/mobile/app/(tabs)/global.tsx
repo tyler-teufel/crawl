@@ -8,11 +8,13 @@ export default function GlobalScreen() {
 
   return (
     <View
-      className="flex-1 items-center justify-center bg-crawl-bg"
+      className="flex-1 items-center justify-center bg-crawl-bg px-8"
       style={{ paddingTop: insets.top }}>
-      <Ionicons name="globe-outline" size={64} color="#5b0daa" />
-      <Text className="mt-4 text-xl font-bold text-white">Global Rankings</Text>
-      <Text className="mt-2 text-sm text-crawl-text-muted">Coming Soon</Text>
+      <View className="h-20 w-20 items-center justify-center rounded-crawl-xl border border-crawl-border bg-crawl-surface">
+        <Ionicons name="globe-outline" size={40} color="#a855f7" />
+      </View>
+      <Text className="mt-6 font-display-bold text-2xl text-white">Global Rankings</Text>
+      <Text className="mt-2 text-center font-sans text-sm text-crawl-text-muted">Coming Soon</Text>
     </View>
   );
 }
