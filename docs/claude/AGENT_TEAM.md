@@ -1,6 +1,6 @@
 # Agent Team — Charter & Orchestration Guide
 
-**Status:** Active (first wave) · **Last updated:** 2026-07-08
+**Status:** Active (waves 1–2, backend + devops added) · **Last updated:** 2026-07-13
 
 The Crawl agent team is a set of specialized Claude Code subagents (`.claude/agents/*.md`) coordinated by a scrum-master skill (`/scrum`, defined in `.claude/skills/scrum/SKILL.md`). The scrum master runs standup over the sprint plan and GitHub Issues, assigns tickets to workers, dispatches them, and verifies results before anything is reported done.
 
@@ -28,19 +28,24 @@ Claude Code subagents cannot spawn subagents — orchestration must live in the 
    └──────────────────┘              │
         2. assign (user confirms)    │
                                      ▼
-              ┌──────────────┬───────────────┬──────────────┐
-              │              │               │              │
-              ▼              ▼               ▼              ▼
-      ┌──────────────┐ ┌─────────────┐ ┌────────────┐ ┌─────────────┐
-      │   mobile-    │ │     qa-     │ │   docs-    │ │    code-    │
-      │   engineer   │ │   engineer  │ │   writer   │ │   reviewer  │
-      │ (implement)  │ │ (repro/test │ │ (sync docs)│ │ (read-only  │
-      │              │ │  /verify)   │ │            │ │   review)   │
-      └──────┬───────┘ └──────┬──────┘ └─────┬──────┘ └──────┬──────┘
-             │                │              │               │
-             └────────────────┴──────┬───────┴───────────────┘
-                                     │ 3. results return
-                                     ▼
+        implementers ───┬────────────┼────────────┬───────────┐
+                        ▼            ▼             ▼           │
+                ┌────────────┐ ┌────────────┐ ┌────────────┐  │
+                │  mobile-   │ │  backend-  │ │   devops-  │  │
+                │  engineer  │ │  engineer  │ │  engineer  │  │
+                │(apps/mobile│ │ (apps/api, │ │ (.github,  │  │
+                │      )     │ │  packages) │ │  ci/eas)   │  │
+                └─────┬──────┘ └─────┬──────┘ └─────┬──────┘  │
+        verify/support│              │              │         │
+                ┌─────┴──────┐ ┌─────┴──────┐ ┌─────┴──────┐  │
+                │    qa-     │ │   code-    │ │   docs-    │  │
+                │  engineer  │ │  reviewer  │ │   writer   │  │
+                │(repro/test │ │ (read-only │ │ (sync docs)│  │
+                │  /verify)  │ │   review)  │ │            │  │
+                └─────┬──────┘ └─────┬──────┘ └─────┬──────┘  │
+                      └─────────────┬┴─────────────┴──────────┘
+                                    │ 3. results return
+                                    ▼
                        ┌────────────────────────────┐
                        │ 4. verify → 5. report:     │
                        │ issue comments, changeset, │
@@ -50,16 +55,20 @@ Claude Code subagents cannot spawn subagents — orchestration must live in the 
 
 ---
 
-## Roster (wave 1)
+## Roster (waves 1–2)
 
 | Agent | Role | File scope (owns) | Never touches | Tools | Model |
 | --- | --- | --- | --- | --- | --- |
-| `mobile-engineer` | Implements tickets in the Expo app | `apps/mobile/**` | `apps/api`, `packages`, `docs`, `wiki` | Read/Edit/Write/Glob/Grep/Bash | inherit |
+| `mobile-engineer` | Implements tickets in the Expo app | `apps/mobile/**` | `apps/api`, `packages`, `docs`, `wiki`, `.github` | Read/Edit/Write/Glob/Grep/Bash | inherit |
+| `backend-engineer` | Implements tickets in the Fastify API + shared types | `apps/api/**`, `packages/shared-types/**` | `apps/mobile`, `docs`, `wiki`, `.github` | Read/Edit/Write/Glob/Grep/Bash | inherit |
+| `devops-engineer` | CI/CD, release automation, infra config + ops runbooks | `.github/**`, `apps/mobile/eas.json`, `.changeset/config.json`, `turbo.json`, `docs/ops/**` | app/business source, `docs/**` outside `ops`, `wiki` | Read/Edit/Write/Glob/Grep/Bash | inherit |
 | `qa-engineer` | Regression tests, bug reproduction, acceptance verification | `apps/mobile/tests/**`, `apps/api/tests/**` | production source, `docs`, `wiki` | Read/Edit/Write/Glob/Grep/Bash | inherit |
-| `docs-writer` | Keeps `docs/` in sync per the doc-maintenance mandate | `docs/**` | source code, `wiki/**` | Read/Edit/Write/Glob/Grep + read-only git | haiku |
+| `docs-writer` | Keeps `docs/` in sync per the doc-maintenance mandate | `docs/**` (except `docs/ops/**`, the devops-engineer's) | source code, `wiki/**` | Read/Edit/Write/Glob/Grep + read-only git | haiku |
 | `code-reviewer` | Independent pre-PR diff review | *(read-only)* | everything (reports only) | Read/Glob/Grep + read-only git | inherit |
 
 Role boundaries are enforced in each agent's config (`.claude/agents/<name>.md`): scope, conventions, definition of done, and when to hand back to the orchestrator. Workers report; the scrum master (main session) commits, pushes, and does GitHub bookkeeping.
+
+> **Docs ownership split:** `docs-writer` owns all of `docs/**` *except* the ops runbooks in `docs/ops/**` (`CICD_PIPELINE.md`, `RAILWAY_SETUP.md`), which the `devops-engineer` maintains alongside the workflows they document — infra behavior and its runbook change together.
 
 ---
 
@@ -104,7 +113,7 @@ Typical bug-ticket lifecycle (e.g. #45, vote reset):
 
 Add a role only when there's recurring work it would own **now** (the directory plan's own rule). Triggers:
 
-- Backend work resumes (Mode B/C from the stabilization plan) → `backend-engineer` (Fastify/Drizzle, `apps/api/**` + `packages/shared-types/**`).
-- CI/EAS/Railway changes become frequent → `devops-engineer`.
-- Auth surface or input-validation changes → `security-reviewer` pass alongside code-reviewer.
+- ✅ **Backend work resumes** (Mode B/C from the stabilization plan) → `backend-engineer` (Fastify/Drizzle, `apps/api/**` + `packages/shared-types/**`). **Landed 2026-07-13** — owns the backend cleanup line (#75/#76/#77) and the coordinated Zod 4 migration (#89) + dependabot version bumps.
+- ✅ **CI/EAS/Railway changes become frequent** → `devops-engineer`. **Landed 2026-07-13** — owns the workflow audit (#84) and release tagging/packaging work.
+- ⬜ **Auth surface or input-validation changes** → `security-reviewer` pass alongside code-reviewer. Still deferred; evaluate when an auth-touching ticket lands.
 - Guardrail hooks (`session-start.sh`, `pre-commit-guard.sh`) are tracked separately — see the Epic E issues in the sprint plan.
