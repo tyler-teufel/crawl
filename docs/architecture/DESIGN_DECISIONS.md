@@ -506,3 +506,29 @@ The agent team (see [Agent Team Charter](../claude/AGENT_TEAM.md)) pairs special
 **Why not an external orchestration framework:** GitHub Issues + the sprint plan doc are already the shared state; the Agent tool is already the dispatch mechanism. Adding LangGraph/CrewAI-style machinery would duplicate both.
 
 **Trade-offs accepted:** workers start cold, so every dispatch brief must restate the ticket (root cause, criteria, branch) — more prompt overhead per ticket. Orchestration is serialized through one main session rather than a true concurrent swarm; parallelism is limited to independent tickets in isolated worktrees. Both are acceptable at current team size (one human + agents).
+
+---
+
+## Animated Splash via JS Overlay (`AnimatedSplash`)
+
+**Chosen over:** static-only native splash, a Lottie/video splash, regenerating `splash.png` with the logo baked in, or `expo-splash-screen`'s built-in fade.
+
+The cold-launch brand moment is a JS overlay (`components/layout/AnimatedSplash.tsx`) layered on top of the navigator, not a richer native asset. The native static frame (`assets/splash.png` on `#0a0a0f`) stays minimal; `_layout.tsx` keeps `preventAutoHideAsync`, calls `hideAsync` once fonts load as before, and mounts the overlay in the same render so the JS layer takes over with zero gap (same background color on both sides of the handoff). The overlay owns its dismissal: it fades itself out and calls `onAnimationComplete`, which flips `splashAnimationComplete` and unmounts it.
+
+**Why an overlay:** it keeps the animation in the JS/Reanimated world the rest of the app already uses (no Lottie dependency, no native splash regeneration, no raster export pipeline), and the martini-pin mark renders from the same `assets/brand/*.svg` vectors as everywhere else via `SvgXml` — no `.svg`-file metro transformer added.
+
+**Motion budget.** Entrance (fade + 0.92→1 scale-settle, 600ms) overlaps app/font load; only the ~350ms hold-plus-exit is pure added latency, keeping total under the ~1s target. `ReduceMotion.System` on each timing makes the OS reduce-motion setting collapse the animation automatically.
+
+**Trade-offs accepted:** the very first native frame is still the plain static splash (no animation until JS is up), and the SVG markup is inlined as strings in the component rather than imported from the asset files (the cost of having no svg-file transformer). Both are minor and avoid heavier tooling.
+
+## Explore Bottom Sheet: Custom `PanResponder` over a Native Sheet Library
+
+**Chosen over:** `@gorhom/bottom-sheet` (+ `react-native-gesture-handler`), the de-facto standard sheet.
+
+The Explore venue list is a drag-to-collapse bottom sheet (`components/venue/VenueSheet.tsx`) layered over a full-height map, built on React Native's built-in `PanResponder` + `Animated` — **not** a native gesture library.
+
+**Why.** The whole v1.1.0 reskin line is kept OTA-deliverable (JS-only, shipped via EAS Update on the existing binary). `@gorhom/bottom-sheet` pulls in `react-native-gesture-handler`, a **native module** requiring `GestureHandlerRootView` and a new native build — which would force this change out of the OTA channel and into a binary release. `PanResponder` + `Animated` are core RN, so the sheet ships as an over-the-air update.
+
+**How it works.** The content area is measured via `onLayout`; the sheet is an absolutely-positioned `Animated.View` (height = container) translated between two snap points — collapsed peek (`containerHeight - PEEK_HEIGHT`) and expanded (`TOP_GAP`, so the map never fully disappears). Only the **header handle** is wired to the `PanResponder`, so the map's pan/zoom and the list's scroll never fight the sheet drag. Release snaps to the nearer point, biased by fling velocity.
+
+**Trade-offs accepted:** hand-rolled gesture physics are less polished than gorhom's, and only the handle collapses the sheet (pulling down at the top of the scrolled list does not) — the deliberate cost of staying OTA-safe. If a native binary is being cut anyway, revisiting gorhom is reasonable.

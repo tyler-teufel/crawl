@@ -24,29 +24,35 @@ export function VenueListItem({
   return (
     <Pressable
       onPress={onPress}
-      className="mb-3 flex-row items-center rounded-2xl bg-crawl-card p-4">
+      className="mb-3 flex-row items-center rounded-crawl-lg border border-crawl-border bg-crawl-card p-4">
       {/* Rank */}
       <View className="mr-3 h-8 w-8 items-center justify-center rounded-full bg-crawl-surface">
-        <Text className="text-sm font-bold text-crawl-purple-light">{rank}</Text>
+        <Text className="font-sans-bold text-sm text-crawl-purple-light">{rank}</Text>
       </View>
 
       {/* Info */}
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
-          <Text className="text-base font-bold text-white" numberOfLines={1}>
+          <Text className="shrink font-display-bold text-base text-white" numberOfLines={1}>
             {venue.name}
           </Text>
-          {venue.isTrending && <Badge label="HOT" variant="trending" />}
+          {venue.isTrending && (
+            <View className="shrink-0">
+              <Badge label="HOT" variant="trending" />
+            </View>
+          )}
         </View>
-        <Text className="mt-0.5 text-sm text-crawl-text-muted">
+        <Text className="mt-0.5 font-sans text-sm text-crawl-text-muted">
           {venue.primaryType} · {venue.voteCount} votes
         </Text>
       </View>
 
       {/* Score */}
       <View className="mr-3 items-center">
-        <Text className="text-lg font-bold text-crawl-purple-light">{venue.hotspotScore}</Text>
-        <Text className="text-xs text-crawl-text-muted">score</Text>
+        <Text className="font-display-bold text-lg text-crawl-purple-light">
+          {venue.hotspotScore}
+        </Text>
+        <Text className="font-sans text-xs text-crawl-text-muted">score</Text>
       </View>
 
       {/* Vote button */}

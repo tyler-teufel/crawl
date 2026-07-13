@@ -45,7 +45,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     : (`${tab.icon}-outline` as keyof typeof Ionicons.glyphMap)
                 }
                 size={22}
-                color={isFocused ? '#a855f7' : '#9ca3af'}
+                color={isFocused ? '#a855f7' : '#8b8ba5'}
               />
             </View>
             <Text

@@ -60,8 +60,8 @@ export function HotspotScore({ score, size = 140 }: HotspotScoreProps) {
         />
       </Svg>
       <View className="absolute items-center">
-        <Text className="text-4xl font-bold text-white">{score}</Text>
-        <Text className="text-xs text-crawl-text-muted">Hotspot Score</Text>
+        <Text className="font-display-bold text-4xl text-white">{score}</Text>
+        <Text className="font-sans text-xs text-crawl-text-muted">Hotspot Score</Text>
       </View>
     </View>
   );

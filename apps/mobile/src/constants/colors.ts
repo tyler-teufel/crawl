@@ -6,7 +6,7 @@ export const colors = {
   card: '#1a1a2e',
   surface: '#16162a',
   green: '#22c55e',
-  textMuted: '#9ca3af',
+  textMuted: '#8b8ba5',
   white: '#ffffff',
   red: '#ef4444',
 } as const;

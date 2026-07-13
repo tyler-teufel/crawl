@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { View, FlatList, Dimensions, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, LayoutChangeEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useVenueContext } from '@/context/VenueContext';
@@ -7,12 +7,8 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { FilterChip } from '../../components/ui/FilterChip';
 import { CrawlMapView } from '../../components/map/CrawlMapView';
 import { MapPlaceholder } from '../../components/map/MapPlaceholder';
-import { VenueCard } from '../../components/venue/VenueCard';
-import { VenueCardSkeleton } from '../../components/venue/VenueCardSkeleton';
+import { VenueSheet } from '../../components/venue/VenueSheet';
 import { CitySelector } from '../../components/voting/CitySelector';
-import { ErrorState, EmptyState } from '../../components/ui/States';
-
-const CARD_WIDTH = Dimensions.get('window').width * 0.62;
 
 // Use the real map when the native module is available (after prebuild + npm install).
 // `require()` is intentional here — it lets us probe for the module at runtime
@@ -40,18 +36,21 @@ export default function ExploreScreen() {
     isVenuesError,
     refetchVenues,
   } = useVenueContext();
-  const flatListRef = useRef<FlatList>(null);
+
+  // Height of the map/content area, measured so the bottom sheet can compute its
+  // collapsed/expanded snap points relative to the actual available space.
+  const [contentHeight, setContentHeight] = useState(0);
+  const onContentLayout = (e: LayoutChangeEvent) => setContentHeight(e.nativeEvent.layout.height);
 
   const handleVenuePress = (venue: { id: string }) => router.push(`/venue/${venue.id}`);
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-crawl-bg">
-      {/* City selector */}
+      {/* Fixed header — city, search, filters */}
       <View className="items-center pt-2">
         <CitySelector />
       </View>
 
-      {/* Search */}
       <View className="py-3">
         <SearchBar
           value={searchQuery}
@@ -60,7 +59,6 @@ export default function ExploreScreen() {
         />
       </View>
 
-      {/* Filter chips */}
       <View className="h-12 justify-center">
         <ScrollView
           horizontal
@@ -78,53 +76,26 @@ export default function ExploreScreen() {
         </ScrollView>
       </View>
 
-      {/* Map — overflow-hidden keeps MapView's native iOS view inside its flex bounds;
-          min-h guarantees the map stays usable no matter how tall the carousel renders */}
-      <View className="min-h-[240px] flex-1 overflow-hidden">
-        {hasNativeMaps ? (
-          <CrawlMapView venues={filteredVenues} onVenuePress={handleVenuePress} />
-        ) : (
-          <MapPlaceholder venues={filteredVenues} onPinPress={handleVenuePress} />
-        )}
-      </View>
+      {/* Content area — the map fills it as a full-height background; the venue sheet
+          is layered over the bottom and drags between a peek and an expanded list. */}
+      <View className="flex-1 overflow-hidden" onLayout={onContentLayout}>
+        <View className="absolute inset-0">
+          {hasNativeMaps ? (
+            <CrawlMapView venues={filteredVenues} onVenuePress={handleVenuePress} />
+          ) : (
+            <MapPlaceholder venues={filteredVenues} onPinPress={handleVenuePress} />
+          )}
+        </View>
 
-      {/* Bottom venue carousel — max-h caps it so cards can never squeeze the map above */}
-      <View className="max-h-[240px] pb-2">
-        {isVenuesLoading ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16 }}>
-            {[0, 1, 2].map((i) => (
-              <VenueCardSkeleton key={i} width={CARD_WIDTH} />
-            ))}
-          </ScrollView>
-        ) : isVenuesError ? (
-          <ErrorState
-            title="Couldn't load venues"
-            message="Check your connection and try again."
+        {contentHeight > 0 && (
+          <VenueSheet
+            venues={filteredVenues}
+            isLoading={isVenuesLoading}
+            isError={isVenuesError}
             onRetry={refetchVenues}
-          />
-        ) : filteredVenues.length === 0 ? (
-          <EmptyState
-            title="No venues match your filters"
-            message="Try clearing a chip or switching cities."
-            onRetry={resetFilters}
-            retryLabel="Clear filters"
-          />
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={filteredVenues}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={CARD_WIDTH + 16}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingHorizontal: 16 }}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <VenueCard venue={item} width={CARD_WIDTH} onPress={() => handleVenuePress(item)} />
-            )}
+            onResetFilters={resetFilters}
+            onVenuePress={handleVenuePress}
+            containerHeight={contentHeight}
           />
         )}
       </View>

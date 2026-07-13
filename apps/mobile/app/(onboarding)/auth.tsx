@@ -70,15 +70,19 @@ export default function OnboardingAuth() {
     <View
       className="flex-1 items-center justify-between bg-crawl-bg px-6"
       style={{ paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 }}>
-      <View className="items-center">
-        <View className="h-24 w-24 items-center justify-center rounded-full bg-crawl-purple/20">
-          <Ionicons name="person" size={44} color="#a855f7" />
+      <View className="items-center gap-6">
+        <View className="h-40 w-40 items-center justify-center rounded-full border border-crawl-border">
+          <View className="h-24 w-24 items-center justify-center rounded-full bg-crawl-purple/20">
+            <Ionicons name="person" size={44} color="#a855f7" />
+          </View>
         </View>
-        <Text className="mt-6 text-2xl font-bold text-white">Make it yours</Text>
-        <Text className="mt-3 text-center text-base text-crawl-text-muted">
-          Sign in to keep your votes and preferences across devices, or jump in anonymously and link
-          an account later.
-        </Text>
+        <View className="items-center gap-4">
+          <Text className="font-display-bold text-3xl text-white">Make it yours</Text>
+          <Text className="text-center font-sans text-base leading-6 text-crawl-text-secondary">
+            Sign in to keep your votes and preferences across devices, or jump in anonymously and
+            link an account later.
+          </Text>
+        </View>
       </View>
 
       <View className="w-full gap-3">
@@ -105,15 +109,21 @@ export default function OnboardingAuth() {
         <Pressable
           onPress={handleAnonymous}
           disabled={pending !== null}
-          className="mt-2 items-center rounded-2xl border border-crawl-purple/40 bg-crawl-card px-6 py-4 active:opacity-80 disabled:opacity-60">
+          className="mt-2 items-center rounded-crawl-lg border border-crawl-purple/40 bg-crawl-card px-6 py-4 active:opacity-80 disabled:opacity-60">
           {pending === 'anon' ? (
             <ActivityIndicator color="#a855f7" />
           ) : (
-            <Text className="text-base font-semibold text-crawl-purple-light">
+            <Text className="font-sans-bold text-base text-crawl-purple-light">
               Continue anonymously
             </Text>
           )}
         </Pressable>
+
+        <Text className="mt-2 text-center font-sans text-xs leading-5 text-crawl-text-muted">
+          By continuing, you agree to our{' '}
+          <Text className="font-sans-medium text-crawl-purple-light">Terms of Service</Text> and{' '}
+          <Text className="font-sans-medium text-crawl-purple-light">Privacy Policy</Text>.
+        </Text>
       </View>
     </View>
   );
@@ -141,8 +151,8 @@ function ProviderButton({
       disabled={disabled}
       className={
         isWhite
-          ? 'flex-row items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 active:opacity-80 disabled:opacity-60'
-          : 'flex-row items-center justify-center gap-2 rounded-2xl bg-crawl-purple px-6 py-4 active:opacity-80 disabled:opacity-60'
+          ? 'flex-row items-center justify-center gap-2 rounded-crawl-lg bg-white px-6 py-4 active:opacity-80 disabled:opacity-60'
+          : 'flex-row items-center justify-center gap-2 rounded-crawl-lg bg-crawl-purple px-6 py-4 active:opacity-80 disabled:opacity-60'
       }>
       {loading ? (
         <ActivityIndicator color={isWhite ? '#0a0a0f' : '#fff'} />
@@ -151,7 +161,9 @@ function ProviderButton({
           <Ionicons name={iconName} size={20} color={isWhite ? '#0a0a0f' : '#fff'} />
           <Text
             className={
-              isWhite ? 'text-base font-semibold text-black' : 'text-base font-semibold text-white'
+              isWhite
+                ? 'font-sans-bold text-base text-black'
+                : 'font-sans-bold text-base text-white'
             }>
             {label}
           </Text>

@@ -21,12 +21,14 @@ import { NAV_THEME } from '@/lib/theme';
 import { isOnboardingComplete, subscribeToOnboardingStatus } from '@/lib/onboarding';
 import { verifySentryDelivery } from '@/lib/sentry-verify';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
+import { AnimatedSplash } from '../components/layout/AnimatedSplash';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme();
   const scheme = colorScheme ?? 'dark';
+  const [splashAnimationComplete, setSplashAnimationComplete] = React.useState(false);
   const [fontsLoaded, fontError] = useFonts({
     'ClashGrotesk-Medium': require('../assets/fonts/ClashGrotesk-Medium.otf'),
     'ClashGrotesk-SemiBold': require('../assets/fonts/ClashGrotesk-Semibold.otf'),
@@ -86,6 +88,9 @@ function RootLayout() {
             <OfflineBanner />
             <StatusBar style="light" />
             <PortalHost />
+            {!splashAnimationComplete && (
+              <AnimatedSplash onAnimationComplete={() => setSplashAnimationComplete(true)} />
+            )}
           </VenueProvider>
         </AuthProvider>
       </QueryClientProvider>
@@ -132,7 +137,7 @@ const errorStyles = StyleSheet.create({
     marginBottom: 8,
   },
   message: {
-    color: '#9ca3af',
+    color: '#8b8ba5',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 24,

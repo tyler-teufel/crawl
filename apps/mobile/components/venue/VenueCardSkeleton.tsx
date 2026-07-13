@@ -1,27 +1,32 @@
 import React from 'react';
 import { View } from 'react-native';
+import { ELEVATION } from '@/lib/theme';
 import { Skeleton } from '../ui/Skeleton';
 
 interface Props {
   width: number;
 }
 
-/** Matches the rough silhouette of `VenueCard` so loading→loaded swap is calm. */
+/** Matches the photography-first `VenueCard` silhouette so loading→loaded swap is calm. */
 export function VenueCardSkeleton({ width }: Props) {
   return (
-    <View style={{ width }} className="mr-4 overflow-hidden rounded-2xl bg-crawl-card p-4">
-      <View className="flex-row items-start justify-between">
-        <View className="flex-1">
+    // Outer wrapper carries the elevation shadow + shape (NO overflow-hidden, which
+    // would clip the drop shadow on iOS); inner view clips the hero corners.
+    <View
+      style={[{ width, maxHeight: 230 }, ELEVATION[1]]}
+      className="rounded-crawl-lg border border-crawl-border bg-crawl-card">
+      <View className="overflow-hidden rounded-crawl-lg">
+        {/* Hero */}
+        <Skeleton className="h-24 w-full" />
+        {/* Content */}
+        <View className="p-3">
           <Skeleton className="h-5 w-3/4 rounded" />
           <Skeleton className="mt-2 h-3 w-1/2 rounded" />
+          <View className="mt-3 flex-row items-center justify-between">
+            <Skeleton className="h-7 w-20 rounded-full" />
+            <Skeleton className="h-8 w-20 rounded-crawl-md" />
+          </View>
         </View>
-        <Skeleton className="h-12 w-12 rounded-full" />
-      </View>
-      <Skeleton className="mt-4 h-3 w-full rounded" />
-      <Skeleton className="mt-2 h-3 w-5/6 rounded" />
-      <View className="mt-4 flex-row gap-2">
-        <Skeleton className="h-6 w-16 rounded-full" />
-        <Skeleton className="h-6 w-20 rounded-full" />
       </View>
     </View>
   );

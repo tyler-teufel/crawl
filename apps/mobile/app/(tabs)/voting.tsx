@@ -23,8 +23,8 @@ export default function VotingScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="items-center px-4 pt-4">
-          <Text className="text-2xl font-bold text-white">Daily Hotspot Votes</Text>
-          <Text className="mt-1 text-sm text-crawl-text-muted">
+          <Text className="font-display-bold text-2xl text-white">Daily Hotspot Votes</Text>
+          <Text className="mt-1 font-sans text-sm text-crawl-text-muted">
             Vote for tonight&apos;s hottest spots
           </Text>
         </View>
@@ -46,8 +46,10 @@ export default function VotingScreen() {
 
         {/* Trending header */}
         <View className="mt-8 px-4">
-          <Text className="text-lg font-bold text-white">Trending Tonight</Text>
-          <Text className="mt-0.5 text-sm text-crawl-text-muted">Ranked by hotspot score</Text>
+          <Text className="font-display-bold text-lg text-white">Trending Tonight</Text>
+          <Text className="mt-0.5 font-sans text-sm text-crawl-text-muted">
+            Ranked by hotspot score
+          </Text>
         </View>
 
         {/* Venue list */}
