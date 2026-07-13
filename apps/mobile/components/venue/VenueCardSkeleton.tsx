@@ -14,7 +14,7 @@ export function VenueCardSkeleton({ width }: Props) {
     // would clip the drop shadow on iOS); inner view clips the hero corners.
     <View
       style={[{ width, maxHeight: 230 }, ELEVATION[1]]}
-      className="mr-4 rounded-crawl-lg border border-crawl-border bg-crawl-card">
+      className="rounded-crawl-lg border border-crawl-border bg-crawl-card">
       <View className="overflow-hidden rounded-crawl-lg">
         {/* Hero */}
         <Skeleton className="h-24 w-full" />

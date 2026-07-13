@@ -70,12 +70,11 @@ Configures the bottom tab navigator using expo-router's `Tabs` component. Replac
 
 The main map exploration screen. Layout from top to bottom:
 
-1. **SearchBar** — text input with filter icon button. Filter button pushes `/filters` modal.
-2. **Filter chips** — horizontal `ScrollView` of `FilterChip` components. Tapping toggles the filter in context.
-3. **MapPlaceholder** — full-flex dark grid with animated venue pins. Tapping a pin navigates to `/venue/{id}`.
-4. **Venue carousel** — horizontal `FlatList` of `VenueCard` components with `snapToInterval` for card paging. Card width is 80% of screen width.
+1. **Fixed header** — `CitySelector`, `SearchBar` (filter button pushes `/filters`), and a horizontal `ScrollView` of `FilterChip` components.
+2. **Map background** — `CrawlMapView` (or `MapPlaceholder` fallback) fills the content area as a full-height background (`absolute inset-0`). Tapping a pin navigates to `/venue/{id}`.
+3. **VenueSheet** — a drag-to-collapse bottom sheet layered over the map holding the venue list (see `components/venue/VenueSheet.tsx`). The content area's height is measured via `onLayout` and passed to the sheet so it can compute its snap points.
 
-Uses `useVenueContext()` for `filteredVenues`, `filters`, `toggleFilter`, `searchQuery`, and `setSearchQuery`.
+Uses `useVenueContext()` for `filteredVenues`, `filters`, `toggleFilter`, `searchQuery`, `setSearchQuery`, and the venues loading/error/refetch state (forwarded into the sheet).
 
 ### `app/(tabs)/voting.tsx` — Voting Screen
 
@@ -206,16 +205,19 @@ Exports `ErrorState` and `EmptyState`. Both take `{ title, message?, onRetry?, r
 
 Non-blocking banner pinned under the status bar that appears when `@react-native-community/netinfo` reports the device cannot reach the internet. Imports netinfo via lazy `require` so the banner becomes a no-op when the native module is absent (e.g. Expo Go without a dev client). Mounted once in the root layout.
 
+### `components/venue/VenueSheet.tsx`
+
+Drag-to-collapse bottom sheet holding the Explore venue list, layered over the map. Built on RN `PanResponder` + `Animated` (no native gesture library — see [DESIGN_DECISIONS](./DESIGN_DECISIONS.md#explore-bottom-sheet-custom-panresponder-over-a-native-sheet-library) for the OTA rationale). Takes the measured `containerHeight` and computes two snap points — a collapsed peek and an expanded scrollable list of full-width `VenueCard`s. The drag responder is attached only to the header handle so the map's pan and the list's scroll don't fight it; release snaps to the nearer point biased by fling velocity. Renders the loading/error/empty states (`VenueCardSkeleton`/`ErrorState`/`EmptyState`) inside the sheet body.
+
 ### `components/venue/VenueCard.tsx`
 
-Card component for the bottom carousel on the Explore screen. Parameterized width for snap interval calculations. Displays:
+Card component for the Explore `VenueSheet` list. Parameterized width. Photography-first hero when `imageUrl` is present; a **compact placeholder hero** (52 vs 96pt) when it isn't, so image-less venues don't render as a big empty block. Spacing is owned by the list, not the card (no baked-in margin). Displays:
 
 - Venue name, type, distance
-- Trending/Open badges (top right)
+- Trending/Open badges (over the hero)
 - Hotspot score in a purple circle with vote count
 - Price level as green/muted dollar signs
-- Up to 3 highlight tags as small pills
-- Purple "View Details" CTA button
+- Purple "Details" CTA button
 
 ### `components/venue/HotspotScore.tsx`
 
@@ -238,7 +240,7 @@ Row component for the voting screen's ranked list. Layout left to right:
 
 ### `components/venue/VenueCardSkeleton.tsx`
 
-Skeleton silhouette of `VenueCard` for the explore-screen carousel. Composes `Skeleton` blocks at the same dimensions as the loaded card so the loading→loaded swap doesn't reflow.
+Skeleton silhouette of `VenueCard` for the Explore `VenueSheet` list. Composes `Skeleton` blocks at the same dimensions as the loaded card so the loading→loaded swap doesn't reflow.
 
 ### `components/venue/VenueListItemSkeleton.tsx`
 

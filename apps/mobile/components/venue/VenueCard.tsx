@@ -12,20 +12,24 @@ interface VenueCardProps {
   width: number;
 }
 
+// Photography-first when an image exists; a compact placeholder when it doesn't, so
+// image-less venues (e.g. current mock data) don't render as a big empty hero block.
 const HERO_HEIGHT = 96;
+const HERO_HEIGHT_EMPTY = 52;
 
 export function VenueCard({ venue, onPress, width }: VenueCardProps) {
   const priceLevel = venue.priceLevel;
+  const heroHeight = venue.imageUrl ? HERO_HEIGHT : HERO_HEIGHT_EMPTY;
 
   return (
     // Outer wrapper carries the elevation shadow + shape (NO overflow-hidden, which
     // would clip the drop shadow on iOS); inner view clips the hero image corners.
     <View
       style={[{ width, maxHeight: 230 }, ELEVATION[2]]}
-      className="mr-4 rounded-crawl-lg border border-crawl-border bg-crawl-card">
+      className="rounded-crawl-lg border border-crawl-border bg-crawl-card">
       <Pressable onPress={onPress} className="overflow-hidden rounded-crawl-lg">
         {/* Hero — photography-first; graceful tinted placeholder when imageUrl is absent */}
-        <View style={{ height: HERO_HEIGHT }} className="w-full overflow-hidden bg-crawl-surface">
+        <View style={{ height: heroHeight }} className="w-full overflow-hidden bg-crawl-surface">
           {venue.imageUrl ? (
             <Image source={{ uri: venue.imageUrl }} resizeMode="cover" className="h-full w-full" />
           ) : (
