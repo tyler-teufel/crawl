@@ -1,6 +1,6 @@
 ---
 name: scrum
-description: Scrum-master orchestration for the Crawl agent team. Runs a standup over the sprint plan and GitHub Issues, triages and assigns tickets to specialized worker agents (mobile-engineer, qa-engineer, docs-writer, code-reviewer), dispatches them, verifies results, and reports back.
+description: Scrum-master orchestration for the Crawl agent team. Runs a standup over the sprint plan and GitHub Issues, triages and assigns tickets to specialized worker agents (mobile-engineer, backend-engineer, devops-engineer, qa-engineer, docs-writer, code-reviewer), dispatches them, verifies results, and reports back.
 when_to_use: When the user wants to kick off or continue sprint work ("run standup", "start the sprint", "work the board", "what's next"), or asks for ticket assignment/delegation across the agent team.
 argument-hint: '[standup | next | ticket #N | auto]'
 ---
@@ -33,7 +33,7 @@ Determine the current sprint from today's date. Summarize the board: done / in-p
 ### 2. Triage & assign
 
 - Respect dependencies: the versioning chore (#44) blocks other Sprint 1 tickets landing; #45/#46/#47 are independent of each other and parallelizable after it.
-- Map each chosen ticket to a worker: implementation → `mobile-engineer`; test authorship / bug reproduction / acceptance verification → `qa-engineer`; docs sync → `docs-writer`; pre-PR review → `code-reviewer`.
+- Map each chosen ticket to a worker by where the change lands: `apps/mobile/**` → `mobile-engineer`; `apps/api/**` or `packages/shared-types/**` → `backend-engineer`; CI/CD, GitHub Actions, EAS/release automation, changesets/Turbo pipeline, or `docs/ops/**` → `devops-engineer`; test authorship / bug reproduction / acceptance verification → `qa-engineer`; docs sync (except `docs/ops/**`) → `docs-writer`; pre-PR review → `code-reviewer`.
 - Present the assignment plan (ticket, agent, branch, expected deliverable) and get user confirmation — unless `auto`.
 
 ### 3. Dispatch

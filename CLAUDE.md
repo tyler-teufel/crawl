@@ -21,8 +21,10 @@ Sprint work is delegated to a roster of specialized subagents (`.claude/agents/`
 | Task type | Delegate to |
 | --- | --- |
 | Implement a ticket in `apps/mobile/**` | `mobile-engineer` |
+| Implement a ticket in `apps/api/**` or `packages/shared-types/**` (Fastify/Drizzle/Supabase, shared Zod contracts) | `backend-engineer` |
+| CI/CD, GitHub Actions workflows, EAS/release automation, changesets/Turbo pipeline, `docs/ops/**` runbooks | `devops-engineer` |
 | Reproduce a bug / write regression tests / verify acceptance criteria | `qa-engineer` |
-| Sync `docs/` after code changes | `docs-writer` |
+| Sync `docs/` after code changes (except `docs/ops/**`, owned by `devops-engineer`) | `docs-writer` |
 | Pre-PR diff review (read-only) | `code-reviewer` |
 | Ticket triage/assignment across the board | run `/scrum` (main session — subagents cannot spawn subagents) |
 
