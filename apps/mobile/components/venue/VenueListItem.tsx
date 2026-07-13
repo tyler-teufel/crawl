@@ -33,10 +33,14 @@ export function VenueListItem({
       {/* Info */}
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
-          <Text className="font-display-bold text-base text-white" numberOfLines={1}>
+          <Text className="shrink font-display-bold text-base text-white" numberOfLines={1}>
             {venue.name}
           </Text>
-          {venue.isTrending && <Badge label="HOT" variant="trending" />}
+          {venue.isTrending && (
+            <View className="shrink-0">
+              <Badge label="HOT" variant="trending" />
+            </View>
+          )}
         </View>
         <Text className="mt-0.5 font-sans text-sm text-crawl-text-muted">
           {venue.primaryType} · {venue.voteCount} votes
