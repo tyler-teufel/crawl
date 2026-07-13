@@ -141,6 +141,10 @@ Custom bottom tab bar replacing React Navigation's default. Renders four tabs wi
 
 Active tabs get a purple highlight background (`bg-crawl-purple/20`), filled icon colored purple-light, and semibold purple-light text. Inactive tabs get outline icons and muted text. Safe area bottom inset is applied for notched devices.
 
+### `components/layout/AnimatedSplash.tsx`
+
+Full-screen branded splash overlay shown on cold launch. Fills the screen with the `#0a0a0f` brand background and renders the Crawl martini-pin mark with the "crawl" wordmark beneath it. The logo SVGs are inlined as raw strings and drawn via `SvgXml` from `react-native-svg` (the repo has no `.svg`-file metro transformer). Reanimated drives a fade-in + scale-settle entrance (0.92 → 1, opacity 0 → 1 over 600ms), a brief hold, then a 250ms overlay fade-out — ~950ms total. Respects the system reduce-motion setting via `ReduceMotion.System`. Calls `onAnimationComplete` when the exit fade finishes so the parent can unmount it. Mounted in `app/_layout.tsx` on top of the navigator, gated by `splashAnimationComplete` state; it takes over the moment the native splash is hidden so there is no visible gap.
+
 ### `components/map/MapPlaceholder.tsx`
 
 Dark-themed view simulating a map. Renders a grid pattern (8 horizontal + 6 vertical semi-transparent lines) on a `crawl-surface` background. Places `MapPin` components at predetermined percentage positions (8 fixed positions cycling). Includes `MapControls` overlay in the bottom-right.
