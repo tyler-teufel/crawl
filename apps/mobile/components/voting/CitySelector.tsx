@@ -19,7 +19,7 @@ export function CitySelector() {
         accessibilityLabel={`Change city. Currently ${selectedCity}.`}
         className="flex-row items-center gap-1 rounded-full bg-crawl-card px-4 py-2">
         <Ionicons name="location" size={16} color="#a855f7" />
-        <Text className="text-sm font-medium text-white">{selectedCity}</Text>
+        <Text className="font-sans-medium text-sm text-white">{selectedCity}</Text>
         <Ionicons name="chevron-down" size={14} color="#8b8ba5" />
       </Pressable>
 
@@ -30,7 +30,7 @@ export function CitySelector() {
           <Pressable
             onPress={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-2xl bg-crawl-card p-4">
-            <Text className="mb-3 text-base font-semibold text-white">Select city</Text>
+            <Text className="mb-3 font-sans-bold text-base text-white">Select city</Text>
             <ScrollView className="max-h-80" showsVerticalScrollIndicator={false}>
               {isLoading ? (
                 <View>
@@ -45,7 +45,9 @@ export function CitySelector() {
                   onRetry={() => refetch()}
                 />
               ) : cities.length === 0 ? (
-                <Text className="py-2 text-sm text-crawl-text-muted">No cities available yet.</Text>
+                <Text className="py-2 font-sans text-sm text-crawl-text-muted">
+                  No cities available yet.
+                </Text>
               ) : (
                 cities.map((c) => {
                   const isSelected = c.displayName === selectedCity;
@@ -60,8 +62,8 @@ export function CitySelector() {
                       <Text
                         className={
                           isSelected
-                            ? 'text-base font-semibold text-crawl-purple'
-                            : 'text-base text-white'
+                            ? 'font-sans-bold text-base text-crawl-purple'
+                            : 'font-sans text-base text-white'
                         }>
                         {c.displayName}
                       </Text>
@@ -74,7 +76,7 @@ export function CitySelector() {
             <Pressable
               onPress={() => setOpen(false)}
               className="mt-3 items-center rounded-lg bg-white/5 py-3">
-              <Text className="text-sm font-medium text-white">Close</Text>
+              <Text className="font-sans-medium text-sm text-white">Close</Text>
             </Pressable>
           </Pressable>
         </Pressable>
