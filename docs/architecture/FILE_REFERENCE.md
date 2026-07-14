@@ -326,7 +326,7 @@ Custom hook returning `{ hours, minutes, seconds }` as zero-padded two-character
 
 ### `src/lib/utils.ts`
 
-Exports the `cn()` function — combines `clsx` (conditional class logic) with `tailwind-merge` (class conflict resolution). Used by RNR components and available for custom components. See the [RNR guide](./REACT_NATIVE_REUSABLES.md#5-using-the-cn-utility) for usage examples.
+Exports the `cn()` function — combines `clsx` (conditional class logic) with `tailwind-merge` (class conflict resolution). Used by RNR components and available for custom components. See the [RNR guide](../guides/REACT_NATIVE_REUSABLES.md#5-using-the-cn-utility) for usage examples.
 
 ### `src/lib/theme.ts`
 
@@ -381,6 +381,69 @@ AsyncStorage persistence for mock vote state (deleted when real API integrates).
 ### `apps/api/drizzle/0001_venue_filter_indexes.sql`
 
 Idempotent migration adding the indexes that back the dynamic filter predicates in `useVenues`: compound `(city, is_active|is_trending|is_open)` indexes (the `_trending` and `_open` variants are partial — `WHERE is_trending = true` etc. — so they stay tiny), a GIN index on `highlights[]` for the tag-based filters, and a partial `cities (is_active) WHERE is_active` index for the city picker. See [Dynamic Venue Filtering Strategy](./DESIGN_DECISIONS.md#dynamic-venue-filtering-strategy) for the predicate map.
+
+---
+
+## API Files (`apps/api/`)
+
+### `apps/api/src/app.ts`
+
+Builds the Fastify instance: registers the `cors`, `jwt`, and `error-handler` plugins, sets the Zod type-provider serializer/validator compilers, and mounts all routes under the `/api/v1` prefix. Selects in-memory vs. Drizzle repositories based on `USE_REAL_DB`.
+
+### `apps/api/src/config.ts`
+
+Reads and validates environment variables (`DATABASE_URL`, `USE_REAL_DB`, `JWT_SECRET`/`JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRY`/`JWT_REFRESH_EXPIRY`, `CORS_ORIGIN`, `PORT`, `HOST`, `LOG_LEVEL`, `SUPABASE_URL`, `SUPABASE_JWT_SECRET`) into a single typed config object consumed across the app.
+
+### `apps/api/src/routes/`
+
+One file per resource: `health.ts`, `venues.ts`, `votes.ts`, `trending.ts`, `auth.ts`. Each defines Fastify route handlers with Zod request/response schemas and delegates business logic to the matching service. See [API Reference](./API_REFERENCE.md) for the full request/response contract.
+
+### `apps/api/src/services/`
+
+- `venue.service.ts` — listing/pagination, trending lookup, hotspot score recalculation, daily metric reset. Wraps the venue repository.
+- `vote.service.ts` — vote-state lookup, cast (enforces max 3/day and one-per-venue/day), and remove logic. Wraps the vote repository. `VoteError` carries the codes surfaced in `API_REFERENCE.md` (`ALREADY_VOTED`, `NO_VOTES_REMAINING`, etc.).
+- `auth.service.ts` — register/login for the local-dev JWT auth mode, `bcryptjs` password hashing (12 rounds). `AuthError` carries codes like `EMAIL_IN_USE`, `INVALID_CREDENTIALS`.
+
+### `apps/api/src/repositories/`
+
+Each entity (`user`, `venue`, `vote`) has an interface plus two implementations selected in `app.ts` via `USE_REAL_DB`:
+
+- `{entity}.repository.ts` — in-memory implementation, used by default and in tests.
+- `drizzle-{entity}.repository.ts` — Postgres implementation via Drizzle ORM, used when `USE_REAL_DB=true`.
+
+### `apps/api/src/plugins/`
+
+- `cors.ts` — registers `@fastify/cors` with origins parsed from `CORS_ORIGIN` (comma-separated), credentials enabled.
+- `jwt.ts` — dual-mode auth plugin. Local dev signs/verifies its own HS256 tokens via `@fastify/jwt` (separate access/refresh namespaces). When `USE_REAL_DB=true`, verifies Supabase-issued tokens via JWKS (`get-jwks`) with a legacy HS256 fallback (`SUPABASE_JWT_SECRET`), and auto-upserts the authenticated Supabase user into the local `users` table on first request. Decorates `fastify.authenticate` for use as a route `preHandler`.
+- `error-handler.ts` — centralizes Zod validation errors (400), Fastify HTTP errors, and unhandled exceptions (500) into the consistent `{ error, message, statusCode, details? }` envelope documented in `API_REFERENCE.md`.
+
+### `apps/api/src/jobs/`
+
+`node-cron`-scheduled tasks, started from `startJobs()` in `index.ts` (skipped when `NODE_ENV=test`):
+
+- `reset-votes.ts` — daily at 00:00 UTC. Clears all votes and resets each venue's daily metrics.
+- `recalculate-scores.ts` — hourly. Recomputes `hotspotScore` for every venue (currently `min(100, voteCount * 2)` — a placeholder formula per an in-code TODO).
+- `syncVenues.ts` / `syncVenues.cli.ts` / `places/*` — Google Places client, filters, and transform logic to populate the `venues` table. Not cron-scheduled; run manually via `npm run sync:venues`.
+
+### `apps/api/src/db/schema.ts`
+
+Drizzle schema for four tables: `cities` (slug, name, state, timezone, center lat/lng, radius), `venues` (FK to `cities`, Google Place ID, name/type/address, PostGIS `location`, rating, hours, `hotspotScore`, `voteCount`, trending/active flags), `users` (email, `passwordHash`, `displayName`, default city), `votes` (FK to `users`/`venues`, unique on `(userId, venueId, votedAt)`).
+
+### `apps/api/drizzle/`
+
+SQL migrations generated by `drizzle-kit`, in order: `0000_redundant_excalibur.sql` (initial tables), `0001_venue_filter_indexes.sql` (see below), `0002_rls_policies.sql` (enables Postgres RLS on all tables; public read on `cities`/`venues`, user-scoped read/write on `users`/`votes`; the API bypasses RLS for writes via the Supabase service-role key).
+
+### `apps/api/drizzle/0001_venue_filter_indexes.sql`
+
+Idempotent migration adding the indexes that back the dynamic filter predicates in `useVenues`: compound `(city, is_active|is_trending|is_open)` indexes (the `_trending` and `_open` variants are partial — `WHERE is_trending = true` etc. — so they stay tiny), a GIN index on `highlights[]` for the tag-based filters, and a partial `cities (is_active) WHERE is_active` index for the city picker. See [Dynamic Venue Filtering Strategy](./DESIGN_DECISIONS.md#dynamic-venue-filtering-strategy) for the predicate map.
+
+### `apps/api/Dockerfile`
+
+Multi-stage build (`node:25-alpine`), Turborepo-aware (prunes the workspace to just `apps/api` and its dependencies before installing). Production stage runs `node dist/index.js`; healthcheck hits `/api/v1/health`. Used by the Railway deploy target (see [`docs/ops/RAILWAY_SETUP.md`](../ops/RAILWAY_SETUP.md)).
+
+### `docker-compose.yml` (repo root)
+
+Local dev stack: `api` (hot-reload via a builder stage), `db` (`postgis/postgis:16-3.4`), `redis:7-alpine`. Redis is provisioned for local parity but not yet referenced by any code path in `apps/api/src`.
 
 ---
 

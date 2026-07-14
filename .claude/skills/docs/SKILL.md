@@ -38,7 +38,7 @@ Use this table to determine which docs need updates:
 | Config files (babel, metro, eslint, prettier, tsconfig)      | FILE_REFERENCE.md (config)                                               |
 | New screens or major features                                | PROJECT_OVERVIEW.md, ARCHITECTURE.md, DESIGN_DECISIONS.md                |
 | CI/CD workflows, `eas.json`                                  | CICD_PIPELINE.md                                                         |
-| `apps/api/src/**`                                            | FILE_REFERENCE.md (backend), ARCHITECTURE.md (backend), DATA_PIPELINE.md |
+| `apps/api/src/**`                                            | FILE_REFERENCE.md (backend), ARCHITECTURE.md (backend), API_REFERENCE.md |
 | `apps/api/package.json`                                      | PROJECT_OVERVIEW.md (tech stack)                                         |
 | `packages/shared-types/**`                                   | FILE_REFERENCE.md, ARCHITECTURE.md                                       |
 | `turbo.json`, root `package.json`                            | TURBOREPO_MIGRATION.md (if structural), FILE_REFERENCE.md                |
@@ -78,11 +78,7 @@ For each document that needs changes:
 
 **ROADMAP.md** — Move completed items, adjust estimates, add new work items.
 
-**BACKEND_IMPLEMENTATION_PLAN.md** — Update when backend decisions are made or phases completed.
-
-**DATA_PIPELINE.md** — Update backend architecture diagrams and API endpoint tables.
-
-**TURBOREPO_MIGRATION.md** — Update when workspace structure or turbo config changes.
+**API_REFERENCE.md** — Update endpoint list, request/response shapes, and error codes when routes change.
 
 **INSTALLING_PACKAGES.md** — Update when new workspaces added or install patterns change.
 
@@ -95,7 +91,7 @@ Include or update ASCII diagrams when:
 - Navigation flow changes → ARCHITECTURE.md
 - Component trees change → ARCHITECTURE.md
 - State management changes → ARCHITECTURE.md
-- Backend architecture changes → ARCHITECTURE.md, DATA_PIPELINE.md
+- Backend architecture changes → ARCHITECTURE.md, API_REFERENCE.md
 - New integration added → relevant guide doc
 
 Diagram style: box-drawing characters (`┌─┐│└─┘`), arrows (`──►`, `◄──`, `▼`, `▲`), clear labels. Under 80 chars wide.

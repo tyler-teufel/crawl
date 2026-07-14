@@ -1,6 +1,6 @@
 # API Client Layer
 
-Complete overview of the TypeScript API client architecture, data flow, and environment configuration.
+Overview of the mobile app's TypeScript API client architecture, data flow, and environment configuration. Covers `apps/mobile/src/api/`.
 
 ---
 
@@ -8,15 +8,24 @@ Complete overview of the TypeScript API client architecture, data flow, and envi
 
 ```
 src/api/
-├── client.ts         ── Generic fetch wrapper (transport layer)
+├── client.ts         ── Generic fetch wrapper + auth token holder (transport layer)
 ├── query-client.ts   ── TanStack React Query singleton configuration
 ├── venues.ts         ── Venue query hooks with key factory
-└── votes.ts          ── Vote state query + cast/remove mutation hooks
+├── votes.ts          ── Vote state query + cast/remove mutation hooks (optimistic)
+├── cities.ts         ── City list query hook + nearest-city resolver
+└── voteStorage.ts    ── AsyncStorage persistence for mock-mode vote state
 ```
 
 ---
 
-## Layer Architecture
+## Mock vs. Live API
+
+Every query hook checks `hasApi` (from `src/lib/env.ts`, true when `EXPO_PUBLIC_API_URL` is set) and branches between two code paths in the same `queryFn`:
+
+- **Live** — calls `apiClient()` against the Fastify API.
+- **Mock** — reads bundled fallback data (`src/data/venues.ts`) or, for votes, AsyncStorage-persisted mock state (`voteStorage.ts`).
+
+This means the mobile app runs standalone (no backend, no Supabase) as well as fully wired — the only difference is whether `EXPO_PUBLIC_API_URL` is set. Supabase is used **only for auth/identity**, not for venue data — the client never reads Supabase tables directly for venues.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -27,7 +36,6 @@ src/api/
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                    VenueProvider                                  │
 │              (src/context/VenueContext.tsx)                       │
-│                                                                  │
 │  Wires together all query hooks and exposes:                     │
 │  venues, filteredVenues, voteState, castVote, removeVote,        │
 │  filters, searchQuery, selectedCity                              │
@@ -35,28 +43,22 @@ src/api/
                            │ calls hooks from
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                  TanStack Query Hooks                             │
-│                                                                  │
-│  src/api/venues.ts                                               │
-│  ├── useVenues(city, filters)  ──► queryKey: ['venues','list',…] │
-│  └── useVenue(id)              ──► queryKey: ['venues','detail',…]│
-│                                                                  │
-│  src/api/votes.ts                                                │
-│  ├── useVoteState()            ──► queryKey: ['votes','state']   │
-│  ├── useCastVote()             ──► mutation → cache update       │
-│  └── useRemoveVote()           ──► mutation → cache update       │
+│  src/api/venues.ts  → useVenues(city, filters), useVenue(id)     │
+│  src/api/votes.ts   → useVoteState(city), useCastVote(city),     │
+│                        useRemoveVote(city)                       │
+│  src/api/cities.ts  → useCities(), findNearestCity()             │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTP via
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    apiClient<T>()                                 │
-│               (src/api/client.ts)                                │
-│                                                                  │
-│  fetch( EXPO_PUBLIC_API_URL + path, { json headers, ...opts } )  │
-│  Throws on non-2xx  │  Returns parsed JSON as T                  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-                      HTTPS / WSS
-                           │
-                    Backend API Gateway
+                hasApi?    │
+        ┌──────────────────┴───────────────────┐
+        ▼ true                                  ▼ false
+┌───────────────────┐                  ┌──────────────────────┐
+│   apiClient<T>()   │                  │  src/data/*.ts mocks  │
+│  (src/api/client.ts)│                 │  + voteStorage.ts     │
+│  fetch(API_BASE+path)│                │  (AsyncStorage)       │
+│  attaches Bearer token│               └──────────────────────┘
+└──────────┬─────────┘
+           │ HTTPS
+     Fastify API (apps/api)
 ```
 
 ---
@@ -66,251 +68,82 @@ src/api/
 ### `client.ts` — HTTP Transport Layer
 
 ```typescript
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
+const API_BASE = env.apiUrl ?? 'http://localhost:3000/api/v1';
 
+export function setAuthToken(token: string | null): void;
 export async function apiClient<T>(path: string, options?: RequestInit): Promise<T>;
 ```
 
-- **Base URL resolution:** Reads `EXPO_PUBLIC_API_URL` from environment. Falls back to `http://localhost:3000/api/v1` during local development.
-- **Generic typed responses:** Callers specify `<T>` to get typed return values.
-- **Default headers:** Sets `Content-Type: application/json`. Callers can override via `options`.
-- **Error handling:** Throws a generic `Error` with the HTTP status code on non-2xx responses.
-- **Auth header:** Not yet implemented — will be added in Phase D when authentication is wired up.
+- **Base URL resolution:** Reads `EXPO_PUBLIC_API_URL` via `src/lib/env.ts`. Falls back to `http://localhost:3000/api/v1`.
+- **Auth:** `setAuthToken()` stores the current Supabase access token in module state; `apiClient` attaches it as `Authorization: Bearer <token>` on every request when present. `AuthContext` calls `setAuthToken()` whenever the Supabase session changes (sign-in, refresh, sign-out).
+- **Error handling:** Throws `Error('API error: <status>')` on non-2xx responses.
+- Also exports thin typed wrappers `getVenues(params)` and `castVote(venueId)` used by the query hooks.
 
 ### `query-client.ts` — TanStack React Query Configuration
 
-```typescript
-export const queryClient = new QueryClient({ defaultOptions: { queries: { ... } } });
-```
-
-Singleton `QueryClient` with these defaults:
-
-| Option                 | Value      | Purpose                                              |
-| ---------------------- | ---------- | ---------------------------------------------------- |
-| `staleTime`            | 30 seconds | Data considered fresh; no refetch within this window |
-| `gcTime`               | 5 minutes  | Unused cache entries garbage-collected after this    |
-| `retry`                | 2          | Automatic retries on query failure                   |
-| `refetchOnWindowFocus` | false      | Disabled — not useful on mobile                      |
+Singleton `QueryClient` with `staleTime: 30s`, `gcTime: 5min`, `retry: 2`, `refetchOnWindowFocus: false`.
 
 ### `venues.ts` — Venue Query Hooks
 
-Uses a **query key factory** pattern for consistent cache management:
+Query key factory sorts filters before keying so `['a','b']` and `['b','a']` share a cache entry:
 
 ```typescript
 export const venueKeys = {
   all: ['venues'] as const,
-  list: (city, filters) => ['venues', 'list', city, filters] as const,
+  list: (city, filters) => ['venues', 'list', city, [...filters].sort()] as const,
   detail: (id) => ['venues', 'detail', id] as const,
 };
 ```
 
-| Hook                       | Query Key                        | Current Behavior              | Future Behavior (Phase B)                   |
-| -------------------------- | -------------------------------- | ----------------------------- | ------------------------------------------- |
-| `useVenues(city, filters)` | `['venues','list',city,filters]` | Returns `mockVenues` directly | `apiClient('/venues?city=...&filters=...')` |
-| `useVenue(id)`             | `['venues','detail',id]`         | Finds venue in mock array     | `apiClient('/venues/${id}')`                |
+| Hook                        | Query Key                        | Live                                          | Mock                                                  |
+| ---------------------------- | --------------------------------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| `useVenues(city, filters)`  | `['venues','list',city,filters]` | `GET /venues?city=...&filters=...`               | `filterVenues(mockVenuesByCity[city] ?? mockVenues, filters)` |
+| `useVenue(id)`               | `['venues','detail',id]`         | `GET /venues/:id`                                 | Finds venue in mock array                                   |
 
-Both hooks set `staleTime: 30_000` (30 seconds). `useVenue` has `enabled: !!id` to prevent queries with empty IDs.
+Both hooks set `staleTime: 30_000`; `useVenue` has `enabled: !!id`.
 
 ### `votes.ts` — Vote State & Mutation Hooks
 
-| Hook              | Type     | Query Key           | Current Behavior                                           | Future Behavior                                        |
-| ----------------- | -------- | ------------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
-| `useVoteState()`  | Query    | `['votes','state']` | Returns hardcoded default (3 votes, empty array)           | `GET /api/v1/votes`                                    |
-| `useCastVote()`   | Mutation | N/A                 | Reads cache, decrements `remainingVotes`, appends venue ID | `POST /api/v1/votes` with optimistic update            |
-| `useRemoveVote()` | Mutation | N/A                 | Reads cache, increments `remainingVotes`, removes venue ID | `DELETE /api/v1/votes/:venueId` with optimistic update |
+Query key is scoped **per city** (`voteKeys.state(city)`) so switching cities invalidates the daily vote allowance automatically.
 
-Default vote state:
+| Hook                 | Live                                   | Mock                                                          |
+| --------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| `useVoteState(city)`  | `GET /votes?city=...`                       | `readPersistedVoteState(city)` (AsyncStorage), falls back to `DEFAULT_VOTE_STATE` |
+| `useCastVote(city)`   | `POST /votes` (optimistic `voteCount` bump on the venue-detail cache, rolled back `onError`) | `castMockVote` — writes updated state to AsyncStorage |
+| `useRemoveVote(city)` | `DELETE /votes/:venueId`                    | `removeMockVote` — writes updated state to AsyncStorage             |
 
-```typescript
-{ remainingVotes: 3, maxVotes: 3, votedVenueIds: [] }
-```
+Default vote state: `{ remainingVotes: 3, maxVotes: 3, votedVenueIds: [] }`.
 
-Both mutations operate directly on the TanStack Query cache via `queryClient.getQueryData` / `setQueryData`. Guard checks prevent double-voting or removing a vote that doesn't exist.
+### `cities.ts` — City List
+
+`useCities()` returns the active `cities` rows (1-hour `staleTime`). `findNearestCity(cities, location, maxMiles=50)` is a haversine-based picker used by `VenueContext` to seed `selectedCity` from the onboarding-captured `userLocation`.
+
+### `voteStorage.ts` — Mock Vote Persistence
+
+AsyncStorage-backed persistence for mock-mode vote state, scoped by today's ISO date and city (`crawl.mockVoteState.v1`). Exists so refetches (stale-time expiry, cache GC, city switches) don't reset the daily vote count back to the default when no backend is configured. Mirrors the server-side rules in `apps/api/src/services/vote.service.ts`.
 
 ---
 
 ## How VenueContext Consumes the API Layer
 
-`VenueProvider` in `src/context/VenueContext.tsx` is the single integration point:
-
-```
-VenueProvider
-│
-├── useVenues(selectedCity, activeFilterIds)
-│   └── destructures → { data: venues = [] }
-│
-├── useVoteState()
-│   └── destructures → { data: voteState = DEFAULT_VOTE_STATE }
-│
-├── useCastVote()
-│   └── exposes → castVoteMutation.mutate(venueId)
-│
-└── useRemoveVote()
-    └── exposes → removeVoteMutation.mutate(venueId)
-```
-
-The provider also computes `filteredVenues` by applying search query and active filter IDs against the venue list. All screens and components access this via the `useVenueContext()` hook.
+`VenueProvider` in `src/context/VenueContext.tsx` composes `useVenues`, `useVoteState`, `useCastVote`, `useRemoveVote`, and `useCities`/`findNearestCity` (via `AuthContext.userLocation`), and computes `filteredVenues` by applying the client-side search-text filter on top of the server-filtered venue list. All screens and components consume this through `useVenueContext()`.
 
 ---
 
 ## Types
 
-Defined in `src/types/venue.ts`:
-
-```typescript
-interface Venue {
-  id: string;
-  name: string;
-  type: string;
-  address: string;
-  distance: string;
-  hotspotScore: number;
-  voteCount: number;
-  isOpen: boolean;
-  isTrending: boolean;
-  highlights: string[];
-  latitude: number;
-  longitude: number;
-  imageUrl?: string;
-  priceLevel: number; // 1-4
-  hours: string;
-  description: string;
-}
-
-interface VoteState {
-  remainingVotes: number;
-  maxVotes: number;
-  votedVenueIds: string[];
-}
-```
-
----
-
-## API Endpoints (Planned)
-
-These endpoints are defined in `docs/DATA_PIPELINE.md` and will be consumed by the hooks once the backend is live:
-
-### Venues
-
-| Method | Path                 | Query Params                                                    | Response                         |
-| ------ | -------------------- | --------------------------------------------------------------- | -------------------------------- |
-| GET    | `/api/v1/venues`     | `city`, `lat`, `lng`, `radius`, `filters`, `q`, `page`, `limit` | Paginated venue list with scores |
-| GET    | `/api/v1/venues/:id` | —                                                               | Full venue detail                |
-
-### Votes
-
-| Method | Path                     | Body          | Response                                      |
-| ------ | ------------------------ | ------------- | --------------------------------------------- |
-| GET    | `/api/v1/votes`          | —             | `{ remainingVotes, maxVotes, votedVenueIds }` |
-| POST   | `/api/v1/votes`          | `{ venueId }` | Updated vote state                            |
-| DELETE | `/api/v1/votes/:venueId` | —             | Updated vote state                            |
-
-### Trending
-
-| Method | Path                     | Query Params | Response                   |
-| ------ | ------------------------ | ------------ | -------------------------- |
-| GET    | `/api/v1/trending/:city` | `limit`      | Ranked venue list for city |
-
-### Auth (Phase D)
-
-| Method | Path                    | Body                               | Response          |
-| ------ | ----------------------- | ---------------------------------- | ----------------- |
-| POST   | `/api/v1/auth/register` | `{ email, password, displayName }` | `{ user, token }` |
-| POST   | `/api/v1/auth/login`    | `{ email, password }`              | `{ user, token }` |
-| POST   | `/api/v1/auth/refresh`  | `{ refreshToken }`                 | `{ token }`       |
-
-### WebSocket (Phase E)
-
-| Path                   | Events                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `/ws/live?city=austin` | `vote_update { venueId, newScore, newVoteCount }`, `trending_change { rankings }` |
+Defined in `src/types/venue.ts` — `Venue`, `FilterOption`, `VoteState`. See `packages/shared-types` for the Zod schemas shared with `apps/api`.
 
 ---
 
 ## Environment & URL Configuration
 
-### How `EXPO_PUBLIC_API_URL` Works
+`EXPO_PUBLIC_API_URL` is inlined into the JS bundle at build time by Expo. Set it per build profile in `apps/mobile/eas.json` (`development`, `simulator`, `staging`, `production`) — see [`docs/ops/RAILWAY_SETUP.md`](../ops/RAILWAY_SETUP.md) for the Railway URL format, and [`docs/ops/CICD_PIPELINE.md`](../ops/CICD_PIPELINE.md) for how release workflows inject it. Leaving it unset runs the app fully in mock mode (no backend required).
 
-Expo's build system inlines any environment variable prefixed with `EXPO_PUBLIC_` into the JavaScript bundle at build time. This means:
-
-1. **Local development:** The variable is unset, so `apiClient` uses the fallback `http://localhost:3000/api/v1`.
-2. **CI/CD builds:** The variable must be set before `eas build` or `eas update` runs.
-
-### Setting the URL for Builds
-
-There are two approaches for injecting the URL in CI/CD:
-
-**Option A — `eas.json` env block (recommended):**
-
-```json
-{
-  "build": {
-    "staging": {
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging-api.crawl.app/api/v1"
-      }
-    },
-    "production": {
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.crawl.app/api/v1"
-      }
-    }
-  }
-}
-```
-
-This keeps the URL tied to the build profile. Staging builds hit the staging API; production builds hit prod.
-
-**Option B — GitHub Actions environment variable:**
-
-Store the URL as a GitHub secret (`EXPO_PUBLIC_API_URL`) in Settings → Secrets and variables → Actions, then inject it in the workflow:
-
-```yaml
-- name: Build (staging)
-  env:
-    EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
-  run: eas build --platform all --profile staging --non-interactive
-```
-
-### Current State of CI/CD Workflows
-
-| Workflow               | Trigger         | Relevant Secrets |
-| ---------------------- | --------------- | ---------------- |
-| `staging-build.yml`    | Push to `main`  | `EXPO_TOKEN`     |
-| `release-mobile.yml`   | Manual dispatch | `EXPO_TOKEN`     |
-
-Neither currently injects `EXPO_PUBLIC_API_URL`. Add it to the `env` block in `eas.json` (Option A above) when the backend goes live.
-
----
-
-## Migration Status
-
-The API layer is in **Phase A** (client layer exists, hooks return mock data):
-
-| Phase | Description                                                     | Status      |
-| ----- | --------------------------------------------------------------- | ----------- |
-| **A** | Add API client layer + TanStack Query hooks returning mock data | Done        |
-| **B** | Replace mock data with real `apiClient` calls in venue hooks    | Not started |
-| **C** | Wire up vote mutations with optimistic updates via `apiClient`  | Not started |
-| **D** | Add authentication (JWT, secure storage, auth screens)          | Not started |
-| **E** | WebSocket for real-time score and trending updates              | Not started |
+Run `npm run verify:env --mode <mock|supabase|api>` in `apps/mobile` to check the current `.env` against the required key set for a given mode.
 
 ---
 
 ## Postman Collection
 
-A Postman collection for testing all endpoints is available at the project root:
-
-```
-crawl-api.postman_collection.json
-```
-
-Import it into Postman via File → Import. Collection variables:
-
-| Variable    | Default                        | Purpose                                   |
-| ----------- | ------------------------------ | ----------------------------------------- |
-| `baseUrl`   | `http://localhost:3000/api/v1` | API base URL                              |
-| `authToken` | (empty)                        | Auto-populated by Login/Register requests |
-| `venueId`   | `venue-001`                    | Reusable venue ID for testing             |
-| `city`      | `Austin, TX`                   | Default city for queries                  |
+A Postman collection for testing all endpoints is available at the project root: `crawl-api.postman_collection.json`. Import it into Postman; environment globals live at `apps/api/postman/globals/workspace.globals.yaml`.

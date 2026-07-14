@@ -1,5 +1,7 @@
 # Dev/Staging E2E Readiness Plan
 
+> **Archived 2026-07-14 — executed.** The mobile app → API → Supabase flow described here is live end-to-end. See `docs/architecture/ARCHITECTURE.md` and `docs/ops/RAILWAY_SETUP.md` for the current state.
+
 **Goal:** Get Crawl running end-to-end — mobile app → API server → Supabase database — for a real smoke test of the full flow.
 
 **Updated state (2026-04-21):**

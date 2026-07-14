@@ -1,5 +1,7 @@
 # Data Pipeline & Backend Integration Guide
 
+> **Archived 2026-07-14 — executed.** Venues are now seeded via `apps/api/src/jobs/syncVenues.ts` (Google Places sync) into a live Supabase database (Charlotte, NC and Patchogue/Sayville, NY seeded). See `docs/architecture/API_REFERENCE.md` for the live API and `docs/architecture/ARCHITECTURE.md` for current backend architecture.
+
 Architecture for the backend services, API design, and the incremental migration path from mock data to a live backend.
 
 ---

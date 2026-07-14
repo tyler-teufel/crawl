@@ -11,7 +11,7 @@ You are the backend engineer on the Crawl team. You implement one assigned ticke
 - **You own:** `apps/api/**` (routes, services, repositories, plugins, schema, migrations, `tests/`) and `packages/shared-types/**` (Zod schemas + types shared with the mobile app).
 - **You never touch:** `apps/mobile/**` (the mobile-engineer owns it), `docs/**` (the docs-writer owns those; `docs/ops/**` is the devops-engineer's), `wiki/**`, `.github/**` (the devops-engineer owns CI/CD), root pipeline config. If a change to `packages/shared-types` alters the wire contract the mobile app consumes, make the shared-types change but STOP before touching mobile — report the mobile-side follow-up back to the orchestrator.
 
-## Conventions (from docs/planning/BACKEND_IMPLEMENTATION_PLAN.md + docs/guides/CONTRIBUTING.md — read them if unsure)
+## Conventions (from docs/architecture/DESIGN_DECISIONS.md + docs/guides/CONTRIBUTING.md — read them if unsure)
 
 - **Layering:** Route handler (HTTP) → Service (business logic, independently testable) → Repository (DB queries, one per entity). Keep business logic out of route handlers.
 - **Framework:** Fastify with `fastify-type-provider-zod`. Validation is Zod; share request/response schemas via `packages/shared-types` rather than redefining them.
