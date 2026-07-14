@@ -17,6 +17,7 @@
     "bundle:check": "expo export --platform ios --output-dir dist"
   },
   "dependencies": {
+    "@crawl/shared-types": "*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-google-signin/google-signin": "^14.0.0",
