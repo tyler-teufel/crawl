@@ -1,5 +1,7 @@
 # Day 1 Cost Estimation — Crawl Nightlife App
 
+> **Archived 2026-07-14 — superseded.** This estimate recommended Fly.io for API hosting; the actual deployment target chosen (see `docs/architecture/DESIGN_DECISIONS.md` → "Deployment Target: Railway") is Railway, and the plans this estimate was derived from (`BACKEND_IMPLEMENTATION_PLAN.md`, `DATA_PIPELINE.md`) have since been executed and archived. Kept for historical reference on cost methodology.
+
 **Prepared:** 2026-04-19
 **Prepared for:** Tyler Teufel
 **Scope:** Launch-day infrastructure, third-party services, developer program fees, and recurring operational costs for a v1.0 soft launch (single city, <5k MAU target).

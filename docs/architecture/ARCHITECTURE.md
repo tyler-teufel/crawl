@@ -12,56 +12,77 @@ This document covers the project structure, navigation, state management, stylin
 4. [Styling Pipeline](#4-styling-pipeline)
 5. [Animation Runtime](#5-animation-runtime)
 6. [System Diagrams](#6-system-diagrams)
+7. [Backend Architecture](#7-backend-architecture)
 
 ---
 
 ## 1. Project Structure
 
+Crawl is a Turborepo monorepo. The mobile app and API server are separate workspaces that share validated types from `packages/shared-types`.
+
 ```
 crawl/
-├── app/                        # Screens & navigation (expo-router file-based)
-│   ├── _layout.tsx             # Root: Stack + ThemeProvider + AuthProvider
-│   │                           #         + VenueProvider + OnboardingGate
-│   ├── (onboarding)/           # First-launch group (gated by AsyncStorage flag)
-│   │   ├── _layout.tsx         # Stack, dark backdrop
-│   │   ├── index.tsx           # Welcome / brand splash
-│   │   ├── location.tsx        # Foreground location prompt (skippable)
-│   │   └── auth.tsx            # Apple / Google / anonymous entry
-│   ├── (tabs)/                 # Tab group (bottom tab navigator)
-│   │   ├── _layout.tsx         # Tabs config + custom TabBar
-│   │   ├── index.tsx           # Explore screen (map + carousel)
-│   │   ├── voting.tsx          # Daily voting screen
-│   │   ├── global.tsx          # Placeholder
-│   │   └── profile.tsx         # Placeholder
-│   ├── venue/
-│   │   └── [id].tsx            # Dynamic venue detail
-│   └── filters.tsx             # Transparent modal overlay
-├── components/                 # Presentational components
-│   ├── layout/                 # Navigation chrome (TabBar)
-│   ├── map/                    # Map placeholder, pins, controls
-│   ├── ui/                     # Generic reusable UI (SearchBar, Badge, etc.)
-│   ├── venue/                  # Venue-specific (VenueCard, HotspotScore, etc.)
-│   └── voting/                 # Voting-specific (VoteCounter, CountdownTimer, etc.)
-├── src/                        # Shared logic (aliased as @/*)
-│   ├── types/                  # TypeScript interfaces
-│   ├── data/                   # Mock data (venues, filters)
-│   ├── constants/              # Color tokens
-│   ├── context/                # React Context providers (VenueContext)
-│   ├── hooks/                  # Custom hooks (useCountdown)
-│   └── lib/                    # Utility functions (cn, theme)
-├── assets/                     # Static images (icon, splash)
-├── docs/                       # Documentation
-└── [config files]              # Babel, Metro, Tailwind, TS, ESLint, Prettier
+├── apps/
+│   ├── mobile/                     # Expo React Native app
+│   │   ├── app/                    # Screens & navigation (expo-router file-based)
+│   │   │   ├── _layout.tsx         # Root: Stack + ThemeProvider + AuthProvider
+│   │   │   │                       #         + VenueProvider + OnboardingGate
+│   │   │   ├── (onboarding)/       # First-launch group (gated by AsyncStorage flag)
+│   │   │   │   ├── _layout.tsx     # Stack, dark backdrop
+│   │   │   │   ├── index.tsx       # Welcome / brand splash
+│   │   │   │   ├── location.tsx    # Foreground location prompt (skippable)
+│   │   │   │   └── auth.tsx        # Apple / Google / anonymous entry
+│   │   │   ├── (tabs)/             # Tab group (bottom tab navigator)
+│   │   │   │   ├── _layout.tsx     # Tabs config + custom TabBar
+│   │   │   │   ├── index.tsx       # Explore screen (map + carousel)
+│   │   │   │   ├── voting.tsx      # Daily voting screen
+│   │   │   │   ├── global.tsx      # Placeholder
+│   │   │   │   └── profile.tsx     # Placeholder
+│   │   │   ├── venue/
+│   │   │   │   └── [id].tsx        # Dynamic venue detail
+│   │   │   └── filters.tsx         # Transparent modal overlay
+│   │   ├── components/             # Presentational components
+│   │   │   ├── layout/             # Navigation chrome (TabBar)
+│   │   │   ├── map/                # Map view, pins, controls
+│   │   │   ├── ui/                 # Generic reusable UI (SearchBar, Badge, etc.)
+│   │   │   ├── venue/              # Venue-specific (VenueCard, HotspotScore, etc.)
+│   │   │   └── voting/             # Voting-specific (VoteCounter, CountdownTimer, etc.)
+│   │   ├── src/                    # Shared logic (aliased as @/*)
+│   │   │   ├── types/              # TypeScript interfaces
+│   │   │   ├── data/                # Bundled fallback/mock data (venues, filters)
+│   │   │   ├── constants/            # Color tokens
+│   │   │   ├── context/              # AuthContext, VenueContext
+│   │   │   ├── api/                  # TanStack Query hooks + API client
+│   │   │   ├── hooks/                # Custom hooks (useCountdown)
+│   │   │   └── lib/                  # Utilities (cn, theme, auth, onboarding, sentry, supabase)
+│   │   ├── assets/                 # Static images, brand assets, fonts
+│   │   └── tests/                  # Vitest tests
+│   └── api/                        # Fastify API server
+│       ├── src/
+│       │   ├── routes/             # HTTP handlers (venues, votes, trending, auth, health)
+│       │   ├── services/           # Business logic (venue, vote, auth)
+│       │   ├── repositories/       # DB access — in-memory + Drizzle implementations
+│       │   ├── plugins/            # cors, jwt (dual-mode auth), error-handler
+│       │   ├── jobs/                # node-cron scheduled tasks + venue sync
+│       │   └── db/                  # Drizzle schema
+│       ├── drizzle/                # SQL migrations
+│       └── tests/
+├── packages/
+│   ├── shared-types/                # Zod schemas + TS types shared by mobile and API
+│   └── eslint-config/                # Shared ESLint config
+├── docs/                             # Documentation
+└── [config files]                    # turbo.json, root package.json, etc.
 ```
 
 ### Directory Conventions
 
-| Directory     | Convention                                                                                                                                                      |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`        | One file = one route. `_layout.tsx` files define navigation containers. Parenthesized directories like `(tabs)` create layout groups without affecting the URL. |
-| `components/` | Presentational components organized by feature domain. Accept data via props. Minimal direct context usage.                                                     |
-| `src/`        | Business logic, types, data, and utilities. Everything here is imported via the `@/` alias (e.g., `@/types/venue`).                                             |
-| `src/lib/`    | Utility functions used across the app. Currently houses `cn()` and `theme.ts` for RNR integration.                                                              |
+| Directory              | Convention                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/mobile/app/`      | One file = one route. `_layout.tsx` files define navigation containers. Parenthesized directories like `(tabs)` create layout groups without affecting the URL. |
+| `apps/mobile/components/` | Presentational components organized by feature domain. Accept data via props. Minimal direct context usage.                                                     |
+| `apps/mobile/src/`       | Business logic, types, data, and utilities. Everything here is imported via the `@/` alias (e.g., `@/types/venue`).                                             |
+| `apps/mobile/src/lib/`   | Utility functions used across the app: `cn()`, `theme.ts`, `auth.ts`, `onboarding.ts`, `sentry.ts`, `supabase.ts`.                                               |
+| `apps/api/src/`          | Route handler → service → repository layering (see [§7 Backend Architecture](#7-backend-architecture)).                                                          |
 
 ### Path Alias
 
@@ -243,17 +264,16 @@ The filter modal (`/filters`) is rendered as a separate route outside the tab na
 - **Category filters (server):** every chip toggle invalidates the `venues.list` queryKey, which triggers a refetch with the new predicate set.
 - **City scope (server):** changing `selectedCity` invalidates both the `venues.list` and `votes.state` queryKeys so the map, carousel, voting screen, and rankings all re-fetch in lockstep.
 
-### Future State Architecture
+### State Architecture (Current)
 
-When a backend is added, the recommendation is:
-
-| State Type                  | Current       | Future                                      |
-| --------------------------- | ------------- | ------------------------------------------- |
-| Server data (venues, votes) | React Context | TanStack Query (cached queries + mutations) |
-| UI state (filters, search)  | React Context | React Context or Zustand                    |
-| Auth state (tokens, user)   | N/A           | Zustand + expo-secure-store                 |
-| Form state                  | N/A           | React Hook Form or local state              |
-| Navigation state            | expo-router   | expo-router (unchanged)                     |
+| State Type                  | Implementation                                                    |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| Server data (venues, votes) | TanStack Query (cached queries + mutations, live API)                |
+| UI state (filters, search)  | React Context (`VenueContext`)                                        |
+| Auth state (tokens, user)   | React Context (`AuthContext`) + Supabase session persistence          |
+| Onboarding-completion       | AsyncStorage (`src/lib/onboarding.ts`), read outside React state       |
+| Form state                  | Local component state                                                  |
+| Navigation state            | expo-router                                                             |
 
 ---
 
@@ -343,7 +363,8 @@ Provides the worklet runtime that reanimated uses to execute animation code on t
 │                                                          │
 │  ┌─────────────────────────────────────────────────────┐ │
 │  │              ROOT LAYOUT (Stack)                    │ │
-│  │       ThemeProvider + VenueProvider + PortalHost    │ │
+│  │  ThemeProvider + AuthProvider + VenueProvider        │ │
+│  │       + PortalHost + OnboardingGate                 │ │
 │  │                                                     │ │
 │  │  ┌───────────────────────────────────────────────┐  │ │
 │  │  │          TAB NAVIGATOR (Bottom Tabs)          │  │ │
@@ -373,10 +394,14 @@ Provides the worklet runtime that reanimated uses to execute animation code on t
 │                    DATA LAYER                            │
 │                                                          │
 │  ┌──────────────────┐  ┌──────────────┐  ┌────────────┐ │
-│  │  Mock Venues (8) │  │ Mock Filters │  │ Vote State │ │
-│  │  src/data/       │  │ src/data/    │  │ (Context)  │ │
-│  │  venues.ts       │  │ filters.ts   │  │ 3 per day  │ │
-│  └──────────────────┘  └──────────────┘  └────────────┘ │
+│  │ TanStack Query   │  │  Supabase    │  │  Fastify   │ │
+│  │ useVenues/       │─►│  Auth        │  │  API       │ │
+│  │ useVoteState/    │  │  (identity)  │◄─│  (§7)      │ │
+│  │ useCastVote      │  └──────────────┘  └────────────┘ │
+│  │ falls back to    │                                    │
+│  │ src/data/ mocks  │                                    │
+│  │ when API unset   │                                    │
+│  └──────────────────┘                                    │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
 │                 STYLING PIPELINE                         │
@@ -438,3 +463,52 @@ Provides the worklet runtime that reanimated uses to execute animation code on t
         │                          │     Venue Detail
         └──────────────────────────┘
 ```
+
+---
+
+## 7. Backend Architecture
+
+`apps/api` is a Fastify server following a strict layering: **route → service → repository**. Routes handle HTTP concerns and validation (Zod, via `fastify-type-provider-zod`); services hold business logic and are unit-testable without an HTTP layer; repositories are the only code that touches storage, and exist behind a shared interface with two implementations — an in-memory one (default) and a Drizzle/Postgres one (`USE_REAL_DB=true`).
+
+```
+apps/api/src/
+├── app.ts                # Registers plugins + mounts routes under /api/v1
+├── routes/                # health, venues, votes, trending, auth
+├── services/              # venue.service, vote.service, auth.service
+├── repositories/          # {user,venue,vote}.repository (interfaces + in-memory)
+│                          # drizzle-{user,venue,vote}.repository (Postgres)
+├── plugins/
+│   ├── cors.ts            # @fastify/cors, origins from CORS_ORIGIN
+│   ├── jwt.ts              # dual-mode auth (see below)
+│   └── error-handler.ts    # Zod validation errors, Fastify HTTP errors → JSON envelope
+├── jobs/
+│   ├── reset-votes.ts       # daily 00:00 UTC — clears votes, resets venue metrics
+│   ├── recalculate-scores.ts # hourly — recomputes hotspotScore
+│   └── syncVenues.ts        # Google Places ingest, run manually via npm run sync:venues
+└── db/schema.ts             # Drizzle schema: cities, venues, users, votes
+```
+
+### Request Flow
+
+```
+┌──────────┐   ┌────────────┐   ┌─────────┐   ┌──────────────┐   ┌──────────┐
+│  Mobile  │──►│  Fastify   │──►│ Service │──►│  Repository  │──►│ Postgres │
+│  client  │   │  route +   │   │ (business│   │ (in-memory or│   │ +PostGIS │
+│          │◄──│  jwt plugin│◄──│  logic) │◄──│  Drizzle)    │◄──│(Supabase)│
+└──────────┘   └────────────┘   └─────────┘   └──────────────┘   └──────────┘
+```
+
+### Auth: Dual-Mode JWT
+
+`plugins/jwt.ts` supports two modes, selected by `USE_REAL_DB`:
+
+- **Local dev** (`USE_REAL_DB` unset) — the API signs and verifies its own HS256 JWTs via `@fastify/jwt` (`JWT_SECRET` for access tokens, `JWT_REFRESH_SECRET` for refresh, in a separate namespace). `/auth/register` and `/auth/login` issue token pairs directly.
+- **Production** (`USE_REAL_DB=true`) — the API verifies Supabase-issued tokens against Supabase's JWKS endpoint (with a legacy HS256 fallback via `SUPABASE_JWT_SECRET`). Authenticated Supabase users are auto-upserted into the local `users` table on first request. This is the mode the mobile app's `AuthProvider` (anonymous bootstrap + Apple/Google linking) is designed against — see [`auth-flow.svg`](./auth-flow.svg).
+
+### Scheduled Jobs
+
+Two `node-cron` jobs run in-process (no Redis, no worker queue — see `DESIGN_DECISIONS.md` for the trade-off): a midnight vote reset and an hourly hotspot-score recalculation. Both are skipped when `NODE_ENV=test`.
+
+### Deployment
+
+`apps/api/Dockerfile` builds a multi-stage production image (`node:25-alpine`, Turborepo-aware). The chosen deploy target is Railway (see [`docs/ops/RAILWAY_SETUP.md`](../ops/RAILWAY_SETUP.md)); `docker-compose.yml` at the repo root provisions a local Postgres+PostGIS and Redis for development (Redis is provisioned but not yet used by any code path).

@@ -350,21 +350,22 @@ For production, a second gate is enforced by the `production` GitHub Environment
 
 ---
 
-## Direct Supabase Query Path from Mobile
+## Direct Supabase Query Path from Mobile (Retired)
+
+**Status:** Retired 2026-07. While `apps/api` was being built out, `src/api/venues.ts` had a temporary third branch that queried Supabase directly with the publishable anon key, bypassing the Fastify API. That branch has since been deleted, exactly per the retirement plan below — `useVenues`/`useVenue` now only branch on `hasApi` (call `apps/api` when `EXPO_PUBLIC_API_URL` is set, otherwise fall back to bundled mock data). Supabase is used on the mobile side **only for auth/identity** now (see `src/lib/supabase.ts`, `AuthContext`) — venue data always goes through the Fastify API or mocks.
+
+<details>
+<summary>Original rationale (historical)</summary>
 
 **Chosen over:** routing every venue read through `apps/api`.
 
-While the Fastify API is being built out (per `docs/planning/BACKEND_IMPLEMENTATION_PLAN.md`), the mobile app reads venue data directly from Supabase using `@supabase/supabase-js` with the publishable anon key. The TanStack Query hooks in `src/api/venues.ts` branch on env vars:
+While the Fastify API was being built out, the mobile app read venue data directly from Supabase using `@supabase/supabase-js` with the publishable anon key. The TanStack Query hooks in `src/api/venues.ts` branched on env vars: `EXPO_PUBLIC_API_URL` set → call the Fastify API; else `EXPO_PUBLIC_SUPABASE_URL`/`KEY` set → query Supabase directly; else → mock data.
 
-1. If `EXPO_PUBLIC_API_URL` is set → call the Fastify API.
-2. Else if `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_KEY` are set → query Supabase directly.
-3. Else → return mock data.
+**Why:** unblocked end-to-end testing on real data while the API matured. Supabase Row Level Security policies were the trust boundary on direct reads.
 
-**Why:** unblocks end-to-end testing on real data while the API matures. Supabase Row Level Security policies are the trust boundary on direct reads; the publishable key is safe to ship in the bundle.
+**Trade-off accepted:** two read paths to maintain until the API caught up — intentionally not abstracted behind a "data source" interface, so removing the branch was a one-line delete rather than a refactor.
 
-**Trade-off:** Two read paths to maintain. The plan is to retire the direct path once the API exposes the corresponding endpoints — at which point the mobile-side Supabase import in `src/api/venues.ts` is deleted, not refactored. This is intentionally not abstracted behind a "data source" interface; the branch is three lines and removing it is one delete.
-
-**Coordinate handling:** the venues table's `latitude` / `longitude` columns are `numeric`, which Supabase serializes as strings. `rowToVenue()` coerces them with `Number(...)` and drops rows with non-finite coordinates with a `__DEV__` warning so silent map-render failures surface during testing.
+</details>
 
 ---
 

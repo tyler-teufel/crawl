@@ -1,5 +1,7 @@
 # Turborepo Monorepo Plan
 
+> **Archived 2026-07-14 — executed.** The migration described here is complete; see `docs/archive/TURBOREPO_MIGRATION.md` for the record of what changed, and `docs/guides/MONOREPO_GUIDE.md` for day-to-day usage of the resulting workspace.
+
 A step-by-step guide for migrating the Crawl project to a Turborepo-managed monorepo. This document explains what Turborepo does, why it's the right tool here, and exactly how to execute the migration.
 
 ---

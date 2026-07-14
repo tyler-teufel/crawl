@@ -1,133 +1,112 @@
 # Crawl
 
-A nightlife and bar discovery app that lets users explore venues on a map, view hotspot scores, and vote daily for the hottest spots in their city. Built with Expo and React Native, featuring a dark-themed, purple-accented UI designed for nightlife use.
+A nightlife and bar discovery app that lets users explore venues on a map, view hotspot scores, and vote daily for the hottest spots in their city. Built as a Turborepo monorepo: an Expo React Native app (`apps/mobile`) backed by a Fastify/Drizzle API (`apps/api`), with Supabase for Postgres + PostGIS + Auth.
 
-**Status:** Frontend shell complete with TanStack Query data layer (mock data) — no backend yet.
+**Status:** v1.1.0. Mobile app has onboarding (location + Apple/Google/anonymous auth via Supabase), map/voting/venue-detail screens wired to the live API. Backend has venues, votes, trending, and auth endpoints running against a real seeded database (Charlotte, NC and Patchogue/Sayville, NY).
+
+## Monorepo Structure
+
+```
+crawl/
+├── apps/
+│   ├── mobile/            Expo React Native app (SDK 54, expo-router)
+│   └── api/                Fastify API server (Drizzle ORM, Supabase Postgres)
+├── packages/
+│   ├── shared-types/       Zod schemas + types shared between mobile and API
+│   └── eslint-config/       Shared ESLint config
+├── docs/                    Project documentation
+└── turbo.json                Turborepo pipeline config
+```
+
+See [`docs/guides/MONOREPO_GUIDE.md`](./docs/guides/MONOREPO_GUIDE.md) for day-to-day workspace commands.
 
 ## Current Features
 
-- **Explore tab** — Map view with search, filter chips, and a horizontal venue carousel
-- **Daily voting** — 3 votes per day with countdown timer to midnight reset
+- **Onboarding** — welcome splash, location permission, Apple/Google/anonymous sign-in via Supabase (anonymous users can later link a permanent identity)
+- **Explore tab** — Map view with search, filter chips, and a horizontal venue carousel, backed by live `GET /venues`
+- **Daily voting** — 3 votes per day with countdown timer to midnight reset, backed by `/votes` endpoints
 - **Venue detail** — Animated hotspot score ring, highlights, vote CTA
-- **Filters modal** — Transparent overlay with toggle switches
+- **Filters modal** — Transparent overlay with toggle switches, applied server-side
 - **Global Rankings & Profile** — Placeholder screens
-
-8 mock venues in Austin, TX are included for development.
 
 ## Tech Stack
 
-| Layer             | Technology                                     |
-| ----------------- | ---------------------------------------------- |
-| Framework         | Expo SDK 54                                    |
-| UI                | React Native 0.81.5, React 19                  |
-| Routing           | expo-router v6 (file-based)                    |
-| Styling           | NativeWind (Tailwind CSS for RN)               |
-| Data              | TanStack Query v5 (mock data, API-ready hooks) |
-| Animations        | react-native-reanimated                        |
-| Component Library | React Native Reusables                         |
-| Language          | TypeScript (strict mode)                       |
+| Layer                | Technology                                                     |
+| --------------------- | ---------------------------------------------------------------- |
+| Mobile framework      | Expo SDK 54, React Native 0.81.5, React 19                      |
+| Routing               | expo-router v6 (file-based)                                      |
+| Styling               | NativeWind (Tailwind CSS for RN)                                  |
+| Mobile data           | TanStack Query v5 against the live API                           |
+| Auth                  | Supabase Auth (anonymous bootstrap + Apple/Google linking)        |
+| API server            | Fastify 5 + `fastify-type-provider-zod`                          |
+| ORM / DB              | Drizzle ORM, Postgres + PostGIS (Supabase-hosted)                 |
+| Shared types          | Zod schemas in `packages/shared-types`                            |
+| Monorepo tooling      | Turborepo, npm workspaces, Changesets                             |
+| Error/perf monitoring | Sentry (mobile + API)                                             |
+| Language              | TypeScript (strict mode)                                          |
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install all workspace dependencies
 npm install
 
-# Start Expo dev server
-npm start
+# Run mobile + API together
+turbo dev --parallel
 
-# Or target a specific platform
-npm run ios
-npm run android
-npm run web
+# Or target one app
+turbo dev --filter=mobile
+turbo dev --filter=api
 
-# Lint + format check
-npm run lint
-
-# Auto-fix lint and formatting
-npm run format
-
-# TypeScript type check
-npm run typecheck
-
-# Native build prep
-npm run prebuild
+# Lint / typecheck / test everything
+turbo lint
+turbo typecheck
+turbo test
 ```
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js (see `.nvmrc` / `.node-version`)
 - [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npx expo`)
 - iOS Simulator (macOS) or Android Emulator, or Expo Go on a physical device
+- A Supabase project (for real data/auth) — the mobile app and API both fall back to mock/in-memory data without one
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+Each app has its own `.env` — copy from the checked-in examples:
 
-```
-GOOGLE_MAPS_API_KEY_IOS=your_key_here
-GOOGLE_MAPS_API_KEY_ANDROID=your_key_here
-EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
-```
-
-`EXPO_PUBLIC_API_URL` is optional — the API client defaults to `http://localhost:3000/api/v1` when unset. No backend is required to run the app; all data is currently mocked.
-
-## Project Structure
-
-```
-app/                  Screens and navigation (expo-router file-based routing)
-components/           Presentational components (ui/, map/, venue/, voting/, layout/)
-src/
-  api/                TanStack Query hooks and API client
-  context/            React Context (filters, search, city selection)
-  data/               Mock data (venues, filters)
-  types/              TypeScript type definitions
-  hooks/              Custom hooks
-  lib/                Utilities (cn(), theme)
-  constants/          App constants
-docs/                 Project documentation
-assets/               Static images
+```bash
+cp apps/mobile/.env.example apps/mobile/.env
+cp apps/api/.env.example apps/api/.env
 ```
 
-## Data Layer
+- `apps/mobile/.env.example` documents `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`/`KEY`, Google Sign-In client IDs, and Sentry config.
+- `apps/api/.env.example` documents `DATABASE_URL`/`DIRECT_URL` (Supabase Postgres), `USE_REAL_DB`, JWT secrets, and `GOOGLE_PLACES_API_KEY` (venue ingest).
 
-The app uses TanStack Query with a query hook layer (`src/api/`) that currently returns mock data. The hooks are designed for a seamless swap to a real backend — only the `queryFn` implementations need to change.
+Run `npm run verify:env` inside `apps/mobile` to check your env matrix against a given mode (`mock` / `supabase` / `api`).
 
-| Hook                       | Purpose                  |
-| -------------------------- | ------------------------ |
-| `useVenues(city, filters)` | Venue list for a city    |
-| `useVenue(id)`             | Single venue detail      |
-| `useVoteState()`           | User's daily vote state  |
-| `useCastVote()`            | Cast a vote (mutation)   |
-| `useRemoveVote()`          | Remove a vote (mutation) |
+## Backend API
 
-## Roadmap
+The API is live under `apps/api` — see [`docs/architecture/API_REFERENCE.md`](./docs/architecture/API_REFERENCE.md) for the full endpoint reference (venues, votes, trending, auth) and [`docs/architecture/ARCHITECTURE.md`](./docs/architecture/ARCHITECTURE.md) for the backend architecture diagram.
 
-**Near term:**
-
-- Replace map placeholder with `react-native-maps`
-- Auth screens (login, register) with JWT + `expo-secure-store`
-- Build backend API (Node/Express, PostgreSQL + Redis)
-- Wire query hooks to live API endpoints
-- Test suite (Jest + React Native Testing Library)
-
-**Medium term:**
-
-- Real-time vote updates via WebSocket
-- Social features (friends, group crawls)
-- Venue check-in with GPS verification
-- Bar crawl route planning
-
-See [`docs/ROADMAP.md`](./docs/planning/ROADMAP.md) for the full roadmap.
+```bash
+cd apps/api
+npm run dev            # hot-reload dev server
+npm run db:migrate     # apply Drizzle migrations (requires DATABASE_URL)
+npm run db:seed        # seed venues
+npm run sync:venues    # pull venues from Google Places
+npm run test
+```
 
 ## Documentation
 
-Detailed docs live in the `docs/` directory:
+Detailed docs live in `docs/` (see [`docs/README.md`](./docs/README.md) for the full index):
 
 - [Project Overview](./docs/architecture/PROJECT_OVERVIEW.md)
 - [Architecture](./docs/architecture/ARCHITECTURE.md)
 - [File Reference](./docs/architecture/FILE_REFERENCE.md)
 - [Design Decisions](./docs/architecture/DESIGN_DECISIONS.md)
-- [Data Pipeline](./docs/planning/DATA_PIPELINE.md)
+- [API Reference](./docs/architecture/API_REFERENCE.md)
+- [Roadmap](./docs/planning/ROADMAP.md)
 - [CI/CD Pipeline](./docs/ops/CICD_PIPELINE.md)
 - [Contributing](./docs/guides/CONTRIBUTING.md)

@@ -3,7 +3,7 @@
 Complete reference for the Crawl REST API (`apps/api`).
 
 **Base URL (local):** `http://localhost:3000/api/v1`
-**Base URL (production):** `https://api.crawlapp.com/api/v1` _(TBD — set when hosting is configured)_
+**Base URL (staging/production):** `https://<your-railway-app>.up.railway.app/api/v1` — see [`docs/ops/RAILWAY_SETUP.md`](../ops/RAILWAY_SETUP.md)
 
 ---
 
@@ -15,7 +15,10 @@ Protected endpoints require a JWT `Bearer` token in the `Authorization` header:
 Authorization: Bearer <accessToken>
 ```
 
-Tokens are obtained via `POST /auth/login` or `POST /auth/register`. Access tokens expire after **15 minutes**. Use `POST /auth/refresh` to rotate the token pair.
+The API runs in one of two auth modes, selected by `USE_REAL_DB` (see [Design Decisions](./DESIGN_DECISIONS.md)):
+
+- **Local dev** (`USE_REAL_DB` unset) — tokens come from `POST /auth/login` or `POST /auth/register` below. Access tokens expire after **15 minutes**; use `POST /auth/refresh` to rotate the pair.
+- **`USE_REAL_DB=true`** — the API verifies Supabase-issued tokens via JWKS instead; the mobile app obtains these through Supabase Auth (anonymous bootstrap + Apple/Google linking), not through the `/auth/*` routes below. Authenticated users are auto-upserted into the local `users` table on first request.
 
 ---
 

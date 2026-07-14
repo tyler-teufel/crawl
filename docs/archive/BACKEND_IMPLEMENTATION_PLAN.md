@@ -1,5 +1,7 @@
 # Backend Implementation Plan
 
+> **Archived 2026-07-14 — executed.** `apps/api` now runs the Fastify/Drizzle backend this plan proposed (routes, services, repositories, auth, jobs). See `docs/architecture/API_REFERENCE.md` and `docs/architecture/ARCHITECTURE.md` for the current state, and `docs/architecture/DESIGN_DECISIONS.md` for the technology choices made along the way.
+
 A comprehensive plan for building Crawl's backend API and making the project production-ready. Each phase is independently deployable. Research areas are called out before each section so you can make informed decisions before writing code.
 
 ---

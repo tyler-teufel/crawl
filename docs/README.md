@@ -1,7 +1,7 @@
 # Crawl App — Documentation
 
-**Version:** 1.0.0 (staging build 13)
-**Last Updated:** 2026-07-08
+**Version:** 1.1.0
+**Last Updated:** 2026-07-14
 
 Docs are grouped by intent. Pick the folder that matches what you're trying to do.
 
@@ -22,7 +22,7 @@ How the system works today. Read these to orient.
 | [Architecture](./architecture/ARCHITECTURE.md)            | Project structure, state management, navigation, styling pipeline, and diagrams |
 | [File Reference](./architecture/FILE_REFERENCE.md)        | Every file in the project with detailed descriptions of purpose and behavior    |
 | [Design Decisions](./architecture/DESIGN_DECISIONS.md)    | Rationale behind every major technical choice                                   |
-| [API Client Layer](./architecture/API_CLIENT.md)          | TypeScript API client architecture, data flow, environment config               |
+| [API Client Layer](./architecture/API_CLIENT.md)          | Mobile API client architecture, mock/live data flow, environment config         |
 | [API Reference](./architecture/API_REFERENCE.md)          | All endpoints, request/response shapes, auth, error codes, and Postman usage    |
 
 ## Guides
@@ -46,11 +46,6 @@ Forward-looking — what we're building next.
 | [Roadmap](./planning/ROADMAP.md)                                      | Prioritized next steps across v1.1, v1.2, and v2.0                           |
 | [Sprint Plan — July 2026](./planning/SPRINT_PLAN_2026-07.md)          | Active root-caused backlog: bugs, polish, and screens scoped to semver releases |
 | [Crawl v2 Proposal](./planning/CRAWL_V2_PROPOSAL.md)                  | Living v2 foundation: brand overhaul, discovery-first IA, milestone ladder M1–M10; design assets in `docs/design/` |
-| [Backend Implementation Plan](./planning/BACKEND_IMPLEMENTATION_PLAN.md) | Phased plan for building the full backend                                 |
-| [Data Pipeline](./planning/DATA_PIPELINE.md)                          | Venue ingest architecture; stays here until first cities are fully seeded    |
-| [Dev / Staging Plan](./planning/DEV_STAGING_PLAN.md)                  | Environment strategy for dev/staging/prod                                    |
-| [Turborepo Monorepo Plan](./planning/TURBOREPO_MONOREPO_PLAN.md)      | Target monorepo shape and in-flight work                                     |
-| [Day-1 Cost Estimate](./planning/COST_ESTIMATE_DAY_1.md)              | Expected infra + API spend at launch                                         |
 
 ## Ops
 
@@ -81,3 +76,8 @@ Frozen historical — kept for reference, no longer maintained.
 | --------------------------------------------------------- | ------------------------------------------------------------------- |
 | [Version 1.0 Document](./archive/VERSION_1.0_DOCUMENT.md) | Original consolidated version document                              |
 | [Turborepo Migration](./archive/TURBOREPO_MIGRATION.md)   | Historical record of the monorepo migration (completed)             |
+| [Turborepo Monorepo Plan](./archive/TURBOREPO_MONOREPO_PLAN.md)         | Original migration plan (executed — see Turborepo Migration above)        |
+| [Backend Implementation Plan](./archive/BACKEND_IMPLEMENTATION_PLAN.md) | Phased backend plan (executed — see `apps/api` + API Reference)           |
+| [Data Pipeline](./archive/DATA_PIPELINE.md)                             | Venue ingest architecture plan (executed — venues seeded via `syncVenues`) |
+| [Dev / Staging Plan](./archive/DEV_STAGING_PLAN.md)                     | Dev/staging/prod environment plan (executed — mobile-API-Supabase is live) |
+| [Day-1 Cost Estimate](./archive/COST_ESTIMATE_DAY_1.md)                 | Original infra cost estimate (superseded by the Railway deploy decision)  |

@@ -86,23 +86,22 @@ npm run test         # Run Vitest suite
 
 ## Monorepo Structure
 
-This project is in-progress migration to a **Turborepo monorepo**. The target structure:
+This project is a **Turborepo monorepo**. The migration is complete — all app source lives under `apps/`:
 
 ```
 crawl/
 ├── apps/
-│   ├── mobile/          → Expo React Native app (primary screen code + config)
-│   └── api/             → Backend API server (to be scaffolded)
+│   ├── mobile/          → Expo React Native app (screens, components, src/)
+│   └── api/             → Fastify API server (routes, services, repositories, jobs)
 ├── packages/
-│   └── shared-types/    → TypeScript types shared between mobile and API
+│   ├── shared-types/    → Zod schemas + TypeScript types shared between mobile and API
+│   └── eslint-config/   → Shared ESLint config
 ├── docs/                → Project-wide documentation
 ├── turbo.json           → Turborepo pipeline config
 └── package.json         → Root workspace manifest
 ```
 
-**Current migration state**: Config files for the mobile app have been moved to `apps/mobile/` (`babel.config.js`, `metro.config.js`, `tailwind.config.js`, `tsconfig.json`, etc.). The main app source (`app/`, `components/`, `src/`) still lives at the repo root until the migration is complete.
-
-**`packages/shared-types`** — Once created, shared types (Venue, Vote, User, API request/response shapes) should live here and be imported by both `apps/mobile` and `apps/api`.
+**`packages/shared-types`** — Shared types (Venue, Vote, User, API request/response shapes) live here and are imported by both `apps/mobile` and `apps/api`.
 
 ## Mobile App (apps/mobile)
 
@@ -111,14 +110,19 @@ This is an **Expo React Native** app (SDK 54) using **file-based routing** via `
 ### Navigation Structure
 
 ```
-app/_layout.tsx         → Root Stack (ThemeProvider + VenueProvider + PortalHost)
-app/(tabs)/_layout.tsx  → Tab navigator with custom TabBar
-app/(tabs)/index.tsx    → Explore screen (map + search + venue carousel)
-app/(tabs)/voting.tsx   → Daily voting screen (countdown + ranked list)
-app/(tabs)/global.tsx   → Global Rankings (placeholder)
-app/(tabs)/profile.tsx  → Profile (placeholder)
-app/venue/[id].tsx      → Venue detail (push navigation)
-app/filters.tsx         → Filter modal (transparentModal presentation)
+app/_layout.tsx              → Root Stack (ThemeProvider + AuthProvider + VenueProvider
+                                + PortalHost + OnboardingGate)
+app/(onboarding)/_layout.tsx → First-launch Stack, gated by AsyncStorage flag
+app/(onboarding)/index.tsx   → Welcome / brand splash
+app/(onboarding)/location.tsx→ Foreground location prompt (skippable)
+app/(onboarding)/auth.tsx    → Apple / Google / anonymous sign-in via Supabase
+app/(tabs)/_layout.tsx       → Tab navigator with custom TabBar
+app/(tabs)/index.tsx         → Explore screen (map + search + venue carousel)
+app/(tabs)/voting.tsx        → Daily voting screen (countdown + ranked list)
+app/(tabs)/global.tsx        → Global Rankings (placeholder)
+app/(tabs)/profile.tsx       → Profile (placeholder)
+app/venue/[id].tsx           → Venue detail (push navigation)
+app/filters.tsx               → Filter modal (transparentModal presentation)
 ```
 
 ### Directory Layout
@@ -150,9 +154,9 @@ Tailwind content paths: `app/**`, `components/**`, `src/**`, `node_modules/@rnr/
 
 ### State Management
 
-A single `VenueContext` (React Context) at the root layout level manages filters, search, votes, and derived `filteredVenues`. All screens and modals share this context.
+Two providers stack at the root layout level: `AuthProvider` (Supabase auth — anonymous bootstrap, Apple/Google linking, `userLocation`) sits above `VenueProvider` (filters, search, city selection, votes, derived `filteredVenues`). All screens and modals share both contexts. Onboarding-completion is tracked separately in AsyncStorage (`src/lib/onboarding.ts`), read by an `OnboardingGate` in `app/_layout.tsx` that redirects to `(onboarding)` until the flag is set.
 
-**Data fetching** uses **TanStack Query** (`src/api/`). Query hooks (`useVenues`, `useVoteState`, `useCastVote`, etc.) currently return mock data — the `queryFn` implementations will be swapped to call the real API when `apps/api` is live. The API client (`src/api/client.ts`) reads from `EXPO_PUBLIC_API_URL`.
+**Data fetching** uses **TanStack Query** (`src/api/`). Query hooks (`useVenues`, `useVoteState`, `useCastVote`, etc.) call the live API — the API client (`src/api/client.ts`) reads from `EXPO_PUBLIC_API_URL` and attaches the Supabase access token via `setAuthToken()`.
 
 ### Key Dependencies
 
@@ -177,21 +181,21 @@ The app forces dark mode on mount via `useColorScheme` + `setColorScheme('dark')
 
 ## Backend (apps/api)
 
-The API is being built as a Node.js/TypeScript server in `apps/api/`. See `docs/planning/BACKEND_IMPLEMENTATION_PLAN.md` for the full phased plan. Key points:
+The API is a running Fastify/TypeScript server in `apps/api/`, backed by Postgres+PostGIS on Supabase. See `docs/architecture/API_REFERENCE.md` for the full endpoint reference.
 
 ### Route Structure
 
 ```
+GET    /api/v1/health              Health check (DB connectivity + memory)
 GET    /api/v1/venues              List venues (city, lat, lng, radius, filters, q, page, limit)
 GET    /api/v1/venues/:id          Single venue detail
-GET    /api/v1/votes               User's vote state (auth required)
-POST   /api/v1/votes               Cast a vote (auth required)
-DELETE /api/v1/votes/:venueId      Remove a vote (auth required)
 GET    /api/v1/trending/:city      Ranked venues for a city
-POST   /api/v1/auth/register       Create account
-POST   /api/v1/auth/login          Authenticate
+GET    /api/v1/votes               User's vote state (auth required)
+POST   /api/v1/votes               Cast a vote (auth required, max 3/day)
+DELETE /api/v1/votes/:venueId      Remove a vote (auth required)
+POST   /api/v1/auth/register       Create account (local dev JWT mode)
+POST   /api/v1/auth/login          Authenticate (local dev JWT mode)
 POST   /api/v1/auth/refresh        Refresh JWT
-GET    /api/v1/health              Health check (DB + Redis connectivity)
 ```
 
 ### Architecture Pattern
@@ -199,27 +203,24 @@ GET    /api/v1/health              Health check (DB + Redis connectivity)
 ```
 Route handler (HTTP layer)
     └── Service (business logic — independently testable)
-            └── Repository (DB queries — one per entity)
+            └── Repository (in-memory or Drizzle, behind a shared interface;
+                             selected via USE_REAL_DB)
 ```
 
 ### Key Technology Decisions
 
-- **Framework**: Fastify with `fastify-type-provider-zod`
-- **Database**: Postgres with PostGIS; hosting TBD (Supabase / Neon / Railway)
-- **ORM**: Drizzle ORM (`drizzle-kit` for migrations)
-- **Auth**: Custom JWT (`@fastify/jwt`, access + refresh tokens)
+- **Framework**: Fastify 5 with `fastify-type-provider-zod`
+- **Database**: Postgres + PostGIS, hosted on Supabase
+- **ORM**: Drizzle ORM (`drizzle-kit` for migrations); repositories have both an in-memory implementation (default, `USE_REAL_DB` unset) and a Drizzle implementation (`USE_REAL_DB=true`)
+- **Auth**: Hybrid JWT — local dev signs/verifies its own HS256 tokens (`@fastify/jwt`, access + refresh); when `USE_REAL_DB=true` the API verifies Supabase-issued tokens via JWKS instead
+- **Scheduled jobs**: `node-cron`, in-process — daily vote reset (00:00 UTC), hourly hotspot score recalculation
 - **Validation**: Zod (shared with mobile app via `packages/shared-types`)
 - **Testing**: Vitest
+- **Deployment target**: Railway (see `docs/ops/RAILWAY_SETUP.md`); Dockerfile builds a production image
 
 ### Environment Variables
 
-```
-DATABASE_URL          Postgres connection string
-REDIS_URL             Redis connection string (if used)
-JWT_SECRET            Access token signing secret
-JWT_REFRESH_SECRET    Refresh token signing secret
-CORS_ORIGIN           Allowed CORS origins
-```
+See `apps/api/.env.example` for the authoritative list. Key vars: `DATABASE_URL`/`DIRECT_URL` (Supabase Postgres), `USE_REAL_DB`, `SUPABASE_URL`/`SUPABASE_JWT_SECRET`, `JWT_SECRET`/`JWT_REFRESH_SECRET` (local dev mode), `CORS_ORIGIN`, `GOOGLE_PLACES_API_KEY` (venue ingest).
 
 ## Documentation
 
@@ -236,13 +237,13 @@ Update documentation alongside code changes in these situations:
 | New screen or route            | `ARCHITECTURE.md` (navigation tree, diagrams), `FILE_REFERENCE.md`, `PROJECT_OVERVIEW.md` |
 | New component                  | `FILE_REFERENCE.md` (components section), `ARCHITECTURE.md` (dependency graph)            |
 | New file in `src/`             | `FILE_REFERENCE.md` (shared logic section)                                                |
-| New API endpoint               | `BACKEND_IMPLEMENTATION_PLAN.md`, `FILE_REFERENCE.md`, `DATA_PIPELINE.md`                 |
+| New API endpoint               | `API_REFERENCE.md`, `FILE_REFERENCE.md`                                                   |
 | New dependency added           | `PROJECT_OVERVIEW.md` (tech stack), `DESIGN_DECISIONS.md` if a choice was made            |
 | Theme/color changes            | `REACT_NATIVE_REUSABLES.md` (color mapping table), `ARCHITECTURE.md` (styling pipeline)   |
 | State management changes       | `ARCHITECTURE.md` (state tree)                                                            |
 | Config file changes            | `FILE_REFERENCE.md` (config section)                                                      |
 | Major architectural decision   | `DESIGN_DECISIONS.md` (new section explaining what, why, trade-offs)                      |
-| Backend technology chosen      | `DESIGN_DECISIONS.md` + resolve pending items in `BACKEND_IMPLEMENTATION_PLAN.md`         |
+| Backend technology chosen      | `DESIGN_DECISIONS.md` (what/alternatives/why/trade-offs)                                  |
 | Feature completed from roadmap | `ROADMAP.md` (move to done), `PROJECT_OVERVIEW.md` (update status)                        |
 | New conventions established    | `CONTRIBUTING.md`                                                                         |
 
@@ -298,11 +299,8 @@ docs/
 │   └── MAPS_INTEGRATION.md
 ├── planning/                  # Forward-looking plans
 │   ├── ROADMAP.md
-│   ├── BACKEND_IMPLEMENTATION_PLAN.md
-│   ├── DATA_PIPELINE.md
-│   ├── DEV_STAGING_PLAN.md
-│   ├── TURBOREPO_MONOREPO_PLAN.md
-│   └── COST_ESTIMATE_DAY_1.md
+│   ├── SPRINT_PLAN_2026-07.md
+│   └── CRAWL_V2_PROPOSAL.md
 ├── ops/                       # Deploy and infra runbooks
 │   ├── CICD_PIPELINE.md
 │   └── RAILWAY_SETUP.md
@@ -313,7 +311,12 @@ docs/
 │   └── backend-research-tracker.csv
 └── archive/                   # Frozen historical (not maintained)
     ├── VERSION_1.0_DOCUMENT.md
-    └── TURBOREPO_MIGRATION.md
+    ├── TURBOREPO_MIGRATION.md
+    ├── TURBOREPO_MONOREPO_PLAN.md
+    ├── BACKEND_IMPLEMENTATION_PLAN.md
+    ├── DATA_PIPELINE.md
+    ├── DEV_STAGING_PLAN.md
+    └── COST_ESTIMATE_DAY_1.md
 ```
 
 ### The `/docs` Skill
