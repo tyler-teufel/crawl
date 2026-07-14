@@ -1,6 +1,6 @@
 # Agent Team — Charter & Orchestration Guide
 
-**Status:** Active (waves 1–2, backend + devops added) · **Last updated:** 2026-07-13
+**Status:** Active (waves 1–2, backend + devops added, guardrail hooks landed) · **Last updated:** 2026-07-14
 
 The Crawl agent team is a set of specialized Claude Code subagents (`.claude/agents/*.md`) coordinated by a scrum-master skill (`/scrum`, defined in `.claude/skills/scrum/SKILL.md`). The scrum master runs standup over the sprint plan and GitHub Issues, assigns tickets to workers, dispatches them, and verifies results before anything is reported done.
 
@@ -108,6 +108,8 @@ Typical bug-ticket lifecycle (e.g. #45, vote reset):
 | Worker edited files outside its scope | Its config forbids this — reject the result, re-dispatch with the boundary restated, and tighten the config if it recurs. |
 | Two parallel workers clobbered each other | Dispatch parallel implementation agents with worktree isolation (the scrum skill specifies this). |
 | Worker "completed" but criteria unmet | Expected occasionally — this is exactly why the qa-engineer verification step is mandatory before reporting done. |
+| Agent seems confused about which branch/worktree it's in | `session-start.sh` (`SessionStart` hook, `.claude/hooks/session-start.sh`) should have printed branch/worktree/last-commit at session start — check it ran; if not, the session predates the hook (restart) or `.claude/settings.json` wasn't loaded. |
+| A worker's Bash call was unexpectedly blocked | `pre-commit-guard.sh` (`PreToolUse` hook matching `Bash`, `.claude/hooks/pre-commit-guard.sh`) denies `git push --force`/`-f`, `git reset --hard`, `rm -rf` outside a safe-path allowlist, and `drizzle-kit push` against a non-local database. If the command is genuinely intended, re-run it with a `GUARDRAIL_APPROVE=1` prefix after human review. |
 
 ## Expansion criteria (wave 2 and beyond)
 
@@ -116,4 +118,4 @@ Add a role only when there's recurring work it would own **now** (the directory 
 - ✅ **Backend work resumes** (Mode B/C from the stabilization plan) → `backend-engineer` (Fastify/Drizzle, `apps/api/**` + `packages/shared-types/**`). **Landed 2026-07-13** — owns the backend cleanup line (#75/#76/#77) and the coordinated Zod 4 migration (#89) + dependabot version bumps.
 - ✅ **CI/EAS/Railway changes become frequent** → `devops-engineer`. **Landed 2026-07-13** — owns the workflow audit (#84) and release tagging/packaging work.
 - ⬜ **Auth surface or input-validation changes** → `security-reviewer` pass alongside code-reviewer. Still deferred; evaluate when an auth-touching ticket lands.
-- Guardrail hooks (`session-start.sh`, `pre-commit-guard.sh`) are tracked separately — see the Epic E issues in the sprint plan.
+- ✅ **Guardrail hooks** (`session-start.sh`, `pre-commit-guard.sh`) — **Landed 2026-07-14** (#54). See the Troubleshooting table above and [FILE_REFERENCE.md](../architecture/FILE_REFERENCE.md) for what each hook does.

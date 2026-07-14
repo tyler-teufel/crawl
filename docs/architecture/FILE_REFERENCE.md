@@ -466,6 +466,14 @@ One config per specialized subagent, dispatched by the `/scrum` skill (see [Agen
 
 The scrum-master orchestration skill (`/scrum`). Runs standup over `docs/planning/SPRINT_PLAN_2026-07.md` + GitHub Issues, triages and assigns tickets to the worker agents above, dispatches them with self-contained briefs on the correct release-branch topology, verifies results through qa-engineer/code-reviewer before reporting done, and handles issue/changeset bookkeeping. Orchestration lives here (main session) because subagents cannot spawn subagents — see [Design Decisions](./DESIGN_DECISIONS.md#agent-team-orchestration-skill-orchestrator-over-nested-agents).
 
+### `.claude/hooks/session-start.sh`
+
+`SessionStart` hook (wired in `.claude/settings.json`). Prints `git branch --show-current`, the worktree path (`git rev-parse --show-toplevel`), and the last commit as both a `systemMessage` (visible in transcript) and `hookSpecificOutput.additionalContext` (fed into the model's context), so an agent — especially a worker running in a parallel, worktree-isolated dispatch — always starts oriented instead of guessing its branch. Directly implements the guardrail the root `CLAUDE.md`'s Git Workflow section calls for.
+
+### `.claude/hooks/pre-commit-guard.sh`
+
+`PreToolUse` hook matching the `Bash` tool (wired in `.claude/settings.json`). Inspects `tool_input.command` and denies (exit 2 + stderr reason, per the PreToolUse blocking contract) four classes of destructive commands: `git push --force`/`-f`, `git reset --hard`, `rm -rf`/`-fr` outside a small allowlist of known-safe paths (`node_modules`, `dist`, `build`, `.turbo`, `.next`, `.cache`, `coverage`, `/tmp`, `scratchpad`), and `drizzle-kit push` where the command references a non-local database (an inline non-localhost connection string, or a host/keyword like `supabase.co`, `railway.app`, `production`, `staging`). Deliberately does **not** block `git push --force-with-lease` (the safer, remote-aware alternative). A single command can bypass the checks by prefixing it with `GUARDRAIL_APPROVE=1` — an explicit, reviewable escape hatch, not a blanket allowlist.
+
 ### `.github/workflows/ci.yml`
 
 PR + push-to-main validation. Single `validate` job runs `turbo run lint typecheck test` with `--filter=...[origin/<base>]` on PRs (Turbo affected detection) and unfiltered on `main`. Caches `node_modules` and `.turbo`. Uploads `apps/api/coverage/` if produced. Parallel `fingerprint` job emits the Expo native-deps hash for OTA eligibility. See [CI/CD Pipeline](../ops/CICD_PIPELINE.md).
