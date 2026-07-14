@@ -16,7 +16,7 @@ export const refreshBody = z.object({
 });
 
 export const userSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   email: z.string().email(),
   displayName: z.string().nullable(),
   city: z.string(),
