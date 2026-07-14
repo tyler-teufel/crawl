@@ -78,6 +78,18 @@ These are the concrete "cleanup and refinement" items, not hypotheticals:
 - **Mode C — Full API (Railway/host):** the Fastify API serves live data from
   Supabase Postgres.
 
+> **Host status (2026-07):** the Railway deployment of the API is **currently
+> paused** — the free trial ended and the paid subscription was not activated. So
+> Mode C has no live host right now. This does **not** block populating data (the
+> sync writes straight to Supabase; see the note below), but it does mean the
+> app's live read path needs a host decision before heavy testing. See
+> **Decision D1** for the host options and recommendation.
+
+> **Data population is host-independent.** The sync (`syncCity()`) writes directly
+> to Supabase Postgres via `DATABASE_URL` — it never calls the Fastify API. Multi-
+> city live data can be gathered and stored **regardless of Railway's status**, so
+> Phases 1–3 can proceed while the host question is still open.
+
 ---
 
 ## 2. Target Architecture
@@ -170,7 +182,7 @@ work can proceed without constant check-ins.
 
 ### Phase 0 — Decisions & prerequisites
 
-- **[Decide]** Live-read mode: **Mode C (Fastify API)** vs **Mode B (Supabase-direct)** — see Decision D1. *Recommend Mode C* (the API already serves everything; Mode B needs new RLS + a client rewrite).
+- **[Decide]** Live-read path — **where the API is hosted** now that Railway is paused: reactivate Railway, move to a free/cheaper host (Render/Fly), run the API locally against Supabase for solo testing, or drop the host entirely and build Mode B (Supabase-direct). See Decision D1. *Recommend: local API for solo E2E now; reactivate Railway (or Render/Fly) when remote testers need an endpoint; defer Mode B.*
 - **[Decide]** Cloud target for the sync (Section 3 recommendation: GH Actions now).
 - **[Decide]** The initial **city list** (names + state codes + radius). Section 6.
 - **[You]** Supabase project exists, PostGIS enabled, `DATABASE_URL`/`DIRECT_URL` in hand.
@@ -248,8 +260,11 @@ failures are visible; a manual dry-run is one click.
 
 The "cleaned up and refined … ready for heavy testing" ask, concretely:
 
-1. **Deploy Mode C to a staging environment** (Railway or chosen host) pointed at
-   a **staging Supabase** populated by the sync — never test against prod data.
+1. **Stand up the API read path** (per Decision D1) pointed at a **staging
+   Supabase** populated by the sync — never test against prod data. Railway is
+   currently paused, so this means reactivating Railway, deploying to a
+   free/cheaper host (Render/Fly), or — for solo E2E — running the API locally
+   (tunnel via ngrok/cloudflared if other devices need to reach it).
 2. **Health + readiness:** confirm `/health` checks DB (and Redis if enabled);
    use it as the deploy gate.
 3. **Rate limiting** on `votes` and `auth` (Phase 8 of the backend plan) so load
@@ -338,12 +353,33 @@ Places API cost — larger radius = more searchText pages = more cost.
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| **D1** | Live-read mode: Mode C (API) vs Mode B (Supabase-direct) | **Mode C** — API already serves everything; Mode B needs new RLS + client rewrite |
+| **D1** | Where the app's live read path runs, now that Railway is paused (see D1 detail below) | Local API for solo E2E now; reactivate Railway **or** Render/Fly when remote testers need an endpoint; defer Mode B |
 | **D2** | Venue photos: store resolved URL at sync time vs store photo `name` + resolve on read | Store `name`, resolve on demand (avoids embedding key, cheaper, always fresh) |
 | **D3** | Does heavy testing include authenticated vote flows now? | Cover unauth read flows first; add authed votes once auth UI exists |
 | **D4** | Cloud target: GH Actions now, Lambda vs Railway cron later | GH Actions now; Lambda (one city/invocation) or Railway cron later |
 | **D5** | Initial city list + radii | Section 6 — confirm before Phase 3 |
 | **D6** | `description`/`highlights` source | Derive from Places fields; if weak, defer and document |
+
+### D1 detail — API host options (Railway paused)
+
+The Fastify API is the app's only live read path today (`venues.ts` reads through
+the API, not Supabase). With Railway paused, choose where it runs. Note the
+in-process crons (vote reset, hourly score recalc) run wherever the API runs — so
+options that drop the API host need a new home for them.
+
+| Option | Recurring cost | Effort | Best for |
+| --- | --- | --- | --- |
+| **1. Reactivate Railway** (Mode C as planned) | ~$5/mo + usage | ~zero | Fastest path to a working remote endpoint for testers |
+| **2. Move to a free/cheaper host** (Render, Fly.io, Koyeb) | $0–low | Low–med — `apps/api/Dockerfile` exists; set env + repoint `EXPO_PUBLIC_API_URL` | Keeping the built API without Railway's bill (Render free sleeps → cold starts; Fly avoids this better) |
+| **3. Run the API locally against Supabase** | $0 | ~zero | Solo/dev E2E now; tunnel (ngrok/cloudflared) if other devices must reach it |
+| **4. Build Mode B — Supabase-direct reads** | $0 | Med–high | Permanently removing the host tier — but needs new client read path, RLS (partial groundwork in `0002_rls_policies.sql`), and a new home for the crons/vote writes |
+| **5. Stay Mode A (mock)** while populating Supabase | $0 | ~zero | Continuing UI/TestFlight work now; flip to a live host later |
+
+**Recommendation:** populate Supabase now (host-independent), test solo via
+**Option 3**, and when remote testers need an endpoint pick **Option 1**
+(cheapest working remote API, likely less than the eng time for Mode B) or
+**Option 2**. Defer **Option 4 (Mode B)** unless permanently eliminating the host
+tier is a deliberate goal.
 
 ---
 
