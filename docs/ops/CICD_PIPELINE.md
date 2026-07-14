@@ -92,14 +92,40 @@ Crawl uses **independent semver per service** with **dispatch-gated releases**. 
 
 | File                                       | Trigger                          | Purpose                                                |
 | ------------------------------------------ | -------------------------------- | ------------------------------------------------------ |
-| `.github/workflows/ci.yml`                 | `pull_request`, `push → main`    | Lint, typecheck, test (Turbo affected detection)       |
+| `.github/workflows/ci.yml`                 | `pull_request`, `push → main`/`release**` (always runs; job-level path filter) | Lint, typecheck, test (Turbo affected detection)       |
 | `.github/workflows/security.yml`           | PR, push → main, weekly schedule | CodeQL + gitleaks + npm audit                          |
-| `.github/workflows/release-version.yml`    | `push → main`                    | Open / update Changesets "Version Packages" PR         |
+| `.github/workflows/release-version.yml`    | `push → main` (path-filtered)    | Open / update Changesets "Version Packages" PR         |
 | `.github/workflows/release-mobile.yml`     | `workflow_dispatch`              | OTA or binary release of `apps/mobile` via EAS         |
 | `.github/workflows/release-api.yml`        | `workflow_dispatch`              | Bump + tag + Railway deploy of `apps/api`              |
 | `.github/workflows/staging-build.yml`      | `push → main` (path-filtered)    | EAS staging build (iOS → TestFlight, Android → internal) |
 | `.github/workflows/sync-venues.yml`        | scheduled / manual               | Operational job — unrelated to releases                |
 | `.github/workflows/dependabot-auto.yml.txt`| (disabled — see commit b9c7d75)  | Held in `.txt` form; Dependabot is currently off       |
+
+---
+
+## Path-Filter Policy (docs / workflow-only changes)
+
+A push or PR that touches only `docs/**`, `wiki/**`, `**/*.md`, or (in most
+cases) `.github/**` cannot affect the shipped app. Three workflows care about
+that distinction, and each filters differently depending on whether it backs
+a *required* branch-protection status check:
+
+| Workflow                | Filter mechanism                                                                                                                                        | Why                                                                                                                                                                                     |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `staging-build.yml`      | `paths-ignore` on the trigger itself                                                                                                                     | Not a required PR status check — only fires on `push → main`, so a skipped run has no PR waiting on it. Safe to filter at the trigger level. (Predates this ticket — see commit `9d0196d`.) |
+| `release-version.yml`    | `paths-ignore` on the trigger itself                                                                                                                     | Same reasoning — it only opens/updates the Version PR after a push to `main`, and a docs-only push has no pending changeset to consume anyway.                                          |
+| `ci.yml`                 | **No trigger-level filter.** A `changes` job (`dorny/paths-filter`) always runs first. `validate` — the required status check — always runs too, but skips its `npm ci` / Turbo steps when `needs.changes.outputs.app != 'true'`. `mobile-bundle` and `fingerprint` (not required) skip entirely in that case. | `validate` is a required branch-protection check. If its trigger were path-filtered directly, a docs-only PR would produce no `validate` run at all, and GitHub reports a required check with no run as permanently pending — blocking the merge (see #84). Keeping the job present but making its work conditional avoids that failure mode while still skipping the expensive lint/typecheck/test/build work on pure docs or workflow-comment edits. |
+
+**Branch-protection implication:** if `mobile-bundle` or `fingerprint` are
+ever promoted to required status checks, their current "skip the whole job"
+shape would reproduce the same stuck-pending failure mode that `validate`
+avoids. Convert them to the same "always run, conditionally skip steps"
+shape first.
+
+This repo has no branch-protection-as-code, so the required-check list can
+only be confirmed/changed via GitHub Settings → Branches. This was not
+verified against live settings as part of this change — see the note in the
+Branch Protection section below.
 
 ---
 
@@ -245,9 +271,21 @@ The `production` environment is the second gate (the first being `workflow_dispa
 
 - Require pull request before merging
 - Require status checks: `validate` (CI) and the security checks
+  - `mobile-bundle` and `fingerprint` (also in `ci.yml`) are deliberately
+    **not** required — they're skipped entirely on docs/workflow-only diffs
+    (see Path-Filter Policy above). If they're ever made required, give them
+    the same "always run, conditionally skip steps" shape as `validate` first,
+    or they'll get stuck pending on docs-only PRs and block merges.
 - Require 1 approval (CODEOWNERS)
 - Dismiss stale approvals on new commits
 - No force pushes
+
+**Not verified live:** this repo has no branch-protection-as-code, so the
+above reflects the documented policy, not a live read of GitHub Settings →
+Branches. Confirm `validate`'s required-check status (and that `mobile-bundle`/
+`fingerprint` are *not* required) before relying on this path-filter change
+in production — see the Path-Filter Policy section for what breaks if that
+assumption is wrong.
 
 ---
 

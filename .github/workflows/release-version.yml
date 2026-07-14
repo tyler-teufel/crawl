@@ -11,9 +11,19 @@ name: Release — Version PR (Changesets)
 #
 # All Crawl packages are `private: true` so this workflow does NOT
 # publish to npm. The `publish` step is intentionally a no-op.
+#
+# Not a required PR status check (it only opens/updates a PR after a push
+# to main), so it's safe to path-filter directly: a docs/workflow-only push
+# has no pending changeset to consume anyway, so running changesets/action
+# would just be a no-op.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '.github/**'
+      - 'docs/**'
+      - 'wiki/**'
+      - '**/*.md'
 
 concurrency:
   group: changesets-version
