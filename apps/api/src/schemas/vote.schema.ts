@@ -3,16 +3,16 @@ import { z } from 'zod';
 export const voteStateSchema = z.object({
   remainingVotes: z.number().int().min(0),
   maxVotes: z.number().int().positive(),
-  votedVenueIds: z.array(z.string().uuid()),
+  votedVenueIds: z.array(z.string().guid()),
   resetAt: z.string().datetime(),
 });
 
 export const castVoteBody = z.object({
-  venueId: z.string().uuid(),
+  venueId: z.string().guid(),
 });
 
 export const removeVoteParams = z.object({
-  venueId: z.string().uuid(),
+  venueId: z.string().guid(),
 });
 
 export type VoteState = z.infer<typeof voteStateSchema>;

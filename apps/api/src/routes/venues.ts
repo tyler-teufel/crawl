@@ -55,7 +55,7 @@ export async function venueRoutes(
       schema: {
         tags: ['Venues'],
         summary: 'Get venue by ID',
-        params: z.object({ id: z.string().uuid() }),
+        params: z.object({ id: z.string().guid() }),
         response: {
           200: venueSchema,
           404: errorResponse,

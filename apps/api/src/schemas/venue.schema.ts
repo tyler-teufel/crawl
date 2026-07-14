@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { paginationQuery } from './common.schema.js';
 
 export const venueSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   name: z.string(),
   primaryType: z.string(),
   address: z.string(),
