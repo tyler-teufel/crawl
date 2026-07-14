@@ -36,21 +36,21 @@ import { paginationQuery } from './common.schema.js';
 // ── Resource shape ─────────────────────────────────────────────────
 
 export const highlightSchema = z.object({
-  id: z.string().uuid(),
-  venueId: z.string().uuid(),
+  id: z.string().guid(),
+  venueId: z.string().guid(),
   title: z.string().min(1).max(120),
-  addedBy: z.string().uuid(),
+  addedBy: z.string().guid(),
   createdAt: z.string().datetime(),
 });
 
 // ── Request schemas ────────────────────────────────────────────────
 
 export const highlightListQuery = paginationQuery.extend({
-  venueId: z.string().uuid().optional(),
+  venueId: z.string().guid().optional(),
 });
 
 export const createHighlightBody = z.object({
-  venueId: z.string().uuid(),
+  venueId: z.string().guid(),
   title: z.string().min(1).max(120),
 });
 
