@@ -64,7 +64,7 @@ export async function highlightRoutes(
           limit: z.coerce.number().int().min(1).max(50).default(10),
         }),
         response: {
-          200: z.array(z.object({ id: z.string().uuid(), title: z.string() })),
+          200: z.array(z.object({ id: z.string().guid(), title: z.string() })),
           400: errorResponse,
         },
       },
@@ -83,9 +83,9 @@ export async function highlightRoutes(
       schema: {
         tags: ['Highlights'],
         summary: 'Get highlight by ID',
-        params: z.object({ id: z.string().uuid() }),
+        params: z.object({ id: z.string().guid() }),
         response: {
-          200: z.object({ id: z.string().uuid(), title: z.string() }),
+          200: z.object({ id: z.string().guid(), title: z.string() }),
           404: errorResponse,
         },
       },
@@ -119,7 +119,7 @@ fastify.register(highlightRoutes, { prefix: '/api/v1', highlightService });
 ## Conventions
 
 - Always call `fastify.withTypeProvider<ZodTypeProvider>()` — this is what gives you typed `request.*` fields.
-- Put all Zod schemas in `src/schemas/` and import them. Inline schemas are only acceptable for one-off `z.object({ id: z.string().uuid() })` params.
+- Put all Zod schemas in `src/schemas/` and import them. Inline schemas are only acceptable for one-off `z.object({ id: z.string().guid() })` params.
 - Use the `errorResponse` schema from `common.schema.ts` for all non-200 responses.
 - Protected routes use `onRequest: [fastify.authenticate]` — no other auth mechanism exists.
 - Translate service errors (`VoteError`, `AuthError`) into HTTP codes in the route. Services never set status codes themselves.
