@@ -14,9 +14,39 @@ permissions:
   contents: read
 
 jobs:
+  # ── Detect whether this diff can affect app behavior ───────────────
+  # No path filter on the workflow trigger itself, so `validate` (a required
+  # branch-protection status check) always gets a run recorded — a workflow
+  # skipped by trigger-level `paths`/`paths-ignore` reports as "never ran",
+  # which blocks merges when the check is required (see #84). Instead this
+  # job always runs (it's cheap) and its output lets the heavier jobs below
+  # skip their expensive steps on docs/workflow-only diffs.
+  changes:
+    name: Detect change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      app: ${{ steps.paths.outputs.app }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: paths
+        with:
+          filters: |
+            app:
+              - '**'
+              - '!docs/**'
+              - '!wiki/**'
+              - '!.github/**'
+              - '!**/*.md'
+
   # ── Turbo-affected lint / typecheck / test ─────────────────────────
   validate:
     name: Validate (lint, typecheck, test)
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -28,14 +58,17 @@ jobs:
           fetch-depth: 0
 
       - uses: actions/setup-node@v6
+        if: needs.changes.outputs.app == 'true'
         with:
           node-version: 25
           cache: npm
 
       - name: Install deps
+        if: needs.changes.outputs.app == 'true'
         run: npm ci
 
       - name: Cache Turbo
+        if: needs.changes.outputs.app == 'true'
         uses: actions/cache@v6
         with:
           path: .turbo
@@ -46,6 +79,7 @@ jobs:
       # On PRs we only run on packages affected since `origin/main`.
       # On pushes to main we run everything to keep the cache warm.
       - name: Determine Turbo filter
+        if: needs.changes.outputs.app == 'true'
         id: filter
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -55,7 +89,12 @@ jobs:
           fi
 
       - name: Lint, typecheck, test
+        if: needs.changes.outputs.app == 'true'
         run: npx turbo run lint typecheck test ${{ steps.filter.outputs.filter }} --cache-dir=.turbo
+
+      - name: Skip notice (docs/workflow-only change)
+        if: needs.changes.outputs.app != 'true'
+        run: echo "Docs/workflow-only diff — skipping lint/typecheck/test. Required check still reports success."
 
       - name: Upload API coverage (if produced)
         if: always() && hashFiles('apps/api/coverage/**') != ''
@@ -72,8 +111,12 @@ jobs:
   # import/resolve/transform/config errors); the vitest boot-smoke suite in the
   # `validate` job executes the boot-chain modules (catches module-load throws
   # that bundling alone cannot).
+  # Not a required status check, so the whole job (not just its steps) can be
+  # skipped on a docs/workflow-only diff.
   mobile-bundle:
     name: Mobile — Doctor + Export bundle
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -110,8 +153,12 @@ jobs:
         run: npx expo export --platform ios --output-dir dist
 
   # ── Native fingerprint (Expo OTA eligibility) ─────────────────────
+  # Not a required status check, so the whole job can be skipped entirely on
+  # a docs/workflow-only diff.
   fingerprint:
     name: Mobile — Native Fingerprint
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
