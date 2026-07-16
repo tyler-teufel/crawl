@@ -9,8 +9,9 @@ const USE_REAL_API = hasApi;
 
 export const voteKeys = {
   all: ['votes'] as const,
-  // City is part of the key so switching cities invalidates the per-day
-  // vote state automatically (a user's daily allowance is scoped per city).
+  // City is part of the query key (for cache scoping / the real API's
+  // per-city fetch), but the underlying vote budget is GLOBAL per user/day —
+  // see voteStorage.ts and apps/api/src/services/vote.service.ts.
   state: (city: string) => ['votes', 'state', city] as const,
 };
 
@@ -20,35 +21,54 @@ export const DEFAULT_VOTE_STATE: VoteState = {
   votedVenueIds: [],
 };
 
-// Mock-mode implementations, exported for tests. State is persisted per
-// date + city (see voteStorage.ts) so refetches return accumulated votes
-// instead of resetting to the default — the fallback only applies when no
-// entry exists yet for today (first use or day rollover).
-export async function getMockVoteState(city: string): Promise<VoteState> {
-  return (await readPersistedVoteState(city)) ?? DEFAULT_VOTE_STATE;
+// Mirrors the server's VoteError (apps/api/src/services/vote.service.ts) so
+// mock-mode consumers of useCastVote hit the same onError code path as the
+// real API.
+export class VoteError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = 'VoteError';
+  }
 }
 
-export async function castMockVote(city: string, venueId: string): Promise<VoteState> {
-  const current = await getMockVoteState(city);
-  if (current.remainingVotes <= 0 || current.votedVenueIds.includes(venueId)) return current;
+// Mock-mode implementations, exported for tests. State is persisted per date
+// (see voteStorage.ts), GLOBAL across cities — matching the server's 3
+// votes/day/user budget, which has no city dimension — so refetches return
+// accumulated votes instead of resetting to the default. The fallback only
+// applies when no entry exists yet for today (first use or day rollover).
+export async function getMockVoteState(): Promise<VoteState> {
+  return (await readPersistedVoteState()) ?? DEFAULT_VOTE_STATE;
+}
+
+export async function castMockVote(venueId: string): Promise<VoteState> {
+  const current = await getMockVoteState();
+  if (current.votedVenueIds.includes(venueId)) {
+    throw new VoteError('ALREADY_VOTED', 'You have already voted for this venue today.');
+  }
+  if (current.remainingVotes <= 0) {
+    throw new VoteError('NO_VOTES_REMAINING', 'You have used all your votes for today.');
+  }
   const next: VoteState = {
     ...current,
     remainingVotes: current.remainingVotes - 1,
     votedVenueIds: [...current.votedVenueIds, venueId],
   };
-  await writePersistedVoteState(city, next);
+  await writePersistedVoteState(next);
   return next;
 }
 
-export async function removeMockVote(city: string, venueId: string): Promise<VoteState> {
-  const current = await getMockVoteState(city);
+export async function removeMockVote(venueId: string): Promise<VoteState> {
+  const current = await getMockVoteState();
   if (!current.votedVenueIds.includes(venueId)) return current;
   const next: VoteState = {
     ...current,
     remainingVotes: current.remainingVotes + 1,
     votedVenueIds: current.votedVenueIds.filter((id) => id !== venueId),
   };
-  await writePersistedVoteState(city, next);
+  await writePersistedVoteState(next);
   return next;
 }
 
@@ -56,7 +76,7 @@ export function useVoteState(city: string) {
   return useQuery<VoteState>({
     queryKey: voteKeys.state(city),
     queryFn: async () => {
-      if (!USE_REAL_API) return getMockVoteState(city);
+      if (!USE_REAL_API) return getMockVoteState();
       return apiClient<VoteState>(`/votes?city=${encodeURIComponent(city)}`);
     },
     staleTime: 5_000,
@@ -69,7 +89,7 @@ export function useCastVote(city: string) {
 
   return useMutation<VoteState, Error, string>({
     mutationFn: async (venueId: string) => {
-      if (!USE_REAL_API) return castMockVote(city, venueId);
+      if (!USE_REAL_API) return castMockVote(venueId);
       return castVoteApi(venueId) as Promise<VoteState>;
     },
     onMutate: async (venueId) => {
@@ -99,7 +119,7 @@ export function useRemoveVote(city: string) {
 
   return useMutation<VoteState, Error, string>({
     mutationFn: async (venueId: string) => {
-      if (!USE_REAL_API) return removeMockVote(city, venueId);
+      if (!USE_REAL_API) return removeMockVote(venueId);
       return apiClient<VoteState>(`/votes/${venueId}`, { method: 'DELETE' });
     },
     onSuccess: (newState) => {
