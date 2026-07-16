@@ -10,14 +10,19 @@ Prioritized next steps for Crawl, organized by release milestone.
 
 Released as v1.1.0 (see `docs/design/RESKIN_SPEC_v1.1.0.md` for the reskin scope). Shipped: Vitest test suite, `react-native-maps` integration, Apple/Google/anonymous auth onboarding via Supabase, live backend wiring, and the v2 brand/font/logo reskin.
 
+Shipped in v1.1.0:
+
+| Task            | Description                                                                                | Shipped |
+| --------------- | ------------------------------------------------------------------------------------------- | ------- |
+| Global Rankings | City leaderboard, all-time top venues by score, backed by `/trending/:city` (#50)          | ✓ |
+| Profile screen  | User avatar, voting history lookup, stats, sign-out (#51)                                  | ✓ |
+
 Still open from the original v1.1 list:
 
 | Priority | Task            | Description                                                                                | Effort  |
 | -------- | --------------- | ------------------------------------------------------------------------------------------- | ------- |
 | Medium   | City selector   | Dropdown/modal picker for `CitySelector` listing all supported cities.                      | 0.5 day |
 | Medium   | Venue images    | Replace image placeholders with real venue photos. Add image caching.                       | 1 day   |
-| Medium   | Global Rankings | Build out the Global Rankings tab — city leaderboard, all-time top venues.                  | 1 day   |
-| Medium   | Profile screen  | User avatar, voting history, stats (total votes, streaks), and settings.                    | 1 day   |
 | Low      | Haptic feedback | Trigger haptics on vote cast, tab switch, and button press using `expo-haptics`.             | 0.5 day |
 | Low      | Pull-to-refresh | Add pull-to-refresh on the voting screen venue list.                                        | 0.5 day |
 
