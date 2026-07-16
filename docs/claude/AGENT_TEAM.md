@@ -1,6 +1,6 @@
 # Agent Team — Charter & Orchestration Guide
 
-**Status:** Active (waves 1–2, backend + devops added, guardrail hooks landed) · **Last updated:** 2026-07-14
+**Status:** Active (waves 1–2 complete: backend, devops, security added; guardrail hooks landed) · **Last updated:** 2026-07-16
 
 The Crawl agent team is a set of specialized Claude Code subagents (`.claude/agents/*.md`) coordinated by a scrum-master skill (`/scrum`, defined in `.claude/skills/scrum/SKILL.md`). The scrum master runs standup over the sprint plan and GitHub Issues, assigns tickets to workers, dispatches them, and verifies results before anything is reported done.
 
@@ -65,6 +65,7 @@ Claude Code subagents cannot spawn subagents — orchestration must live in the 
 | `qa-engineer` | Regression tests, bug reproduction, acceptance verification | `apps/mobile/tests/**`, `apps/api/tests/**` | production source, `docs`, `wiki` | Read/Edit/Write/Glob/Grep/Bash | inherit |
 | `docs-writer` | Keeps `docs/` in sync per the doc-maintenance mandate | `docs/**` (except `docs/ops/**`, the devops-engineer's) | source code, `wiki/**` | Read/Edit/Write/Glob/Grep + read-only git | haiku |
 | `code-reviewer` | Independent pre-PR diff review | *(read-only)* | everything (reports only) | Read/Glob/Grep + read-only git | inherit |
+| `security-reviewer` | Security pass on auth/secrets/validation/RLS diffs; Dependabot alert + dependency-PR triage | *(read-only)* | everything (reports only) | Read/Glob/Grep + read-only git + npm audit/why/ls/view | sonnet |
 
 Role boundaries are enforced in each agent's config (`.claude/agents/<name>.md`): scope, conventions, definition of done, and when to hand back to the orchestrator. Workers report; the scrum master (main session) commits, pushes, and does GitHub bookkeeping.
 
@@ -117,5 +118,5 @@ Add a role only when there's recurring work it would own **now** (the directory 
 
 - ✅ **Backend work resumes** (Mode B/C from the stabilization plan) → `backend-engineer` (Fastify/Drizzle, `apps/api/**` + `packages/shared-types/**`). **Landed 2026-07-13** — owns the backend cleanup line (#75/#76/#77) and the coordinated Zod 4 migration (#89) + dependabot version bumps.
 - ✅ **CI/EAS/Railway changes become frequent** → `devops-engineer`. **Landed 2026-07-13** — owns the workflow audit (#84) and release tagging/packaging work.
-- ⬜ **Auth surface or input-validation changes** → `security-reviewer` pass alongside code-reviewer. Still deferred; evaluate when an auth-touching ticket lands.
+- ✅ **Auth surface or input-validation changes** → `security-reviewer` pass alongside code-reviewer. **Landed 2026-07-16** — triggered by live Dependabot alerts on `main` plus the upcoming auth-surface work (#127 provider setup, #129 device-ID column, #131 role column). Also owns Dependabot alert/PR triage.
 - ✅ **Guardrail hooks** (`session-start.sh`, `pre-commit-guard.sh`) — **Landed 2026-07-14** (#54). See the Troubleshooting table above and [FILE_REFERENCE.md](../architecture/FILE_REFERENCE.md) for what each hook does.

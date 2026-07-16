@@ -1,6 +1,6 @@
 ---
 name: scrum
-description: Scrum-master orchestration for the Crawl agent team. Runs a standup over the sprint plan and GitHub Issues, triages and assigns tickets to specialized worker agents (mobile-engineer, backend-engineer, devops-engineer, qa-engineer, docs-writer, code-reviewer), dispatches them, verifies results, and reports back.
+description: Scrum-master orchestration for the Crawl agent team. Runs a standup over the sprint plan and GitHub Issues, triages and assigns tickets to specialized worker agents (mobile-engineer, backend-engineer, devops-engineer, qa-engineer, docs-writer, code-reviewer, security-reviewer), dispatches them, verifies results, and reports back.
 when_to_use: When the user wants to kick off or continue sprint work ("run standup", "start the sprint", "work the board", "what's next"), or asks for ticket assignment/delegation across the agent team.
 argument-hint: '[standup | next | ticket #N | auto]'
 ---
@@ -33,7 +33,7 @@ Determine the current sprint from today's date. Summarize the board: done / in-p
 ### 2. Triage & assign
 
 - Respect dependencies: the versioning chore (#44) blocks other Sprint 1 tickets landing; #45/#46/#47 are independent of each other and parallelizable after it.
-- Map each chosen ticket to a worker by where the change lands: `apps/mobile/**` → `mobile-engineer`; `apps/api/**` or `packages/shared-types/**` → `backend-engineer`; CI/CD, GitHub Actions, EAS/release automation, changesets/Turbo pipeline, or `docs/ops/**` → `devops-engineer`; test authorship / bug reproduction / acceptance verification → `qa-engineer`; docs sync (except `docs/ops/**`) → `docs-writer`; pre-PR review → `code-reviewer`.
+- Map each chosen ticket to a worker by where the change lands: `apps/mobile/**` → `mobile-engineer`; `apps/api/**` or `packages/shared-types/**` → `backend-engineer`; CI/CD, GitHub Actions, EAS/release automation, changesets/Turbo pipeline, or `docs/ops/**` → `devops-engineer`; test authorship / bug reproduction / acceptance verification → `qa-engineer`; docs sync (except `docs/ops/**`) → `docs-writer`; pre-PR review → `code-reviewer`; Dependabot alert/PR triage or a security pass on auth/secrets/validation/RLS diffs → `security-reviewer`.
 - Present the assignment plan (ticket, agent, branch, expected deliverable) and get user confirmation — unless `auto`.
 
 ### 3. Dispatch
@@ -51,6 +51,7 @@ After implementation returns:
 
 1. `qa-engineer` verifies every acceptance criterion (✅/❌ per criterion) and the full suite.
 2. `code-reviewer` reviews the diff; **request changes** verdicts go back to the implementing agent (use SendMessage to continue the same agent with its context intact rather than re-briefing a fresh one).
+   - Diffs touching auth flows, secrets/env handling, input validation, RLS policies, or SQL/RPC definitions additionally get a `security-reviewer` pass alongside the code review.
 3. If the change altered architecture/files/dependencies, dispatch `docs-writer` per the repo's doc-maintenance mandate.
 
 Do not report a ticket done on a worker's claim alone — check the verifier output.
