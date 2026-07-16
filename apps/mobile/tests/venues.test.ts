@@ -19,6 +19,7 @@ function makeBuilder(result: { data: unknown; error: unknown }) {
   const builder: any = {};
   builder.select = vi.fn(() => builder);
   builder.eq = vi.fn(() => builder);
+  builder.order = vi.fn(() => builder);
   builder.maybeSingle = vi.fn(() => Promise.resolve(result));
   builder.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve(result).then(resolve, reject);
@@ -73,10 +74,14 @@ describe('useVenues tier selection', () => {
 
   it('reads from Supabase when hasSupabase is true and hasApi is false', async () => {
     stubTier({ supabaseUrl: 'https://x.supabase.co', supabaseKey: 'k' });
-    supabaseMock.from.mockReturnValue(makeBuilder({ data: [SAMPLE_ROW], error: null }));
+    const builder = makeBuilder({ data: [SAMPLE_ROW], error: null });
+    supabaseMock.from.mockReturnValue(builder);
     const { useVenues } = await loadVenues();
     const result = await (useVenues('Charlotte, NC', []) as any).queryFn();
     expect(supabaseMock.from).toHaveBeenCalledWith('venues');
+    expect(builder.eq).toHaveBeenCalledWith('is_active', true);
+    expect(builder.eq).toHaveBeenCalledWith('city', 'Charlotte, NC');
+    expect(builder.order).toHaveBeenCalledWith('hotspot_score', { ascending: false });
     expect(result).toEqual([
       {
         id: 'v-1',
@@ -147,10 +152,13 @@ describe('useVenue (detail) tier selection', () => {
 
   it('maps a single Supabase row to the Venue shape', async () => {
     stubTier({ supabaseUrl: 'https://x.supabase.co', supabaseKey: 'k' });
-    supabaseMock.from.mockReturnValue(makeBuilder({ data: SAMPLE_ROW, error: null }));
+    const builder = makeBuilder({ data: SAMPLE_ROW, error: null });
+    supabaseMock.from.mockReturnValue(builder);
     const { useVenue } = await loadVenues();
     const result = await (useVenue('v-1') as any).queryFn();
     expect(supabaseMock.from).toHaveBeenCalledWith('venues');
+    expect(builder.eq).toHaveBeenCalledWith('id', 'v-1');
+    expect(builder.eq).toHaveBeenCalledWith('is_active', true);
     expect(result).toMatchObject({
       id: 'v-1',
       name: 'Merchant & Trade',

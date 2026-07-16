@@ -94,7 +94,8 @@ export function useVenues(city: string, filters: string[]) {
           .from('venues')
           .select(VENUE_COLUMNS)
           .eq('is_active', true)
-          .eq('city', city);
+          .eq('city', city)
+          .order('hotspot_score', { ascending: false });
         if (error) throw error;
         const venues = ((data ?? []) as VenueRow[])
           .map(rowToVenue)
@@ -116,6 +117,7 @@ async function fetchVenueDetail(id: string): Promise<Venue | undefined> {
       .from('venues')
       .select(VENUE_COLUMNS)
       .eq('id', id)
+      .eq('is_active', true)
       .maybeSingle();
     if (error) throw error;
     return data ? (rowToVenue(data as VenueRow) ?? undefined) : undefined;

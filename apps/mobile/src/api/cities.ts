@@ -51,7 +51,7 @@ export function useCities() {
     // Supabase-direct reads (RLS permits public read) vs. bundled mock data.
     queryFn: async () => {
       if (hasSupabase) {
-        const { data, error } = await supabase.from('cities').select(CITY_COLUMNS);
+        const { data, error } = await supabase.from('cities').select(CITY_COLUMNS).order('name');
         if (error) throw error;
         return ((data ?? []) as CityRow[]).map(rowToCity);
       }

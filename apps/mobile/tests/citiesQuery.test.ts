@@ -19,6 +19,7 @@ vi.mock('@tanstack/react-query', () => ({ useQuery: (opts: any) => opts }));
 function makeBuilder(result: { data: unknown; error: unknown }) {
   const builder: any = {};
   builder.select = vi.fn(() => builder);
+  builder.order = vi.fn(() => builder);
   builder.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve(result).then(resolve, reject);
   return builder;
@@ -60,10 +61,12 @@ describe('useCities tier selection', () => {
 
   it('reads from Supabase and maps rows via rowToCity when hasSupabase is true', async () => {
     stubTier({ supabaseUrl: 'https://x.supabase.co', supabaseKey: 'k' });
-    supabaseMock.from.mockReturnValue(makeBuilder({ data: [SAMPLE_ROW], error: null }));
+    const builder = makeBuilder({ data: [SAMPLE_ROW], error: null });
+    supabaseMock.from.mockReturnValue(builder);
     const { useCities } = await loadCities();
     const result = await (useCities() as any).queryFn();
     expect(supabaseMock.from).toHaveBeenCalledWith('cities');
+    expect(builder.order).toHaveBeenCalledWith('name');
     expect(result).toEqual([
       {
         id: 'c-1',
