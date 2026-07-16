@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueries } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useVenueContext } from '@/context/VenueContext';
-import { Venue } from '@/types/venue';
+import { venueDetailQueryOptions } from '@/api/venues';
 
 function initialsFrom(name: string): string {
   return name
@@ -16,23 +17,47 @@ function initialsFrom(name: string): string {
     .join('');
 }
 
+interface VoteHistoryEntry {
+  id: string;
+  /** Venue name, or null while its detail lookup is still in flight. */
+  name: string | null;
+}
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, isAnonymous, signOut } = useAuth();
-  const { voteState, venues } = useVenueContext();
+  const { voteState } = useVenueContext();
 
   const displayName = isAnonymous
     ? 'Guest'
     : ((user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? 'Crawler');
 
-  // Today's voting history: the mock vote layer only persists votedVenueIds
-  // for the current day (src/api/voteStorage.ts). Once a server-backed
-  // history endpoint exists, swap this for a `useVoteHistory` hook that
-  // follows the same hasApi mock/real branching as src/api/votes.ts.
-  const votedVenues = voteState.votedVenueIds
-    .map((id) => venues.find((venue) => venue.id === id))
-    .filter((venue): venue is Venue => Boolean(venue));
+  // Today's voting history, looked up by id via the same query key + fetcher
+  // as useVenue(id) (src/api/venues.ts), NOT from VenueContext's `venues`.
+  // That array is scoped to the currently selected city + active filters, so
+  // a voted venue could vanish from it (city switch, a filter toggle, or its
+  // isOpen flag flipping) while the vote itself is still very much cast —
+  // history must survive that. useQueries lets us look up a variable-length
+  // list of ids without calling a hook in a loop. Once a server-backed
+  // history endpoint exists, swap the id source for a `useVoteHistory` hook
+  // that follows the same hasApi mock/real branching as src/api/votes.ts.
+  const historyQueries = useQueries({
+    queries: voteState.votedVenueIds.map((id) => venueDetailQueryOptions(id)),
+  });
+
+  const votedVenues = useMemo<VoteHistoryEntry[]>(
+    () =>
+      voteState.votedVenueIds
+        .map((id, index) => {
+          const query = historyQueries[index];
+          if (query?.data) return { id, name: query.data.name };
+          if (query?.isLoading) return { id, name: null };
+          return null; // settled with no result for this id — genuinely gone
+        })
+        .filter((entry): entry is VoteHistoryEntry => entry !== null),
+    [voteState.votedVenueIds, historyQueries]
+  );
 
   const votesToday = voteState.maxVotes - voteState.remainingVotes;
 
@@ -82,23 +107,31 @@ export default function ProfileScreen() {
         {/* Voting history */}
         <View className="mt-8 px-4">
           <Text className="font-display-bold text-lg text-white">Today&apos;s Votes</Text>
-          {votedVenues.length === 0 ? (
+          {voteState.votedVenueIds.length === 0 ? (
             <Text className="mt-2 font-sans text-sm text-crawl-text-muted">
               You haven&apos;t voted for any venues yet today.
             </Text>
           ) : (
             <View className="mt-3 gap-2">
-              {votedVenues.map((venue) => (
-                <Pressable
-                  key={venue.id}
-                  onPress={() => router.push(`/venue/${venue.id}`)}
-                  className="flex-row items-center justify-between rounded-crawl-lg border border-crawl-border bg-crawl-card px-4 py-3 active:opacity-80">
-                  <Text className="shrink font-sans-medium text-sm text-white" numberOfLines={1}>
-                    {venue.name}
-                  </Text>
-                  <Ionicons name="heart" size={16} color="#a855f7" />
-                </Pressable>
-              ))}
+              {votedVenues.map((entry) =>
+                entry.name ? (
+                  <Pressable
+                    key={entry.id}
+                    onPress={() => router.push(`/venue/${entry.id}`)}
+                    className="flex-row items-center justify-between rounded-crawl-lg border border-crawl-border bg-crawl-card px-4 py-3 active:opacity-80">
+                    <Text className="shrink font-sans-medium text-sm text-white" numberOfLines={1}>
+                      {entry.name}
+                    </Text>
+                    <Ionicons name="heart" size={16} color="#a855f7" />
+                  </Pressable>
+                ) : (
+                  <View
+                    key={entry.id}
+                    className="flex-row items-center justify-between rounded-crawl-lg border border-crawl-border bg-crawl-card px-4 py-3 opacity-50">
+                    <Text className="font-sans-medium text-sm text-crawl-text-muted">Loading…</Text>
+                  </View>
+                )
+              )}
             </View>
           )}
         </View>
@@ -128,6 +161,8 @@ export default function ProfileScreen() {
   );
 }
 
+// Chevron rows are inert placeholders by design — there's nothing to wire up
+// yet (no settings screens/state exist), not a missed onPress.
 function SettingsRow({
   icon,
   label,

@@ -18,10 +18,19 @@ import ProfileScreen from '../app/(tabs)/profile';
 
 const useAuthMock = vi.hoisted(() => vi.fn());
 const useVenueContextMock = vi.hoisted(() => vi.fn());
+const useQueriesMock = vi.hoisted(() => vi.fn());
 const replace = vi.hoisted(() => vi.fn());
 const push = vi.hoisted(() => vi.fn());
 const signOut = vi.hoisted(() => vi.fn());
 const alert = vi.hoisted(() => vi.fn());
+
+// Override only `useMemo` so the component can run outside a React dispatcher
+// (this suite invokes the component function directly, not via a renderer);
+// everything else (createElement / jsx-runtime) stays real.
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
+  return { ...actual, useMemo: (factory: () => unknown) => factory() };
+});
 
 vi.mock('react-native', () => ({
   View: (props: unknown) => props,
@@ -39,6 +48,32 @@ vi.mock('@expo/vector-icons', () => ({ Ionicons: (props: unknown) => props }));
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => useAuthMock() }));
 vi.mock('@/context/VenueContext', () => ({ useVenueContext: () => useVenueContextMock() }));
+
+// `venueDetailQueryOptions` is reduced to a passthrough marker — `{ __id }` —
+// so the mocked `useQueries` below can identify which id each query entry is
+// for without depending on the real query-key shape.
+vi.mock('@/api/venues', () => ({
+  venueDetailQueryOptions: (id: string) => ({ __id: id }),
+}));
+vi.mock('@tanstack/react-query', () => ({
+  useQueries: (opts: unknown) => useQueriesMock(opts),
+}));
+
+/**
+ * Drives the mocked `useQueries` result: `resultsById` maps a voted venue id
+ * to either a resolved venue shape, `'loading'` (query still in flight), or
+ * omitted (query settled with no result — the id no longer exists).
+ */
+function mockHistoryLookups(resultsById: Record<string, { name: string } | 'loading'>) {
+  useQueriesMock.mockImplementation((opts: { queries: { __id: string }[] }) =>
+    opts.queries.map(({ __id }) => {
+      const entry = resultsById[__id];
+      if (entry === 'loading') return { data: undefined, isLoading: true };
+      if (entry) return { data: entry, isLoading: false };
+      return { data: undefined, isLoading: false };
+    })
+  );
+}
 
 type El = { type?: unknown; props?: Record<string, unknown> } | unknown;
 
@@ -75,20 +110,18 @@ function findTextNodes(nodes: ReturnType<typeof renderTree>, matcher: (text: str
   });
 }
 
-function getVenue(id: string, name: string) {
-  return { id, name } as unknown as import('@/types/venue').Venue;
-}
-
 const defaultVenueContext = {
   voteState: { maxVotes: 3, remainingVotes: 3, votedVenueIds: [] as string[] },
-  venues: [] as ReturnType<typeof getVenue>[],
 };
 
 beforeEach(() => {
-  [useAuthMock, useVenueContextMock, replace, push, signOut, alert].forEach((m) =>
+  [useAuthMock, useVenueContextMock, useQueriesMock, replace, push, signOut, alert].forEach((m) =>
     (m as Mock).mockReset()
   );
   useVenueContextMock.mockReturnValue(defaultVenueContext);
+  // Default: every id's detail lookup settles with no result (dropped). Tests
+  // that care about resolved/loading venues call mockHistoryLookups(...).
+  mockHistoryLookups({});
 });
 
 describe('Profile screen — initials derivation (#51)', () => {
@@ -157,7 +190,6 @@ describe('Profile screen — Votes Today stat derivation (#51)', () => {
     useAuthMock.mockReturnValue({ user: null, isAnonymous: true, signOut });
     useVenueContextMock.mockReturnValue({
       voteState: { maxVotes: 3, remainingVotes: 1, votedVenueIds: [] },
-      venues: [],
     });
 
     const nodes = renderTree();
@@ -168,7 +200,6 @@ describe('Profile screen — Votes Today stat derivation (#51)', () => {
     useAuthMock.mockReturnValue({ user: null, isAnonymous: true, signOut });
     useVenueContextMock.mockReturnValue({
       voteState: { maxVotes: 3, remainingVotes: 3, votedVenueIds: [] },
-      venues: [],
     });
 
     const nodes = renderTree();
@@ -184,27 +215,60 @@ describe('Profile screen — Votes Today stat derivation (#51)', () => {
 });
 
 describe('Profile screen — voting history derivation (#51)', () => {
-  it('maps votedVenueIds to venues in the same city/session state, preserving order', () => {
+  it('maps votedVenueIds to detail-looked-up venues, preserving order', () => {
     useAuthMock.mockReturnValue({ user: null, isAnonymous: true, signOut });
     useVenueContextMock.mockReturnValue({
       voteState: { maxVotes: 3, remainingVotes: 1, votedVenueIds: ['v2', 'v1'] },
-      venues: [getVenue('v1', 'Alpha Bar'), getVenue('v2', 'Beta Club')],
     });
+    mockHistoryLookups({ v1: { name: 'Alpha Bar' }, v2: { name: 'Beta Club' } });
 
     const nodes = renderTree();
     expect(findTextNodes(nodes, (t) => t === 'Beta Club')).toHaveLength(1);
     expect(findTextNodes(nodes, (t) => t === 'Alpha Bar')).toHaveLength(1);
   });
 
-  it('silently drops voted ids that no longer resolve to a known venue', () => {
+  it('silently drops voted ids whose detail lookup settles with no result', () => {
     useAuthMock.mockReturnValue({ user: null, isAnonymous: true, signOut });
     useVenueContextMock.mockReturnValue({
       voteState: { maxVotes: 3, remainingVotes: 2, votedVenueIds: ['missing', 'v1'] },
-      venues: [getVenue('v1', 'Alpha Bar')],
     });
+    mockHistoryLookups({ v1: { name: 'Alpha Bar' } });
 
     const nodes = renderTree();
     expect(findTextNodes(nodes, (t) => t === 'Alpha Bar')).toHaveLength(1);
+  });
+
+  // Regression guard (#51 review): history must be sourced from a direct
+  // per-id detail lookup, NEVER from VenueContext's `venues` array — that
+  // array is scoped to the currently selected city + active filters, so a
+  // voted venue can disappear from it (a filter toggle, a city switch, its
+  // isOpen flag flipping) while the vote itself is still very much cast.
+  // `useVenueContextMock` here deliberately returns no `venues` array at all
+  // — if the component ever reads `venues` again to resolve history, this
+  // test fails loudly (destructuring/property access on undefined) instead
+  // of silently reintroducing the coupling.
+  it('renders a voted venue via direct detail lookup even when absent from the filtered venues list', () => {
+    useAuthMock.mockReturnValue({ user: null, isAnonymous: true, signOut });
+    useVenueContextMock.mockReturnValue({
+      voteState: { maxVotes: 3, remainingVotes: 2, votedVenueIds: ['v1'] },
+      // No `venues` field — simulates a city/filter switch that excludes v1
+      // from the currently-scoped list.
+    });
+    mockHistoryLookups({ v1: { name: 'Alpha Bar' } });
+
+    const nodes = renderTree();
+    expect(findTextNodes(nodes, (t) => t === 'Alpha Bar')).toHaveLength(1);
+  });
+
+  it('renders a lightweight placeholder row while a voted venue detail is still loading', () => {
+    useAuthMock.mockReturnValue({ user: null, isAnonymous: true, signOut });
+    useVenueContextMock.mockReturnValue({
+      voteState: { maxVotes: 3, remainingVotes: 2, votedVenueIds: ['v1'] },
+    });
+    mockHistoryLookups({ v1: 'loading' });
+
+    const nodes = renderTree();
+    expect(findTextNodes(nodes, (t) => t === 'Loading…')).toHaveLength(1);
   });
 
   it('shows the empty state copy when no votes were cast today', () => {

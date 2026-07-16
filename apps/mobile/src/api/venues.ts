@@ -34,16 +34,32 @@ export function useVenues(city: string, filters: string[]) {
   });
 }
 
+async function fetchVenueDetail(id: string): Promise<Venue | undefined> {
+  if (USE_REAL_API) {
+    return apiClient<Venue>(`/venues/${id}`);
+  }
+  return mockVenues.find((v) => v.id === id);
+}
+
 export function useVenue(id: string) {
   return useQuery<Venue | undefined>({
     queryKey: venueKeys.detail(id),
-    queryFn: () => {
-      if (USE_REAL_API) {
-        return apiClient<Venue>(`/venues/${id}`);
-      }
-      return mockVenues.find((v) => v.id === id);
-    },
+    queryFn: () => fetchVenueDetail(id),
     staleTime: 30_000,
     enabled: !!id,
   });
+}
+
+/**
+ * Same query key + fetcher as `useVenue(id)`, exposed as plain options so
+ * callers needing a variable-length list of id lookups (e.g. the Profile
+ * screen's voting history) can pass them to `useQueries` instead of calling
+ * a hook in a loop.
+ */
+export function venueDetailQueryOptions(id: string) {
+  return {
+    queryKey: venueKeys.detail(id),
+    queryFn: () => fetchVenueDetail(id),
+    staleTime: 30_000,
+  };
 }
