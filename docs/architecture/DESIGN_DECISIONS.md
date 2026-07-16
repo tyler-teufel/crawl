@@ -350,20 +350,26 @@ For production, a second gate is enforced by the `production` GitHub Environment
 
 ---
 
-## Direct Supabase Query Path from Mobile (Retired)
+## Direct Supabase Query Path from Mobile (Re-Added for Live Beta)
 
-**Status:** Retired 2026-07. While `apps/api` was being built out, `src/api/venues.ts` had a temporary third branch that queried Supabase directly with the publishable anon key, bypassing the Fastify API. That branch has since been deleted, exactly per the retirement plan below — `useVenues`/`useVenue` now only branch on `hasApi` (call `apps/api` when `EXPO_PUBLIC_API_URL` is set, otherwise fall back to bundled mock data). Supabase is used on the mobile side **only for auth/identity** now (see `src/lib/supabase.ts`, `AuthContext`) — venue data always goes through the Fastify API or mocks.
+**Status:** Re-adopted 2026-07-16 (epic #125, v1.1.0 live-data cutover).
+
+The three-tier fallback hierarchy for reads is: (1) `hasApi` → call Railway API; (2) `hasSupabase` → query Supabase directly with published anon key + RLS; (3) fallback to bundled mock data. The Supabase branch was temporarily retired while `apps/api` matured, but is now re-added for the first live beta (pre-Railway launch) to enable testing venue data on a real database without paying for Railway hosting.
+
+**Why re-adopted for live beta:** The team chose to launch the initial live beta natively on Supabase (no API intermediary) to reduce operational overhead and costs before ramping up to the full Railway + Fastify stack. Users test against real seeded venue data, voting persists to the real backend, and filter behavior is identical to the eventual production path (both use the same `filterVenues()` predicate logic client-side).
+
+**Implementation:** `src/api/venues.ts`, `src/api/cities.ts`, and `src/api/trending.ts` each check `hasApi` first (EXPO_PUBLIC_API_URL set), then `hasSupabase` (EXPO_PUBLIC_SUPABASE_URL/KEY set), then fall back to mocks. Supabase reads use explicit column selects (security + bandwidth), `.eq('is_active', true)`, `.order('hotspot_score' desc)` for rankings, and apply the same filter predicates as mocks (client-side via `filterVenues`). RLS policies on the `venues` and `cities` tables permit public read.
+
+**Trade-off accepted:** two long-term read paths maintained until the API path is primary again (expected post-beta when Railway goes live). The paths are parallel branches, not an abstraction layer, so switching between them is a compile-time env var toggle.
+
+---
+
+## Historical: Direct Supabase Query Path (Original Rationale)
 
 <details>
-<summary>Original rationale (historical)</summary>
+<summary>Why the path was initially explored</summary>
 
-**Chosen over:** routing every venue read through `apps/api`.
-
-While the Fastify API was being built out, the mobile app read venue data directly from Supabase using `@supabase/supabase-js` with the publishable anon key. The TanStack Query hooks in `src/api/venues.ts` branched on env vars: `EXPO_PUBLIC_API_URL` set → call the Fastify API; else `EXPO_PUBLIC_SUPABASE_URL`/`KEY` set → query Supabase directly; else → mock data.
-
-**Why:** unblocked end-to-end testing on real data while the API matured. Supabase Row Level Security policies were the trust boundary on direct reads.
-
-**Trade-off accepted:** two read paths to maintain until the API caught up — intentionally not abstracted behind a "data source" interface, so removing the branch was a one-line delete rather than a refactor.
+While the Fastify API was being built out, a temporary Supabase-direct branch unblocked end-to-end testing on real data without API dependencies. The three-tier fallback hierarchy (`EXPO_PUBLIC_API_URL` → Supabase → mock) meant the app could ship with real data before the backend was production-ready, and Supabase Row Level Security policies provided the trust boundary for public reads.
 
 </details>
 
@@ -533,3 +539,51 @@ The Explore venue list is a drag-to-collapse bottom sheet (`components/venue/Ven
 **How it works.** The content area is measured via `onLayout`; the sheet is an absolutely-positioned `Animated.View` (height = container) translated between two snap points — collapsed peek (`containerHeight - PEEK_HEIGHT`) and expanded (`TOP_GAP`, so the map never fully disappears). Only the **header handle** is wired to the `PanResponder`, so the map's pan/zoom and the list's scroll never fight the sheet drag. Release snaps to the nearer point, biased by fling velocity.
 
 **Trade-offs accepted:** hand-rolled gesture physics are less polished than gorhom's, and only the handle collapses the sheet (pulling down at the top of the scrolled list does not) — the deliberate cost of staying OTA-safe. If a native binary is being cut anyway, revisiting gorhom is reasonable.
+
+---
+
+## Global Vote Budget (Not Per-City)
+
+**Decided:** 2026-07-16 for v1.1.0
+
+**Chosen:** Single 3-vote budget per user per day, shared across all cities. Casting a vote in any city decrements the global count; switching cities does not reset the budget.
+
+**Alternatives:** Per-city budgets (3 votes per city per day independently), or per-role budgets (different limits for anonymous vs. linked users).
+
+**Why:** Simpler mental model for users. "I have 3 votes today" is clearer than "3 per city" when they're exploring multiple cities in a single session. Prevents vote-splitting abuse (casting all 3 in the lowest-activity city to game rankings). Aligns with the server's `vote.service.ts` implementation, which enforces a global budget.
+
+**Trade-offs accepted:** Users exploring multiple cities must budget their 3 votes across them. This is intentional — it encourages voting for venues they truly think are hottest, not just voting in every city they look at.
+
+**Implementation:** `src/api/voteStorage.ts` persists vote state (date + global remaining count + list of voted venue IDs) to AsyncStorage, keyed by today's date. `voteKeys.states()` is a shared prefix for queryKey invalidation so all city-scoped `state(city)` cache entries update in lockstep after a cast/removal (one vote affects all cities' budgets). See [Global Vote Budget](./DESIGN_DECISIONS.md#global-vote-budget-not-per-city) (this section) and [Scoped Query Keys with Shared Prefixes](./DESIGN_DECISIONS.md#global-vote-budget-not-per-city) for cache invalidation patterns.
+
+---
+
+## Vote-Day Boundary (5am Local "Nightlife Day")
+
+**Decided:** 2026-07-16, implementation pending (ticket #64, not yet landed)
+
+**Chosen:** Votes reset at 5am local time each day, not at UTC midnight. The "nightlife day" spans 5am–4:59am the next day (a night out on Friday gets votes counted toward Friday's rankings, not Saturday's).
+
+**Alternatives:** UTC midnight (current temporary impl), user-timezone midnight (requires location tracking).
+
+**Why:** Nightlife events typically run late into the morning. A user hitting a bar at 2am Friday and staying until 5am Saturday should have both visits counted as Friday's activity — they're all one long night out. Resetting at 5am avoids split-counting the tail end of a night session across two vote periods. The 5am threshold is chosen empirically: it's late enough that most venues close by then, but early enough that the reset happens before the next night's crowds arrive.
+
+**Trade-offs accepted:** Users in different timezones experience a "local 5am" reset independently (no sync point). The vote-reset job runs once per UTC day (00:00 UTC); per-user 5am local resets require either (a) storing user timezone + running a separate job per timezone bucket, or (b) deferring the reset until first vote after local 5am. Option (b) is simpler and aligns with the current architecture (no timezone storage yet).
+
+**Implementation target:** `apps/api/src/services/vote.service.ts` to compare cast time against 5am local (read user timezone from a future `users.timezone` column or infer from `userLocation` on mobile, then pass as a parameter). On the mobile side, `src/api/voteStorage.ts` checks if the stored vote date has rolled past 5am local time before returning persisted state.
+
+---
+
+## Cutover & Rollout Control (Compile-Time Env Flags)
+
+**Decided:** 2026-07-16 for v1.1.0 and beyond
+
+**Chosen:** Feature control via compile-time environment variables (`hasApi`, `hasSupabase`) checked at build time, baked into the app binary. No runtime feature flag service initially; LaunchDarkly / Unleash / in-house admin panel deferred to post-beta spike #130.
+
+**Alternatives:** Runtime feature flags (LaunchDarkly, Unleash), Supabase `feature_flags` table, in-house admin portal.
+
+**Why:** Compile-time flags are the simplest solution for v1.1.0 (the live beta pre-cutover phase). The app is built once per environment; users on staging get the staging binary (which may test Supabase-direct reads), users on prod get the prod binary (which points to Railway API). No additional infrastructure, no runtime lookups, no stale cache issues. Sufficient for the binary release / OTA update cadence until the team needs to do in-flight rollouts or gradual ramps.
+
+**Trade-offs accepted:** Cutover requires a new build and binary release (or OTA update if all changes are JS-only). Users cannot be segmented at runtime (e.g., "10% get new API, 90% get old path"). Acceptable during beta; if the app scales to many users post-launch, a real feature flag system becomes necessary.
+
+**Post-spike #130:** Once the live beta matures and the team identifies feature flags as a common need, revisit runtime solutions. Candidates: (a) LaunchDarkly (SaaS, free tier available), (b) Unleash (open-source, self-hosted or cloud), (c) Supabase `feature_flags` table (owned by the app, no external dependencies). Decision will be filed as a follow-up DESIGN_DECISIONS entry.
