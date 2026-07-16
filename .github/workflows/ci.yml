@@ -35,6 +35,10 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: paths
         with:
+          # Empty token switches change detection from the GitHub API to
+          # local git (checkout above has full history) — the API path
+          # failed every PR run during the 2026-07-16 GitHub outage (#137).
+          token: ''
           filters: |
             app:
               - '**'
