@@ -156,21 +156,15 @@ describe('mock vote state persistence', () => {
     expect((await getMockVoteState()).remainingVotes).toBe(2);
   });
 
-  it('documents a divergence from the server: when a cast is both a duplicate AND the budget is exhausted, the mock and server disagree on which VoteError code wins', async () => {
-    // Server order (apps/api/src/services/vote.service.ts castVote): checks
-    // `remainingVotes <= 0` BEFORE checking for an existing vote, so a
-    // double-violation throws NO_VOTES_REMAINING.
-    // Mock order (castMockVote): checks `votedVenueIds.includes` BEFORE
-    // checking `remainingVotes <= 0`, so the same double-violation throws
-    // ALREADY_VOTED instead. This is a real (minor) fidelity gap against
-    // acceptance criterion #2 of #62 — pinned here so it's a deliberate,
-    // visible choice rather than a silent regression. Do not "fix" this by
-    // changing the assertion without re-ordering castMockVote's checks to
-    // match the server.
+  it('matches the server error-precedence when a cast is both a duplicate AND the budget is exhausted', async () => {
+    // Server order (apps/api/src/services/vote.service.ts:33-40, castVote):
+    // checks `remainingVotes <= 0` BEFORE checking for an existing vote, so a
+    // double-violation throws NO_VOTES_REMAINING. castMockVote now checks in
+    // the same order, so the mock and server agree on which code wins.
     await castMockVote('v1');
     await castMockVote('v2');
     await castMockVote('v3'); // budget now exhausted
 
-    await expect(castMockVote('v1')).rejects.toMatchObject({ code: 'ALREADY_VOTED' });
+    await expect(castMockVote('v1')).rejects.toMatchObject({ code: 'NO_VOTES_REMAINING' });
   });
 });

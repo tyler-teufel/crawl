@@ -11,7 +11,11 @@ export const voteKeys = {
   all: ['votes'] as const,
   // City is part of the query key (for cache scoping / the real API's
   // per-city fetch), but the underlying vote budget is GLOBAL per user/day —
-  // see voteStorage.ts and apps/api/src/services/vote.service.ts.
+  // see voteStorage.ts and apps/api/src/services/vote.service.ts. `states()`
+  // is the shared prefix of every per-city `state(city)` key, used to update
+  // ALL cached vote-state entries at once after a cast/removal so no other
+  // city's cached entry is left showing a stale count.
+  states: () => ['votes', 'state'] as const,
   state: (city: string) => ['votes', 'state', city] as const,
 };
 
@@ -45,11 +49,15 @@ export async function getMockVoteState(): Promise<VoteState> {
 
 export async function castMockVote(venueId: string): Promise<VoteState> {
   const current = await getMockVoteState();
-  if (current.votedVenueIds.includes(venueId)) {
-    throw new VoteError('ALREADY_VOTED', 'You have already voted for this venue today.');
-  }
+  // Order matches the server's VoteService.castVote
+  // (apps/api/src/services/vote.service.ts:33-40): remaining-votes check
+  // first, so a duplicate cast after the budget is exhausted throws
+  // NO_VOTES_REMAINING, not ALREADY_VOTED.
   if (current.remainingVotes <= 0) {
     throw new VoteError('NO_VOTES_REMAINING', 'You have used all your votes for today.');
+  }
+  if (current.votedVenueIds.includes(venueId)) {
+    throw new VoteError('ALREADY_VOTED', 'You have already voted for this venue today.');
   }
   const next: VoteState = {
     ...current,
@@ -85,7 +93,6 @@ export function useVoteState(city: string) {
 
 export function useCastVote(city: string) {
   const queryClient = useQueryClient();
-  const stateKey = voteKeys.state(city);
 
   return useMutation<VoteState, Error, string>({
     mutationFn: async (venueId: string) => {
@@ -105,7 +112,10 @@ export function useCastVote(city: string) {
       queryClient.setQueryData(venueKeys.detail(venueId), context?.previous);
     },
     onSuccess: (newState) => {
-      queryClient.setQueryData(stateKey, newState);
+      // The vote budget is GLOBAL, so every cached per-city vote-state entry
+      // (not just this `city`'s) must reflect the new count — otherwise a
+      // previously-fetched city's cache stays stale until its staleTime lapses.
+      queryClient.setQueriesData({ queryKey: voteKeys.states() }, newState);
     },
     onSettled: (_data, _err, venueId) => {
       queryClient.invalidateQueries({ queryKey: venueKeys.detail(venueId) });
@@ -115,7 +125,6 @@ export function useCastVote(city: string) {
 
 export function useRemoveVote(city: string) {
   const queryClient = useQueryClient();
-  const stateKey = voteKeys.state(city);
 
   return useMutation<VoteState, Error, string>({
     mutationFn: async (venueId: string) => {
@@ -123,7 +132,8 @@ export function useRemoveVote(city: string) {
       return apiClient<VoteState>(`/votes/${venueId}`, { method: 'DELETE' });
     },
     onSuccess: (newState) => {
-      queryClient.setQueryData(stateKey, newState);
+      // Same rationale as useCastVote above: update every cached city entry.
+      queryClient.setQueriesData({ queryKey: voteKeys.states() }, newState);
     },
   });
 }

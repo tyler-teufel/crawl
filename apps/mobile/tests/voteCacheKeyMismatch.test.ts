@@ -4,12 +4,12 @@ import { getMockVoteState, castMockVote, voteKeys } from '@/api/votes';
 
 // #62 flattened the mock vote BUDGET to be global-per-day, but
 // `voteKeys.state(city)` (apps/mobile/src/api/votes.ts) still keys the React
-// Query cache per city. useVoteState(city)/useCastVote(city) each read/write
-// only their own city's cache entry, so the cache itself can still behave
-// as if the budget were per-city even though the underlying mock storage is
-// global. These tests exercise that mismatch directly through QueryClient,
-// mirroring exactly what useVoteState's queryFn and useCastVote's onSuccess
-// do, without needing to render the React hooks.
+// Query cache per city. useCastVote/useRemoveVote's onSuccess now writes the
+// new state into every cache entry under the shared `voteKeys.states()`
+// prefix (not just the city that was voted in), so the cache can't go stale
+// for a previously-fetched city. These tests exercise that directly through
+// QueryClient, mirroring exactly what useVoteState's queryFn and
+// useCastVote's onSuccess do, without needing to render the React hooks.
 
 const storage = vi.hoisted(() => new Map<string, string>());
 vi.mock('@react-native-async-storage/async-storage', () => ({
@@ -48,31 +48,25 @@ describe('vote cache key vs. global mock budget', () => {
     expect(cityBState.votedVenueIds).toEqual(['v1', 'v2']);
   });
 
-  it.fails(
-    "BUG: a cached vote count for a city other than the one just voted in goes stale within staleTime, because useCastVote only updates its own city's cache key on success (voteKeys.state(city))",
-    async () => {
-      const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
+  it("a cached vote count for a city other than the one just voted in is updated, because useCastVote's onSuccess writes to every voteKeys.states() cache entry", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
 
-      // Simulate useVoteState('A') and useVoteState('B') both having been
-      // viewed already (e.g. user browsed city A, then switched to city B),
-      // populating a cache entry for each.
-      await qc.fetchQuery({ queryKey: voteKeys.state('A'), queryFn: getMockVoteState });
-      await qc.fetchQuery({ queryKey: voteKeys.state('B'), queryFn: getMockVoteState });
+    // Simulate useVoteState('A') and useVoteState('B') both having been
+    // viewed already (e.g. user browsed city A, then switched to city B),
+    // populating a cache entry for each.
+    await qc.fetchQuery({ queryKey: voteKeys.state('A'), queryFn: getMockVoteState });
+    await qc.fetchQuery({ queryKey: voteKeys.state('B'), queryFn: getMockVoteState });
 
-      // Simulate useCastVote('A').mutate(...): mutationFn runs, then
-      // onSuccess does `queryClient.setQueryData(voteKeys.state('A'), newState)`
-      // — only city A's cache key is touched.
-      const newState = await castMockVote('v1');
-      qc.setQueryData(voteKeys.state('A'), newState);
+    // Simulate useCastVote('A').mutate(...): mutationFn runs, then onSuccess
+    // does `queryClient.setQueriesData({ queryKey: voteKeys.states() }, newState)`
+    // — every per-city cache key sharing the `voteKeys.states()` prefix is
+    // updated, not just city A's.
+    const newState = await castMockVote('v1');
+    qc.setQueriesData({ queryKey: voteKeys.states() }, newState);
 
-      // Desired behavior: since the budget is GLOBAL, city B's cached vote
-      // state should also reflect the reduced count (or at least not still
-      // claim 3 remaining). It currently does not — this assertion documents
-      // the expected/fixed behavior and is expected to fail until
-      // useCastVote's onSuccess (or an invalidation strategy) updates every
-      // city's cache entry, not just the one that was voted in.
-      const cachedB = qc.getQueryData(voteKeys.state('B'));
-      expect(cachedB).toEqual(newState);
-    }
-  );
+    // Since the budget is GLOBAL, city B's cached vote state now reflects
+    // the reduced count too.
+    const cachedB = qc.getQueryData(voteKeys.state('B'));
+    expect(cachedB).toEqual(newState);
+  });
 });
