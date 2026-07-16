@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { mockCities } from '@/data/cities';
+import { supabase } from '@/lib/supabase';
+import { hasSupabase } from '@/lib/env';
 
 export interface City {
   id: string;
@@ -26,6 +28,10 @@ export const cityKeys = {
   list: ['cities', 'list'] as const,
 };
 
+// Only columns the mobile client consumes today are selected — `public.cities`
+// also has `timezone` and `radius_meters`, not modeled here or in `City`.
+const CITY_COLUMNS = 'id, slug, name, state, center_lat, center_lng';
+
 export function rowToCity(row: CityRow): City {
   return {
     id: row.id,
@@ -41,10 +47,16 @@ export function rowToCity(row: CityRow): City {
 export function useCities() {
   return useQuery<City[]>({
     queryKey: cityKeys.list,
-    // Cities come from the bundled mock set. There is no cities API endpoint
-    // yet, and the client does not read Supabase directly (auth-only). When a
-    // real source exists, swap this queryFn to fetch + `rowToCity`.
-    queryFn: () => mockCities,
+    // There is no cities API endpoint yet, so this only branches on
+    // Supabase-direct reads (RLS permits public read) vs. bundled mock data.
+    queryFn: async () => {
+      if (hasSupabase) {
+        const { data, error } = await supabase.from('cities').select(CITY_COLUMNS);
+        if (error) throw error;
+        return ((data ?? []) as CityRow[]).map(rowToCity);
+      }
+      return mockCities;
+    },
     staleTime: 60 * 60 * 1000, // 1h — cities rarely change
   });
 }
