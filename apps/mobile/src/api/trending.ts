@@ -4,10 +4,7 @@ import { mockVenues, mockVenuesByCity } from '@/data/venues';
 import { apiClient } from './client';
 import { hasApi } from '@/lib/env';
 
-// Same fallback shape as src/api/venues.ts: prefer the Railway API when it's
-// configured, otherwise fall back to the bundled mock set. A `hasSupabase`
-// tier can slot in between the two branches below (see #78) without
-// reshaping this hook.
+// Mirrors the fallback branching in venues.ts.
 const USE_REAL_API = hasApi;
 
 const MOCK_TRENDING_LIMIT = 10;
@@ -17,6 +14,12 @@ export const trendingKeys = {
   list: (city: string) => ['trending', 'list', city] as const,
 };
 
+export function getMockTrending(city: string): Venue[] {
+  return [...(mockVenuesByCity[city] ?? mockVenues)]
+    .sort((a, b) => b.hotspotScore - a.hotspotScore)
+    .slice(0, MOCK_TRENDING_LIMIT);
+}
+
 export function useTrending(city: string) {
   return useQuery<Venue[]>({
     queryKey: trendingKeys.list(city),
@@ -24,9 +27,7 @@ export function useTrending(city: string) {
       if (USE_REAL_API) {
         return apiClient<Venue[]>(`/trending/${encodeURIComponent(city)}`);
       }
-      return [...(mockVenuesByCity[city] ?? mockVenues)]
-        .sort((a, b) => b.hotspotScore - a.hotspotScore)
-        .slice(0, MOCK_TRENDING_LIMIT);
+      return getMockTrending(city);
     },
     staleTime: 30_000,
   });
