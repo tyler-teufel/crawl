@@ -26,6 +26,7 @@ Sprint work is delegated to a roster of specialized subagents (`.claude/agents/`
 | Reproduce a bug / write regression tests / verify acceptance criteria | `qa-engineer` |
 | Sync `docs/` after code changes (except `docs/ops/**`, owned by `devops-engineer`) | `docs-writer` |
 | Pre-PR diff review (read-only) | `code-reviewer` |
+| Security pass on auth/secrets/validation/RLS diffs; Dependabot alert & dependency-PR triage | `security-reviewer` |
 | Ticket triage/assignment across the board | run `/scrum` (main session — subagents cannot spawn subagents) |
 
 Workers start cold: every dispatch brief must include the ticket's root cause, fix approach, acceptance criteria, and target branch. Workers report; the main session commits, pushes, and handles GitHub bookkeeping.
