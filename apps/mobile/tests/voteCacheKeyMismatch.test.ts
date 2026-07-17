@@ -11,6 +11,11 @@ import { getMockVoteState, castMockVote, voteKeys } from '@/api/votes';
 // QueryClient, mirroring exactly what useVoteState's queryFn and
 // useCastVote's onSuccess do, without needing to render the React hooks.
 
+// votes.ts imports venueKeys from venues.ts, which (post-#78) statically
+// imports @/lib/supabase; stub it so Vitest never loads supabase-js's
+// react-native boot chain (same pattern as voteStatePersistence.test.ts).
+vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+
 const storage = vi.hoisted(() => new Map<string, string>());
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {

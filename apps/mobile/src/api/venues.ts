@@ -2,14 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { Venue } from '@/types/venue';
 import { mockVenues, mockVenuesByCity } from '@/data/venues';
 import { apiClient } from './client';
-import { hasApi } from '@/lib/env';
+import { supabase } from '@/lib/supabase';
+import { hasApi, hasSupabase } from '@/lib/env';
 import { filterVenues } from '@/lib/filterVenues';
 
-// Venue data comes from the Railway API when configured, otherwise the bundled
-// mock set. The client does NOT read Supabase venue tables directly — Supabase
-// is used only for auth (see src/lib/supabase.ts). When the API is wired up,
-// setting EXPO_PUBLIC_API_URL flips every hook here to live data.
+// Read priority: Railway API (EXPO_PUBLIC_API_URL) → Supabase-direct
+// (EXPO_PUBLIC_SUPABASE_URL/KEY, RLS permits public read) → bundled mock data.
+// Supabase reads apply filters client-side via filterVenues, same as mock
+// mode, so filter behavior is identical across both fallback tiers.
 const USE_REAL_API = hasApi;
+const USE_SUPABASE = hasSupabase;
 
 export const venueKeys = {
   all: ['venues'] as const,
@@ -17,6 +19,65 @@ export const venueKeys = {
   list: (city: string, filters: string[]) => ['venues', 'list', city, [...filters].sort()] as const,
   detail: (id: string) => ['venues', 'detail', id] as const,
 };
+
+// Shape of a row returned by `select(VENUE_COLUMNS)` against `public.venues`.
+// Supabase preserves Postgres snake_case column names and serializes
+// `numeric` columns as strings. Only columns the mobile client actually
+// consumes are selected — `public.venues` has additional columns
+// (city_id, google_place_id, types[], rating, total_ratings, phone, website)
+// not modeled here or in the shared Venue type.
+interface VenueRow {
+  id: string;
+  name: string;
+  primary_type: string;
+  address: string;
+  latitude: string | number;
+  longitude: string | number;
+  hotspot_score: number;
+  vote_count: number;
+  is_open: boolean;
+  is_trending: boolean;
+  highlights: string[] | null;
+  price_level: number | null;
+  hours: string | null;
+  description: string | null;
+  image_url: string | null;
+}
+
+const VENUE_COLUMNS =
+  'id, name, primary_type, address, latitude, longitude, hotspot_score, vote_count, is_open, is_trending, highlights, price_level, hours, description, image_url';
+
+function rowToVenue(row: VenueRow): Venue | null {
+  const lat = Number(row.latitude);
+  const lng = Number(row.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    if (__DEV__) {
+      console.warn(`[useVenues] Venue ${row.id} (${row.name}) has invalid coordinates`, {
+        latitude: row.latitude,
+        longitude: row.longitude,
+      });
+    }
+    return null;
+  }
+  return {
+    id: row.id,
+    name: row.name,
+    primaryType: row.primary_type,
+    address: row.address,
+    distance: '',
+    hotspotScore: row.hotspot_score,
+    voteCount: row.vote_count,
+    isOpen: row.is_open,
+    isTrending: row.is_trending,
+    highlights: row.highlights ?? [],
+    latitude: lat,
+    longitude: lng,
+    imageUrl: row.image_url ?? undefined,
+    priceLevel: row.price_level,
+    hours: row.hours ?? '',
+    description: row.description ?? '',
+  };
+}
 
 export function useVenues(city: string, filters: string[]) {
   return useQuery<Venue[]>({
@@ -28,6 +89,19 @@ export function useVenues(city: string, filters: string[]) {
         );
         return res.data;
       }
+      if (USE_SUPABASE) {
+        const { data, error } = await supabase
+          .from('venues')
+          .select(VENUE_COLUMNS)
+          .eq('is_active', true)
+          .eq('city', city)
+          .order('hotspot_score', { ascending: false });
+        if (error) throw error;
+        const venues = ((data ?? []) as VenueRow[])
+          .map(rowToVenue)
+          .filter((v): v is Venue => v !== null);
+        return filterVenues(venues, filters);
+      }
       return filterVenues(mockVenuesByCity[city] ?? mockVenues, filters);
     },
     staleTime: 30_000,
@@ -37,6 +111,16 @@ export function useVenues(city: string, filters: string[]) {
 async function fetchVenueDetail(id: string): Promise<Venue | undefined> {
   if (USE_REAL_API) {
     return apiClient<Venue>(`/venues/${id}`);
+  }
+  if (USE_SUPABASE) {
+    const { data, error } = await supabase
+      .from('venues')
+      .select(VENUE_COLUMNS)
+      .eq('id', id)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? (rowToVenue(data as VenueRow) ?? undefined) : undefined;
   }
   return mockVenues.find((v) => v.id === id);
 }

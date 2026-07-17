@@ -17,6 +17,11 @@ import {
 } from '@/api/votes';
 import { readPersistedVoteState } from '@/api/voteStorage';
 
+// @/api/votes imports venueKeys from @/api/venues, which now has a
+// Supabase-direct read branch — mock the client so this test doesn't pull in
+// the real react-native-url-polyfill/@supabase/supabase-js chain.
+vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+
 const storage = vi.hoisted(() => new Map<string, string>());
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
