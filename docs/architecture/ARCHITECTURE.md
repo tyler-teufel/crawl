@@ -285,7 +285,9 @@ The mobile app's read operations on venues and cities follow a priority fallback
                                         (in-memory venues, filtered client-side)
 ```
 
-The fallback chain applies to `useVenues()`, `useCities()`, and `useTrending()` (see `src/api/venues.ts`, `src/api/cities.ts`, `src/api/trending.ts`). Supabase reads apply the same `filterVenues()` predicate logic as the mock branch, ensuring filter behavior is identical across all three tiers. See [Direct Supabase Query Path](./DESIGN_DECISIONS.md#direct-supabase-query-path-from-mobile-re-added-for-live-beta) for the rationale behind re-adding the Supabase-direct tier for the v1.1.0 live beta.
+The chain is resolved once as `dataSource` in `src/lib/env.ts` (`'api' | 'supabase' | 'mock'`) and every read hook branches on that single value — `useVenues()`, `useVenue()`, `useTrending()`, and `useCities()` (see `src/api/venues.ts`, `src/api/trending.ts`, `src/api/cities.ts`). Hooks deriving their own ladder is what let `useTrending` stay two-tier and serve bundled mock venues on staging builds while Explore read live data (#150). Supabase reads apply the same `filterVenues()` predicate logic as the mock branch, ensuring filter behavior is identical across all three tiers.
+
+Venue reads on the Supabase tier filter by `venues.city_id`, resolved from the selected `City.displayName` via `resolveCityId()` in `cities.ts` — **not** by the denormalized `venues.city` text column, which the ingest job and the client write and read in different formats (#149). Votes remain the one hook without a Supabase tier, falling back to AsyncStorage until the `cast_vote` RPC lands (#126). See [Direct Supabase Query Path](./DESIGN_DECISIONS.md#direct-supabase-query-path-from-mobile-re-added-for-live-beta) for the rationale behind re-adding the Supabase-direct tier for the v1.1.0 live beta.
 
 ### State Architecture (Current)
 

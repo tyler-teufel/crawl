@@ -358,7 +358,9 @@ The three-tier fallback hierarchy for reads is: (1) `hasApi` → call Railway AP
 
 **Why re-adopted for live beta:** The team chose to launch the initial live beta natively on Supabase (no API intermediary) to reduce operational overhead and costs before ramping up to the full Railway + Fastify stack. Users test against real seeded venue data, voting persists to the real backend, and filter behavior is identical to the eventual production path (both use the same `filterVenues()` predicate logic client-side).
 
-**Implementation:** `src/api/venues.ts`, `src/api/cities.ts`, and `src/api/trending.ts` each check `hasApi` first (EXPO_PUBLIC_API_URL set), then `hasSupabase` (EXPO_PUBLIC_SUPABASE_URL/KEY set), then fall back to mocks. Supabase reads use explicit column selects (security + bandwidth), `.eq('is_active', true)`, `.order('hotspot_score' desc)` for rankings, and apply the same filter predicates as mocks (client-side via `filterVenues`). RLS policies on the `venues` and `cities` tables permit public read.
+**Implementation:** the tier is resolved **once**, as `dataSource` in `src/lib/env.ts` (`'api' | 'supabase' | 'mock'`), and `src/api/venues.ts`, `src/api/cities.ts`, and `src/api/trending.ts` branch on that single value. Supabase reads use explicit column selects (security + bandwidth) shared via `src/api/venueRow.ts`, `.eq('is_active', true)`, `.eq('city_id', …)`, `.order('hotspot_score' desc)` with `name` as a tiebreak, and apply the same filter predicates as mocks (client-side via `filterVenues`). RLS policies on the `venues` and `cities` tables permit public read.
+
+**Why one shared `dataSource` rather than per-hook checks:** each hook originally re-derived its own ladder from `hasApi`/`hasSupabase`, and `useTrending` never got the Supabase rung. Because staging deliberately leaves `EXPO_PUBLIC_API_URL` unset, that hook fell straight through to bundled mock data — Global Rankings rendered fabricated venues and vote counts as live rankings for the whole v1.1.0 beta, with no signal to the user (#150). A single derived tier makes that class of drift unrepresentable.
 
 **Trade-off accepted:** two long-term read paths maintained until the API path is primary again (expected post-beta when Railway goes live). The paths are parallel branches, not an abstraction layer, so switching between them is a compile-time env var toggle.
 
@@ -460,11 +462,19 @@ VenueContext now seeds `selectedCity` from the user's onboarding-captured locati
 3. The result is set into `selectedCity` once on first run; manual selection via `setSelectedCity` flips a guard ref so seeding never overrides a user choice.
 4. If the user is more than 50 miles from any covered city, the previous fallback (`Austin, TX`) wins — better than zooming the map to the wrong city.
 
-**Why store the display string and not the UUID:**
+**Why the context still stores the display string, but queries no longer match on it:**
 
-The `venues` table currently denormalizes city as a `"Name, State"` text column (with a TODO in the schema to migrate to `cityId` lookups). The mobile app keys queries off this same string so the data path stays simple. When the schema migration to `cityId` lands, swap to UUID in one place (`useVenues`) without touching the rest of the context. Switching now would require two reads in lockstep — schema cleanup first, app change second.
+`selectedCity` remains a `"Name, State"` display string — it is what the CitySelector renders, what query keys are scoped by, and what the vote cache is keyed on. But **venue queries filter on `venues.city_id`**, resolved through `resolveCityId()` in `src/api/cities.ts`.
 
-**Trade-off:** the display string format must stay consistent across `cities.name + ', ' + cities.state` and `venues.city`. The seed and sync jobs currently produce this format; document this contract in `apps/api/src/jobs/syncVenues` if a contributor proposes changing it.
+This section previously documented the opposite: queries keyed off the denormalized `venues.city` text column, with the caveat that "the display string format must stay consistent across `cities.name + ', ' + cities.state` and `venues.city`. The seed and sync jobs currently produce this format."
+
+**That caveat was wrong about the sync job, and it shipped.** `apps/api/src/db/seed.ts` writes `'Charlotte, NC'`, but the Google Places sync job writes `city: ctx.cityName` — the bare `--city` argument, `'Charlotte'`. Every venue in the live database came from the sync job, so `.eq('city', 'Charlotte, NC')` matched **zero rows for all four cities** and the entire Explore tab shipped empty in v1.1.0 (#149).
+
+**Why `city_id` won:** the FK is already populated on all 240 live rows and indexed (`venues_city_id_idx`), so the switch needed no migration and no backfill — only the client change the original decision had already anticipated ("swap to UUID in one place"). A denormalized string that two writers format differently has no single source of truth; the FK does, by construction.
+
+**Trade-off accepted:** one extra resolution step between "user picked a city" and "query the venues table." It costs no extra round-trip in practice (it reads the same 1-hour-cached `cities` query `useCities()` already populates), but it does mean venue reads now fail loudly when a display name has no matching `cities` row, instead of silently returning nothing. That is the intended direction — the silent-empty behavior is what hid this bug for an entire release.
+
+`venues.city` is now unread by the mobile client and remains slated for removal in the #76 migration wave. The Fastify repository still matches it with `ILIKE '%city%'` (`drizzle-venue.repository.ts`) and is broken against sync-written rows for the same reason; that path is unexercised while Railway is unpaid and is tracked in #149.
 
 ---
 

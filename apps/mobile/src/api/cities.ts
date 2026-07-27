@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { mockCities } from '@/data/cities';
 import { supabase } from '@/lib/supabase';
 import { hasSupabase } from '@/lib/env';
@@ -44,21 +44,49 @@ export function rowToCity(row: CityRow): City {
   };
 }
 
+// There is no cities API endpoint yet, so this only branches on
+// Supabase-direct reads (RLS permits public read) vs. bundled mock data.
+async function fetchCities(): Promise<City[]> {
+  if (hasSupabase) {
+    const { data, error } = await supabase.from('cities').select(CITY_COLUMNS).order('name');
+    if (error) throw error;
+    return ((data ?? []) as CityRow[]).map(rowToCity);
+  }
+  return mockCities;
+}
+
+export const citiesQueryOptions = {
+  queryKey: cityKeys.list,
+  queryFn: fetchCities,
+  staleTime: 60 * 60 * 1000, // 1h — cities rarely change
+};
+
 export function useCities() {
-  return useQuery<City[]>({
-    queryKey: cityKeys.list,
-    // There is no cities API endpoint yet, so this only branches on
-    // Supabase-direct reads (RLS permits public read) vs. bundled mock data.
-    queryFn: async () => {
-      if (hasSupabase) {
-        const { data, error } = await supabase.from('cities').select(CITY_COLUMNS).order('name');
-        if (error) throw error;
-        return ((data ?? []) as CityRow[]).map(rowToCity);
-      }
-      return mockCities;
-    },
-    staleTime: 60 * 60 * 1000, // 1h — cities rarely change
-  });
+  return useQuery<City[]>(citiesQueryOptions);
+}
+
+/**
+ * Resolve a `City.displayName` to the `cities.id` that `venues.city_id`
+ * references, reusing (and warming) the same cache `useCities` reads.
+ *
+ * Venue queries filter on `city_id` rather than the denormalized `venues.city`
+ * text column because the two never agreed: the ingest job writes the bare
+ * city name it was invoked with ("Charlotte") while `displayName` appends the
+ * state ("Charlotte, NC"), so equality on that column matched zero rows for
+ * every city (#149).
+ *
+ * Throws when no city matches. That surfaces as the caller's error state —
+ * deliberately louder than returning nothing, which is indistinguishable from
+ * "this city has no venues" and is what made the original bug read as empty
+ * data rather than a broken query.
+ */
+export async function resolveCityId(client: QueryClient, displayName: string): Promise<string> {
+  const cities = await client.fetchQuery(citiesQueryOptions);
+  const match = cities.find((c) => c.displayName === displayName);
+  if (!match) {
+    throw new Error(`No city row matches "${displayName}" — cannot resolve its venues.`);
+  }
+  return match.id;
 }
 
 const EARTH_RADIUS_MILES = 3958.8;

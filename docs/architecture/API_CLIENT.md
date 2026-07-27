@@ -11,21 +11,45 @@ src/api/
 ├── client.ts         ── Generic fetch wrapper + auth token holder (transport layer)
 ├── query-client.ts   ── TanStack React Query singleton configuration
 ├── venues.ts         ── Venue query hooks with key factory
+├── trending.ts       ── Global Rankings leaderboard hook (top venues by score)
+├── venueRow.ts       ── Shared public.venues column list + row→Venue mapping
 ├── votes.ts          ── Vote state query + cast/remove mutation hooks (optimistic)
-├── cities.ts         ── City list query hook + nearest-city resolver
+├── cities.ts         ── City list query hook, nearest-city + city-id resolvers
 └── voteStorage.ts    ── AsyncStorage persistence for mock-mode vote state
 ```
 
 ---
 
-## Mock vs. Live API
+## Read Tiers
 
-Every query hook checks `hasApi` (from `src/lib/env.ts`, true when `EXPO_PUBLIC_API_URL` is set) and branches between two code paths in the same `queryFn`:
+Every read hook branches on one derived value, `dataSource` from `src/lib/env.ts`:
 
-- **Live** — calls `apiClient()` against the Fastify API.
-- **Mock** — reads bundled fallback data (`src/data/venues.ts`) or, for votes, AsyncStorage-persisted mock state (`voteStorage.ts`).
+```typescript
+export const dataSource: 'api' | 'supabase' | 'mock' = hasApi ? 'api' : hasSupabase ? 'supabase' : 'mock';
+```
 
-This means the mobile app runs standalone (no backend, no Supabase) as well as fully wired — the only difference is whether `EXPO_PUBLIC_API_URL` is set. Supabase is used **only for auth/identity**, not for venue data — the client never reads Supabase tables directly for venues.
+- **`api`** — calls `apiClient()` against the Fastify API (`EXPO_PUBLIC_API_URL` set).
+- **`supabase`** — reads `public.venues` / `public.cities` directly with the anon key under RLS public-read, and applies `filterVenues()` client-side. This is the tier staging/TestFlight builds run on: #128 deliberately leaves `EXPO_PUBLIC_API_URL` unset.
+- **`mock`** — reads bundled fallback data (`src/data/venues.ts`) or, for votes, AsyncStorage-persisted mock state (`voteStorage.ts`).
+
+Hooks branch on `dataSource` rather than re-deriving their own ladder from `hasApi`/`hasSupabase`. `useTrending` previously kept a two-tier ladder of its own and so served bundled mock venues on every Supabase-direct build while `useVenues` read live data (#150) — Global Rankings looked healthy while showing fabricated numbers.
+
+Votes are the one deliberate exception: they have no Supabase tier yet and fall back to AsyncStorage until the `cast_vote` RPC lands (#126).
+
+### Venue reads resolve a city id first
+
+The Supabase tier filters venues on `venues.city_id`, not on the denormalized `venues.city` text column. Those two never agreed: the ingest job writes the bare name it was invoked with (`'Charlotte'`) while the client holds a `City.displayName` (`'Charlotte, NC'`), so equality on that column matched **zero rows for every city** — the entire Explore tab read empty on v1.1.0 (#149).
+
+`resolveCityId(client, displayName)` in `cities.ts` maps the display name to its `cities.id` through the same cached query `useCities()` reads, so the lookup costs no extra round-trip after the first. It **throws** when no city matches, surfacing the caller's error state — deliberately louder than returning an empty list, which is indistinguishable from "this city has no venues" and is precisely what disguised the original bug.
+
+```
+useVenues('Charlotte, NC')
+   └─► resolveCityId ──► queryClient.fetchQuery(citiesQueryOptions)   [cached 1h]
+          └─► cities.find(displayName) ──► '47f7fc8a-…'
+                 └─► venues.select(…).eq('city_id', '47f7fc8a-…')
+```
+
+Both venue queries order by `hotspot_score` descending with `name` as a tiebreak. The tiebreak matters today: nothing recalculates `hotspot_score` outside the unpaid Fastify API, so every live venue scores 0 and an all-ties set would otherwise come back in a different order on each refetch.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -43,22 +67,24 @@ This means the mobile app runs standalone (no backend, no Supabase) as well as f
                            │ calls hooks from
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                  TanStack Query Hooks                             │
-│  src/api/venues.ts  → useVenues(city, filters), useVenue(id)     │
-│  src/api/votes.ts   → useVoteState(city), useCastVote(city),     │
-│                        useRemoveVote(city)                       │
-│  src/api/cities.ts  → useCities(), findNearestCity()             │
+│  src/api/venues.ts   → useVenues(city, filters), useVenue(id)    │
+│  src/api/trending.ts → useTrending(city)                         │
+│  src/api/votes.ts    → useVoteState(city), useCastVote(city),    │
+│                         useRemoveVote(city)                      │
+│  src/api/cities.ts   → useCities(), findNearestCity(),           │
+│                         resolveCityId()                          │
 └──────────────────────────┬──────────────────────────────────────┘
-                hasApi?    │
-        ┌──────────────────┴───────────────────┐
-        ▼ true                                  ▼ false
-┌───────────────────┐                  ┌──────────────────────┐
-│   apiClient<T>()   │                  │  src/data/*.ts mocks  │
-│  (src/api/client.ts)│                 │  + voteStorage.ts     │
-│  fetch(API_BASE+path)│                │  (AsyncStorage)       │
-│  attaches Bearer token│               └──────────────────────┘
-└──────────┬─────────┘
-           │ HTTPS
-     Fastify API (apps/api)
+             dataSource?   │
+      ┌──────────────┬─────┴──────────────┐
+      ▼ 'api'        ▼ 'supabase'          ▼ 'mock'
+┌──────────────┐ ┌──────────────────┐ ┌──────────────────────┐
+│ apiClient<T>()│ │ supabase.from()  │ │  src/data/*.ts mocks  │
+│ (api/client.ts)│ │ anon key + RLS   │ │  + voteStorage.ts     │
+│ fetch(BASE+path)│ │ .eq('city_id',…) │ │  (AsyncStorage)       │
+│ Bearer token   │ │ filterVenues()   │ └──────────────────────┘
+└──────┬─────────┘ └────────┬─────────┘
+       │ HTTPS              │ HTTPS
+ Fastify API (apps/api)  Supabase Postgres
 ```
 
 ---
@@ -95,12 +121,20 @@ export const venueKeys = {
 };
 ```
 
-| Hook                        | Query Key                        | Live                                          | Mock                                                  |
-| ---------------------------- | --------------------------------- | ------------------------------------------------ | ---------------------------------------------------------- |
-| `useVenues(city, filters)`  | `['venues','list',city,filters]` | `GET /venues?city=...&filters=...`               | `filterVenues(mockVenuesByCity[city] ?? mockVenues, filters)` |
-| `useVenue(id)`               | `['venues','detail',id]`         | `GET /venues/:id`                                 | Finds venue in mock array                                   |
+| Hook                        | Query Key                        | `api`                                          | `supabase`                                                | `mock`                                                  |
+| ---------------------------- | --------------------------------- | ------------------------------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| `useVenues(city, filters)`  | `['venues','list',city,filters]` | `GET /venues?city=...&filters=...`               | `venues` where `city_id` = resolved id, `is_active`, then `filterVenues` | `filterVenues(mockVenuesByCity[city] ?? mockVenues, filters)` |
+| `useVenue(id)`               | `['venues','detail',id]`         | `GET /venues/:id`                                 | `venues` where `id` + `is_active`, `maybeSingle()`             | Finds venue in mock array                                   |
 
-Both hooks set `staleTime: 30_000`; `useVenue` has `enabled: !!id`.
+Both hooks set `staleTime: 30_000`; `useVenue` has `enabled: !!id`. Keys stay scoped by the city **display name** even though the query filters by id — the two are 1:1, and the display name is what callers and the vote cache already hold.
+
+### `trending.ts` — Global Rankings Leaderboard
+
+`useTrending(city)` (key `['trending','list',city]`) returns the city's top 10 venues by `hotspot_score`. There is no separate trending table — "trending" is the top slice of the same `venues` rows, so the Supabase tier reuses `VENUE_COLUMNS` and `rowsToVenues` from `venueRow.ts` and adds `.limit(10)`. The `api` tier calls `GET /trending/:city`; the `mock` tier uses `getMockTrending(city)`.
+
+### `venueRow.ts` — Shared Row Mapping
+
+`VENUE_COLUMNS` (the `select()` list), the `VenueRow` interface (snake_case, with `numeric` columns arriving as strings), and `rowToVenue` / `rowsToVenues`. Extracted so the venue-list, trending, and detail queries cannot drift into separate column lists or mappings — that drift is what left Global Rankings on mock data. `rowToVenue` returns `null` for rows with unparseable coordinates and `rowsToVenues` drops them, so one bad row cannot blank the map.
 
 ### `votes.ts` — Vote State & Mutation Hooks
 
@@ -116,7 +150,7 @@ Default vote state: `{ remainingVotes: 3, maxVotes: 3, votedVenueIds: [] }`.
 
 ### `cities.ts` — City List
 
-`useCities()` returns the active `cities` rows (1-hour `staleTime`). `findNearestCity(cities, location, maxMiles=50)` is a haversine-based picker used by `VenueContext` to seed `selectedCity` from the onboarding-captured `userLocation`.
+`useCities()` returns the active `cities` rows (1-hour `staleTime`), built from the shared `citiesQueryOptions` so imperative callers hit the same cache entry. `findNearestCity(cities, location, maxMiles=50)` is a haversine-based picker used by `VenueContext` to seed `selectedCity` from the onboarding-captured `userLocation`. `resolveCityId(client, displayName)` maps a display name to its `cities.id` for venue queries (see [Venue reads resolve a city id first](#venue-reads-resolve-a-city-id-first)), throwing when no city matches.
 
 ### `voteStorage.ts` — Mock Vote Persistence
 

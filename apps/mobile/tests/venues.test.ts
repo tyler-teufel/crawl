@@ -8,11 +8,21 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 // tests/boot-smoke.test.ts.
 
 const supabaseMock = vi.hoisted(() => ({ from: vi.fn() }));
+/** The cities row id 'Charlotte, NC' resolves to in these tests. */
+const CITY_ID = 'city-uuid-charlotte';
+const resolveCityIdMock = vi.hoisted(() => vi.fn(async () => 'city-uuid-charlotte'));
 
 vi.mock('@/lib/supabase', () => ({ supabase: supabaseMock }));
 // useQuery is mocked to just return its options object so we can invoke the
 // real queryFn directly without rendering a component or a QueryClient.
 vi.mock('@tanstack/react-query', () => ({ useQuery: (opts: any) => opts }));
+// The Supabase tier filters on venues.city_id, so it resolves the selected
+// city's display name to a cities row id first (see @/api/cities). Stubbed
+// here so these tests exercise the venue query alone; the resolution itself is
+// covered in tests/citiesQuery.test.ts. Mocking the module also keeps the real
+// query-client singleton out of this file's import graph.
+vi.mock('@/api/cities', () => ({ resolveCityId: resolveCityIdMock }));
+vi.mock('@/api/query-client', () => ({ queryClient: {} }));
 
 /** A chainable, thenable stand-in for the supabase-js query builder. */
 function makeBuilder(result: { data: unknown; error: unknown }) {
@@ -80,8 +90,15 @@ describe('useVenues tier selection', () => {
     const result = await (useVenues('Charlotte, NC', []) as any).queryFn();
     expect(supabaseMock.from).toHaveBeenCalledWith('venues');
     expect(builder.eq).toHaveBeenCalledWith('is_active', true);
-    expect(builder.eq).toHaveBeenCalledWith('city', 'Charlotte, NC');
+    // Filters on the FK, never on the denormalized venues.city text column —
+    // the ingest job writes that as 'Charlotte' while the client holds
+    // 'Charlotte, NC', so equality on it matched nothing (#149).
+    expect(resolveCityIdMock).toHaveBeenCalledWith(expect.anything(), 'Charlotte, NC');
+    expect(builder.eq).toHaveBeenCalledWith('city_id', CITY_ID);
+    expect(builder.eq).not.toHaveBeenCalledWith('city', 'Charlotte, NC');
     expect(builder.order).toHaveBeenCalledWith('hotspot_score', { ascending: false });
+    // Deterministic tiebreak while every live venue still scores 0.
+    expect(builder.order).toHaveBeenCalledWith('name');
     expect(result).toEqual([
       {
         id: 'v-1',
@@ -119,6 +136,18 @@ describe('useVenues tier selection', () => {
     supabaseMock.from.mockReturnValue(makeBuilder({ data: null, error: dbError }));
     const { useVenues } = await loadVenues();
     await expect((useVenues('Charlotte, NC', []) as any).queryFn()).rejects.toEqual(dbError);
+  });
+
+  it('rejects (rather than returning an empty list) when the city cannot be resolved to a cities row', async () => {
+    // An unresolvable city must not look like "this city has no venues" —
+    // that indistinguishability is what made #149 read as empty data instead
+    // of a broken query for the whole beta.
+    stubTier({ supabaseUrl: 'https://x.supabase.co', supabaseKey: 'k' });
+    const resolveError = new Error('No city row matches "Nowhere, ZZ"');
+    resolveCityIdMock.mockRejectedValueOnce(resolveError);
+    const { useVenues } = await loadVenues();
+    await expect((useVenues('Nowhere, ZZ', []) as any).queryFn()).rejects.toThrow(resolveError);
+    expect(supabaseMock.from).not.toHaveBeenCalled();
   });
 
   it('prefers the Railway API tier over Supabase when both are configured', async () => {
