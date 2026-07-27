@@ -36,8 +36,8 @@ crawl/
 │   │   │   │   ├── _layout.tsx     # Tabs config + custom TabBar
 │   │   │   │   ├── index.tsx       # Explore screen (map + carousel)
 │   │   │   │   ├── voting.tsx      # Daily voting screen
-│   │   │   │   ├── global.tsx      # Placeholder
-│   │   │   │   └── profile.tsx     # Placeholder
+│   │   │   │   ├── global.tsx      # Global Rankings (city leaderboard)
+│   │   │   │   └── profile.tsx     # Profile (avatar, history, stats, sign-out)
 │   │   │   ├── venue/
 │   │   │   │   └── [id].tsx        # Dynamic venue detail
 │   │   │   └── filters.tsx         # Transparent modal overlay
@@ -109,8 +109,8 @@ Root Stack (app/_layout.tsx)
 ├── (tabs)                          # Tab navigator
 │   ├── index        → /           # Explore (default tab)
 │   ├── voting       → /voting     # Daily votes
-│   ├── global       → /global     # Placeholder
-│   └── profile      → /profile    # Placeholder
+│   ├── global       → /global     # Global Rankings (city leaderboard)
+│   └── profile      → /profile    # Profile (user avatar, history, stats)
 ├── venue/[id]       → /venue/123  # Venue detail (push)
 └── filters          → /filters    # Filter modal (transparentModal)
 ```
@@ -170,10 +170,10 @@ The default React Navigation tab bar is replaced by `components/layout/TabBar.ts
 │  │  │  tab     │            │  Detail  │ │  │
 │  │  └──────────┘            └──────────┘ │  │
 │  │                                        │  │
-│  │  ┌──────────┐  ┌──────────┐           │  │
-│  │  │ Global   │  │ Profile  │           │  │
-│  │  │  (TBD)   │  │  (TBD)   │           │  │
-│  │  └──────────┘  └──────────┘           │  │
+│  │  ┌──────────────┐  ┌──────────────┐   │  │
+│  │  │    Global    │  │   Profile    │   │  │
+│  │  │  Rankings    │  │ (avatar, etc)│   │  │
+│  │  └──────────────┘  └──────────────┘   │  │
 │  └────────────────────────────────────────┘  │
 └──────────────────────────────────────────────┘
 ```
@@ -217,10 +217,10 @@ VenueProvider (app/_layout.tsx, beneath AuthProvider)
 │                                    #   findNearestCity(); user override via
 │                                    #   setSelectedCity, persisted as a guard ref
 │
-├── Vote State
-│   ├── voteState.remainingVotes: number     # Starts at 3
+├── Vote State (GLOBAL per user per day, not per-city)
+│   ├── voteState.remainingVotes: number     # Starts at 3, decremented across all cities
 │   ├── voteState.maxVotes: number           # Always 3
-│   └── voteState.votedVenueIds: string[]    # IDs of voted venues
+│   └── voteState.votedVenueIds: string[]    # IDs of voted venues (global scope)
 │
 └── Actions
     ├── setSearchQuery(q)            # Update search text
@@ -263,6 +263,29 @@ The filter modal (`/filters`) is rendered as a separate route outside the tab na
 - **Search filter (client):** case-insensitive match against `name` or `primaryType`. Runs on every keystroke.
 - **Category filters (server):** every chip toggle invalidates the `venues.list` queryKey, which triggers a refetch with the new predicate set.
 - **City scope (server):** changing `selectedCity` invalidates both the `venues.list` and `votes.state` queryKeys so the map, carousel, voting screen, and rankings all re-fetch in lockstep.
+
+### Three-Tier Read Fallback (v1.1.0 live-data cutover)
+
+The mobile app's read operations on venues and cities follow a priority fallback chain — enabling incremental backend adoption without hard platform dependencies:
+
+```
+    EXPO_PUBLIC_API_URL set?
+              │
+              ├─ yes ──► Call Railway API ──► return results
+              │         (/api/v1/venues,
+              │          /api/v1/trending, etc.)
+              │
+              └─ no ──► EXPO_PUBLIC_SUPABASE_URL set?
+                               │
+                               ├─ yes ──► Query Supabase directly ──► return results
+                               │         (anon-key read via RLS,
+                               │          client-side filterVenues)
+                               │
+                               └─ no ──► Fall back to bundled mock data
+                                        (in-memory venues, filtered client-side)
+```
+
+The fallback chain applies to `useVenues()`, `useCities()`, and `useTrending()` (see `src/api/venues.ts`, `src/api/cities.ts`, `src/api/trending.ts`). Supabase reads apply the same `filterVenues()` predicate logic as the mock branch, ensuring filter behavior is identical across all three tiers. See [Direct Supabase Query Path](./DESIGN_DECISIONS.md#direct-supabase-query-path-from-mobile-re-added-for-live-beta) for the rationale behind re-adding the Supabase-direct tier for the v1.1.0 live beta.
 
 ### State Architecture (Current)
 

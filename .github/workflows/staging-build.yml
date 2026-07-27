@@ -65,19 +65,37 @@ jobs:
       # values must be written into eas.json before `eas build` for Metro to
       # inline them into the bundle (they are resolved at bundle time). These
       # stay out of the repo — they live only in the staging GitHub Environment.
-      #   - EXPO_PUBLIC_API_URL:    Railway API base (unset → app uses mock data)
-      #   - EXPO_PUBLIC_SENTRY_DSN: enables runtime crash reporting (unset → off)
+      #   - EXPO_PUBLIC_API_URL:               Railway API base (unset → app uses mock data)
+      #   - EXPO_PUBLIC_SENTRY_DSN:             enables runtime crash reporting (unset → off)
+      #   - EXPO_PUBLIC_SUPABASE_URL:           Supabase project URL (unset → beta reads fail)
+      #   - EXPO_PUBLIC_SUPABASE_KEY:           Supabase anon key (unset → beta reads fail)
+      #   - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID:   Google Sign-In web client (unset → Google auth degraded)
+      #   - EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:   Google Sign-In iOS client (unset → Google auth degraded)
       - name: Inject staging env into eas.json
         working-directory: apps/mobile
         env:
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
           EXPO_PUBLIC_SENTRY_DSN: ${{ vars.EXPO_PUBLIC_SENTRY_DSN }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_KEY }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
         run: |
           node -e "
             const fs = require('fs');
             const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
             eas.build.staging.env = eas.build.staging.env || {};
-            for (const key of ['EXPO_PUBLIC_API_URL', 'EXPO_PUBLIC_SENTRY_DSN']) {
+            const hardFailKeys = new Set(['EXPO_PUBLIC_SENTRY_DSN', 'EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_SUPABASE_KEY']);
+            const keys = [
+              'EXPO_PUBLIC_API_URL',
+              'EXPO_PUBLIC_SENTRY_DSN',
+              'EXPO_PUBLIC_SUPABASE_URL',
+              'EXPO_PUBLIC_SUPABASE_KEY',
+              'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID',
+              'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID',
+            ];
+            let missingRequired = false;
+            for (const key of keys) {
               const val = process.env[key];
               if (val) {
                 eas.build.staging.env[key] = val;
@@ -88,10 +106,24 @@ jobs:
                 // and the dashboard stayed stuck on setup. Set it as a variable
                 // on the 'staging' GitHub Environment.
                 console.log('::error::EXPO_PUBLIC_SENTRY_DSN is not set for the staging environment — crash reporting would ship disabled. Set it as a variable on the staging GitHub Environment.');
-                process.exit(1);
+                missingRequired = true;
+              } else if (hardFailKeys.has(key)) {
+                // Hard-fail: the beta's read path is Supabase-direct, so a build
+                // without both Supabase vars silently ships mock data instead of
+                // real venues. Set it as a variable on the 'staging' GitHub Environment.
+                console.log('::error::' + key + ' is not set for the staging environment — the beta reads directly from Supabase and would silently fall back to mock data. Set it as a variable on the staging GitHub Environment.');
+                missingRequired = true;
+              } else if (key === 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID' || key === 'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID') {
+                // Warn only: Google auth-provider setup (#127) may land after the
+                // first Supabase-reads build. A missing client ID degrades sign-in,
+                // it doesn't break the core read path.
+                console.log('::warning::' + key + ' is not set for the staging environment — Google sign-in will be degraded (see #127).');
               } else {
                 console.log('::warning::' + key + ' is not set for the staging environment');
               }
+            }
+            if (missingRequired) {
+              process.exit(1);
             }
             fs.writeFileSync('eas.json', JSON.stringify(eas, null, 2));
           "
