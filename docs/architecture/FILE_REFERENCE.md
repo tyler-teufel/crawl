@@ -483,7 +483,7 @@ One config per specialized subagent, dispatched by the `/scrum` skill (see [Agen
 
 ### `.claude/skills/scrum/SKILL.md`
 
-The scrum-master orchestration skill (`/scrum`). Runs standup over `docs/planning/SPRINT_PLAN_2026-07.md` + GitHub Issues, triages and assigns tickets to the worker agents above, dispatches them with self-contained briefs on the correct release-branch topology, verifies results through qa-engineer/code-reviewer before reporting done, and handles issue/changeset bookkeeping. Orchestration lives here (main session) because subagents cannot spawn subagents — see [Design Decisions](./DESIGN_DECISIONS.md#agent-team-orchestration-skill-orchestrator-over-nested-agents).
+The scrum-master orchestration skill (`/scrum`). Runs standup over `docs/planning/SPRINT_PLAN_2026-07.md` + GitHub Issues, triages and assigns tickets to the worker agents above, dispatches them with self-contained briefs on root cause/fix approach/acceptance criteria and the trunk-based branching model, verifies results through qa-engineer/code-reviewer before reporting done, and handles issue/changeset bookkeeping. Orchestration lives here (main session) because subagents cannot spawn subagents — see [Design Decisions](./DESIGN_DECISIONS.md#agent-team-orchestration-skill-orchestrator-over-nested-agents).
 
 ### `.claude/hooks/session-start.sh`
 

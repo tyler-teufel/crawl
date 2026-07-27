@@ -50,7 +50,7 @@ Claude Code subagents cannot spawn subagents — orchestration must live in the 
                        ┌────────────────────────────┐
                        │ 4. verify → 5. report:     │
                        │ issue comments, changeset, │
-                       │ PR into release/vX.Y.Z     │
+                       │ PR into main               │
                        └────────────────────────────┘
 ```
 
@@ -87,11 +87,11 @@ Typical bug-ticket lifecycle (e.g. #45, vote reset):
 
 1. `/scrum ticket #45` — scrum master reads the issue, confirms the assignment with you.
 2. `qa-engineer` writes a failing regression test reproducing the bug.
-3. `mobile-engineer` implements the fix on `fix/vote-state-persistence` off `release/v1.0.1`.
+3. `mobile-engineer` implements the fix on `fix/vote-state-persistence` off `main`.
 4. `qa-engineer` re-runs: failing test now green, acceptance criteria checked ✅/❌.
 5. `code-reviewer` reviews the diff; change requests loop back to step 3 (same agent, via SendMessage).
 6. `docs-writer` runs if architecture/files/dependencies changed.
-7. Scrum master ships a changeset, comments on the issue, opens the PR into the release branch.
+7. Scrum master ships a changeset, comments on the issue, opens the PR into `main`.
 
 ## Ground rules
 

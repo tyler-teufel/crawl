@@ -233,12 +233,15 @@ Colors are defined in three places that must stay in sync when modified:
 
 ## Branching Convention
 
-Work is grouped by release branch instead of merging every ticket straight to `main`:
+Crawl is **trunk-based on `main`**. Every ticket branch merges directly to `main` — there is no release branch.
 
-1. Cut `release/vX.Y.Z` from `main` at the start of each sprint/version scope (e.g. `release/v1.0.1`).
-2. Each ticket gets its own branch off that release branch, named `<type>/<short-name>` (e.g. `fix/vote-state-persistence`, `feature/splash-logo`, `chore/version-sync`) — PR'd back into the release branch, not `main`.
-3. Once every ticket for a version has merged into its release branch, the release branch merges into `main` as a single PR. That merge is what triggers `release-version.yml` (changesets Version PR) and `staging-build.yml` (TestFlight staging build), since both trigger on push to `main`.
-4. See [Sprint Plan](../planning/SPRINT_PLAN_2026-07.md) for the current backlog and its branch assignments.
+1. Cut a ticket branch from `main`, named `<type>/<short-name>` (e.g. `fix/vote-state-persistence`, `feature/splash-logo`, `chore/version-sync`).
+2. Implement the fix/feature, add a changeset with `npm run changeset` (if needed), and open a PR back into `main`.
+3. After merge, the PR triggers `staging-build.yml` (TestFlight staging build) and `release-version.yml` (Changesets Version PR).
+4. When `release-version.yml`'s "chore(release): version packages" PR merges, versions are bumped and CHANGELOGs are written.
+5. A human then pushes a git tag (`api-vX.Y.Z` or `mobile-vX.Y.Z[...]`) at that commit, and the tag push triggers the release.
+
+See [Sprint Plan](../planning/SPRINT_PLAN_2026-07.md) for the current backlog and [CI/CD Pipeline](../ops/CICD_PIPELINE.md) for the full release workflow.
 
 ---
 
@@ -252,14 +255,16 @@ For `apps/mobile`, the `package.json.version` and `app.json` `expo.version` fiel
 
 Versions change **only via changesets**. Never hand-edit version numbers in `package.json` or `app.json`:
 
-1. Add a changeset with your PR:
+1. Add a changeset with your PR (if the change is worth a version bump):
    ```bash
    npm run changeset
    # → answers: which packages, bump type (patch/minor/major), summary
    ```
-2. The PR goes back to the release branch (e.g. `release/v1.0.1`).
-3. When the release branch merges to `main`, the **Version Packages PR** is triggered (`release-version.yml`).
-4. Merging that PR is the **only thing** that bumps versions and writes `CHANGELOG.md`.
+2. Merge the PR into `main`.
+3. The **Version Packages PR** is automatically opened by `release-version.yml` (after your commit is on `main`).
+4. When you merge that PR, versions bump and `CHANGELOG.md` is written.
+5. Pull `main` and confirm the bumped version, then push a git tag (`api-vX.Y.Z` or `mobile-vX.Y.Z`) at that commit.
+6. Pushing the tag triggers the release workflow, which validates, builds, and ships the artifact.
 
 See `docs/ops/CICD_PIPELINE.md` for the full release workflow and `.changeset/README.md` for changeset format details.
 

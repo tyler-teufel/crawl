@@ -82,8 +82,10 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 │      app.json expo.version)      │  │      apps/api/package.json) │
 │   3. Validate (lint+typecheck)   │  │   3. Validate (lint+tc+test)│
 │   4a. OTA: eas update --channel  │  │   4. Build & push ghcr image│
-│   4b. Binary: eas build + submit │  │      (production gated by   │
-│       (store matches channel)    │  │       GH env approval)      │
+│   4b. Binary: eas build          │  │      (production gated by   │
+│       (staging also submits to   │  │       GH env approval)      │
+│        TestFlight; production    │  │                             │
+│        submit stays manual)      │  │                             │
 │   5. GitHub Release + CHANGELOG  │  │   5. Migrate (opt-in via    │
 │                                  │  │      RUN_DB_MIGRATIONS var) │
 │                                  │  │   6. GitHub Release +       │
@@ -366,7 +368,25 @@ points at the wrong project.
 | `staging`     | `release-mobile.yml`, `release-api.yml` | No                  |
 | `production`  | `release-mobile.yml`, `release-api.yml` | **Yes** — configure in Settings → Environments |
 
-The `production` environment is now the *only* gate — there is no `workflow_dispatch` button to press first anymore. Pushing a production tag (`api-vX.Y.Z`, `mobile-vX.Y.Z[-ota.<ts>]`) starts the workflow immediately; a designated reviewer must still approve before the environment-gated job (`build-and-push` for API; `release` for mobile) runs. `submit` for mobile binaries is no longer a separate opt-in checkbox — every binary release submits to the store matching its channel, and this same environment approval is the human checkpoint that replaces it.
+The `production` environment is the gate that replaces the old `workflow_dispatch` button. Pushing a production tag (`api-vX.Y.Z`, `mobile-vX.Y.Z[-ota.<ts>]`) starts the workflow immediately; a designated reviewer must still approve before the environment-gated job (`build-and-push` for API; `release` for mobile) runs.
+
+### Submitting a production build
+
+Store submission is deliberately **not** automatic for production. Environment approval and store submission are different decisions — approving a release run should not be the same click as an irreversible App Store submission — so a production binary tag builds and stops.
+
+| Channel      | On a binary tag                                       |
+| ------------ | ----------------------------------------------------- |
+| `staging`    | Builds **and** submits to TestFlight internal testers  |
+| `production` | Builds only — submission is a separate manual step     |
+
+Staging submits unconditionally because that already matches what `staging-build.yml` does on every push to `main`. To promote an approved production build:
+
+```bash
+cd apps/mobile
+eas submit --profile production --platform ios --latest
+```
+
+The workflow's run summary prints this command after a production binary build, so the pending step is visible from the run itself rather than only here.
 
 ---
 
