@@ -153,21 +153,24 @@ jobs:
             --platform all \
             --non-interactive
 
-      # Submit is no longer an opt-in checkbox — there's no tag equivalent of
-      # the old `submit` dispatch input. Every binary release now submits to
-      # the store matching its channel: staging → TestFlight internal
-      # testers, production → App Store. The human checkpoint that used to
-      # be the opt-in flag is now the `production` GitHub Environment
-      # approval gate above (`environment:` on this job) — nothing reaches
-      # the App Store without a reviewer approving the run first.
-      - name: EAS Submit
-        if: needs.resolve.outputs.release_type == 'binary'
+      # Staging only. A tag push carries no inputs, so the old opt-in `submit`
+      # checkbox has no tag equivalent — but App Store submission is
+      # irreversible in a way an EAS build is not, so it does NOT become
+      # automatic just because the trigger changed. Staging submits to
+      # TestFlight internal testers unconditionally, which is already what
+      # staging-build.yml does on every push to main.
+      #
+      # A production tag builds the binary and stops. Promoting that build to
+      # the App Store stays a deliberate, separate human action — see
+      # "Submitting a production build" in docs/ops/CICD_PIPELINE.md.
+      - name: EAS Submit (staging → TestFlight)
+        if: needs.resolve.outputs.release_type == 'binary' && needs.resolve.outputs.channel == 'staging'
         working-directory: apps/mobile
         env:
           EXPO_APPLE_ID: ${{ secrets.APPLE_ID }}
           EXPO_ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
-          eas submit --profile "${{ needs.resolve.outputs.channel }}" --platform ios --non-interactive
+          eas submit --profile staging --platform ios --non-interactive
 
       - name: Summary
         run: |
@@ -178,6 +181,20 @@ jobs:
             echo "- **Channel:** ${{ needs.resolve.outputs.channel }}"
             echo "- **Version:** ${{ needs.resolve.outputs.version }}"
             echo "- **Tag:** \`${{ needs.resolve.outputs.tag }}\`"
+            echo ""
+            if [ "${{ needs.resolve.outputs.release_type }}" = "binary" ] \
+              && [ "${{ needs.resolve.outputs.channel }}" = "production" ]; then
+              echo "### ⚠️ Not yet submitted to the App Store"
+              echo ""
+              echo "This build was **not** submitted — production submission is a"
+              echo "deliberate manual step. To promote it:"
+              echo ""
+              echo '```bash'
+              echo "cd apps/mobile && eas submit --profile production --platform ios --latest"
+              echo '```'
+            elif [ "${{ needs.resolve.outputs.release_type }}" = "binary" ]; then
+              echo "Submitted to TestFlight (internal testers)."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ── GitHub Release ────────────────────────────────────────────────
