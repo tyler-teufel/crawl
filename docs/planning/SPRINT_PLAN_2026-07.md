@@ -28,6 +28,12 @@ Semver convention going forward: **patch** = bug fixes, **minor** = new non-brea
 | Sprint 2 | Jul 15 – Jul 21 | **Re-scoped 2026-07-16:** v1.1.0 completion (Global Rankings #50, Profile #51) + live-data cutover (epic #125, Supabase-native beta). Splash/fonts (#48/#49) deferred. | v1.1.0 |
 | Sprint 3+ | Jul 22 → | To be re-planned after the v1.1.0 beta — candidates: deferred splash/fonts (#48/#49), beta follow-ups from epic #125, and the Crawl v2 track (Epic G audit). Original Sprint 3/4 scope (#50/#51) shipped early in v1.1.0. | TBD |
 
+### v1.1.0 shipped — 2026-07-27
+
+`release/v1.1.0` merged to `main` via PR [#146](https://github.com/tyler-teufel/crawl/pull/146), triggering the changesets Version PR and the staging TestFlight build. Contents: #137 CI change-scope hardening · #55 agent roster wave 2 · #50 Global Rankings · #62 vote-scope alignment · #51 Profile screen · #78 Supabase-direct reads · docs sync · #128 staging env passthrough.
+
+Because Sprints 3 and 4 collapsed into v1.1.0, the planned v1.2.0/v1.3.0 rungs are unused as release targets. `release/v1.2.0` is cut from `main` and now hosts the beta wave (epic [#125](https://github.com/tyler-teufel/crawl/issues/125)) rather than the Global Rankings scope it was originally named for.
+
 ---
 
 ## Branching strategy
@@ -115,13 +121,13 @@ See [Contributing Guide](../guides/CONTRIBUTING.md#branching-convention) for the
 
 > **v2 note:** both screens should build against the v2 visual language (Satoshi, v2 tokens) once Sprint 2 lands, and with extraction in mind — the v2 IA has no Global tab (rankings likely become a Discover collection / Home rail), so #50's screen should be a thin wrapper over reusable list components. See [v2 proposal — Open Decisions](./CRAWL_V2_PROPOSAL.md#reconciliation-with-current-state--open-decisions).
 
-**Ticket 6 — Build Global Rankings screen** · `feature` · Sprint 3, v1.2.0 · Branch: `feature/global-rankings` off `release/v1.2.0` · [#50](https://github.com/tyler-teufel/crawl/issues/50)
+**Ticket 6 — Build Global Rankings screen** · `feature` · ✅ Shipped in v1.1.0 (PR [#132](https://github.com/tyler-teufel/crawl/pull/132)) · [#50](https://github.com/tyler-teufel/crawl/issues/50)
 
 Replace `app/(tabs)/global.tsx` placeholder with a city leaderboard + all-time top venues, reusing existing venue-list/card patterns; use `apps/api`'s `/trending/:city` if reachable, else mock data.
 
-**Ticket 7 — Build Profile screen** · `feature` · Sprint 4, v1.3.0 · Branch: `feature/profile-screen` off `release/v1.3.0` · [#51](https://github.com/tyler-teufel/crawl/issues/51)
+**Ticket 7 — Build Profile screen** · `feature` · ✅ Shipped in v1.1.0 (PR [#133](https://github.com/tyler-teufel/crawl/pull/133)) · [#51](https://github.com/tyler-teufel/crawl/issues/51)
 
-Replace `app/(tabs)/profile.tsx` placeholder with avatar, voting history, stats (total votes/streaks), settings, sign-out (ties into existing `AuthContext`).
+Replace `app/(tabs)/profile.tsx` placeholder with avatar, voting history, stats (total votes/streaks), settings, sign-out (ties into existing `AuthContext`). Its settings scaffold is what #131's role-gated Developer section hangs off.
 
 ---
 
@@ -136,7 +142,7 @@ Infrastructure for running the sprints above with an agentic software team: spec
 | E-3 | P0 | `/scrum` scrum-master orchestration skill | ✅ Shipped 2026-07-08 | [#53](https://github.com/tyler-teufel/crawl/issues/53) |
 | E-4 | P1 | Documentation integration (CLAUDE.md delegation table, DESIGN_DECISIONS, FILE_REFERENCE, index) | ✅ Shipped 2026-07-08 | [#53](https://github.com/tyler-teufel/crawl/issues/53) |
 | E-5 | P2 | Guardrail hooks (`session-start.sh`, `pre-commit-guard.sh`) | Backlog — before heavy `/scrum auto` use | [#54](https://github.com/tyler-teufel/crawl/issues/54) |
-| E-6 | P3 | Roster expansion wave 2 (`backend-engineer`, `devops-engineer`, `security-reviewer`) | Deferred — trigger conditions in AGENT_TEAM.md | [#55](https://github.com/tyler-teufel/crawl/issues/55) |
+| E-6 | P3 | Roster expansion wave 2 (`backend-engineer`, `devops-engineer`, `security-reviewer`) | ✅ Shipped in v1.1.0 — `security-reviewer` completed the wave (PR [#138](https://github.com/tyler-teufel/crawl/pull/138)) | [#55](https://github.com/tyler-teufel/crawl/issues/55) |
 
 ---
 
