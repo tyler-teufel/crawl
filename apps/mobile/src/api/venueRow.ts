@@ -1,4 +1,5 @@
 import { Venue } from '@/types/venue';
+import { formatVenueType } from '@/lib/formatVenueType';
 
 // The `public.venues` read shape shared by every Supabase-direct venue query
 // (list, trending, detail). It lives here rather than in venues.ts so the
@@ -47,7 +48,9 @@ export function rowToVenue(row: VenueRow): Venue | null {
   return {
     id: row.id,
     name: row.name,
-    primaryType: row.primary_type,
+    // Formatted here rather than at each render site so the card, list item,
+    // map callout, and detail screen cannot disagree.
+    primaryType: formatVenueType(row.primary_type),
     address: row.address,
     distance: '',
     hotspotScore: row.hotspot_score,
