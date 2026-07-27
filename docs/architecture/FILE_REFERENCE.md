@@ -88,13 +88,28 @@ Daily voting interface. Scrollable layout:
 
 Uses `useVenueContext()` for `venues`, `voteState`, `castVote`, and `removeVote`. The CitySelector reads `selectedCity` from context directly.
 
-### `app/(tabs)/global.tsx` — Global Rankings (Placeholder)
+### `app/(tabs)/global.tsx` — Global Rankings
 
-Centered placeholder with globe icon, "Global Rankings" title, and "Coming Soon" subtitle. Safe area padding applied.
+City leaderboard screen showing all-time top venues ranked by hotspot score. Layout from top to bottom:
 
-### `app/(tabs)/profile.tsx` — Profile (Placeholder)
+1. **Header** — "Global Rankings" title and "All-time top venues, ranked by hotspot score" subtitle
+2. **CitySelector** — opens a modal listing every city; selection updates `VenueContext` and refetches rankings via `useTrending(city)`
+3. **Rankings list** — venues sorted by score in descending order, rendered as `VenueCard` components with loading/error/empty states
+4. **Tap behavior** — tapping a card pushes to `/venue/[id]`
 
-Centered placeholder with person icon, "Your Profile" title, and "Coming Soon" subtitle. Safe area padding applied.
+Uses `useTrending(city)` (see `src/api/trending.ts`) for the top-10 venues by score. Calls `GET /api/v1/trending/:city` if reachable, else falls back to mock data via `getMockTrending(city)`.
+
+### `app/(tabs)/profile.tsx` — Profile
+
+User profile and identity screen. Layout from top to bottom:
+
+1. **Avatar + identity** — circular avatar showing initials (generated from full name) or a person icon for anonymous users. For anonymous: "Guest"; for linked identities: name from user metadata.
+2. **Voting history** — today's voted venues, looked up via `useQueries` over `venueDetailQueryOptions(id)` for each ID in `voteState.votedVenueIds`. Renders `VoteHistoryEntry` items showing venue name + loading state.
+3. **Stats row** — "Votes Today" count (derived as `maxVotes - remainingVotes`) and a "Streaks" placeholder
+4. **Settings section** — placeholder menu rows (Settings, About, Feedback)
+5. **Sign-out button** — calls `signOut()` (from `AuthContext`), which clears the Supabase session and the API client token, then navigates to `/(onboarding)`
+
+Note: `OnboardingGate` only watches the `crawl.firstLaunchComplete.v1` AsyncStorage flag, not auth state — the explicit `router.replace('/(onboarding)')` on sign-out is required to re-trigger onboarding.
 
 ### `app/venue/[id].tsx` — Venue Detail
 
@@ -374,9 +389,13 @@ Exports `verifySentryDelivery()`, a fire-and-forget heartbeat invoked from an ef
 
 `useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`. Also exports `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.
 
+### `src/api/trending.ts`
+
+`useTrending(city)` TanStack Query hook returning the top-10 venues for a given city, sorted by hotspot score descending. Exported `trendingKeys` factory for queryKey composition and cache invalidation. On the real-API path (`hasApi`), calls `GET /api/v1/trending/:city`. Falls back to `getMockTrending(city)` (exported, used by tests) which sorts `mockVenuesByCity[city]` by score and slices the top 10. 30-second `staleTime`. Used by `app/(tabs)/global.tsx` for the city leaderboard.
+
 ### `src/api/voteStorage.ts`
 
-AsyncStorage persistence for mock vote state (deleted when real API integrates). Fixes the bug where TanStack Query refetches (stale-time expiry, cache GC, city switches) reset daily vote count to default. Exports `readPersistedVoteState(city)` and `writePersistedVoteState(city, state)`. Single key `crawl.mockVoteState.v1` holds `{ date, byCity }` scoped by today's ISO date; reads return `null` on day rollover (caller falls back to `DEFAULT_VOTE_STATE`), writes discard stale per-city entries on rollover and treat corruption as absent so recovery is clean. Used by `src/api/votes.ts` mock branches; mirrors server design of `apps/api/src/services/vote.service.ts`.
+AsyncStorage persistence for mock vote state. Fixes the bug where TanStack Query refetches (stale-time expiry, cache GC, city switches) reset daily vote count to default. Exports `readPersistedVoteState()` and `writePersistedVoteState(state)`. Single key `crawl.mockVoteState.v1` holds `{ date, state: VoteState }` scoped by today's ISO date; reads return `null` on day rollover (caller falls back to `DEFAULT_VOTE_STATE`), writes discard stale entries on rollover and treat corruption as absent so recovery is clean. Vote budget is GLOBAL per user per day (not per-city), matching the server's design in `apps/api/src/services/vote.service.ts`. Used by `src/api/votes.ts` mock branches.
 
 ### `apps/api/drizzle/0001_venue_filter_indexes.sql`
 

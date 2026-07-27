@@ -25,10 +25,8 @@ Semver convention going forward: **patch** = bug fixes, **minor** = new non-brea
 | Sprint | Dates | Focus | Target version |
 | --- | --- | --- | --- |
 | Sprint 1 | Jul 8 – Jul 14 | Versioning standardization, vote/filter bugs, layout cleanup | v1.0.1 |
-| Sprint 2 | Jul 15 – Jul 21 | Splash/logo, fonts, onboarding+login refresh | v1.1.0 |
-| Sprint 3 | Jul 22 – Jul 28 | Global Rankings screen | v1.2.0 |
-| Sprint 4 | Jul 29 – Aug 4 | Profile screen | v1.3.0 |
-| Sprint 5+ | Aug 5 → | Crawl v2 track — audit first, then milestone ladder (Epic G) | v2.x planning |
+| Sprint 2 | Jul 15 – Jul 21 | **Re-scoped 2026-07-16:** v1.1.0 completion (Global Rankings #50, Profile #51) + live-data cutover (epic #125, Supabase-native beta). Splash/fonts (#48/#49) deferred. | v1.1.0 |
+| Sprint 3+ | Jul 22 → | To be re-planned after the v1.1.0 beta — candidates: deferred splash/fonts (#48/#49), beta follow-ups from epic #125, and the Crawl v2 track (Epic G audit). Original Sprint 3/4 scope (#50/#51) shipped early in v1.1.0. | TBD |
 
 ---
 

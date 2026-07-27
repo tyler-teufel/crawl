@@ -2,7 +2,7 @@
 
 **App:** Crawl
 **Version:** 1.1.0
-**Status:** Monorepo with a live backend — mobile app talks to a running Fastify API backed by a seeded Supabase Postgres database. Onboarding + auth are implemented; Global Rankings and Profile remain placeholders.
+**Status:** Monorepo with a live backend — mobile app talks to a running Fastify API backed by a seeded Supabase Postgres database. Onboarding + auth implemented; Global Rankings and Profile screens completed; v1.1.0 live-data cutover in progress (three-tier Supabase-direct fallback path).
 
 ---
 
@@ -19,8 +19,8 @@ Crawl is a nightlife and bar discovery app that lets users explore venues on a m
 | Onboarding            | `/(onboarding)/*`     | Complete — welcome splash, location prompt, Apple/Google/anonymous auth |
 | Explore (Map View)    | `/(tabs)/`             | Complete — live map, search, filter chips, venue carousel, backed by `GET /venues` |
 | Daily Hotspot Votes   | `/(tabs)/voting`       | Complete — vote counter, countdown timer, ranked venue list, backed by `/votes` |
-| Global Rankings       | `/(tabs)/global`       | Placeholder                                                            |
-| Profile               | `/(tabs)/profile`      | Placeholder                                                            |
+| Global Rankings       | `/(tabs)/global`       | Complete (v1.1.0) — city leaderboard, all-time top venues by score, backed by `GET /trending/:city` |
+| Profile               | `/(tabs)/profile`      | Complete (v1.1.0) — user avatar, voting history lookup, stats, sign-out |
 | Venue Detail          | `/venue/[id]`          | Complete — animated score ring, highlights, vote CTA                   |
 | Advanced Filters      | `/filters`             | Complete — transparent modal, filters applied server-side              |
 
@@ -30,7 +30,7 @@ Crawl is a nightlife and bar discovery app that lets users explore venues on a m
 - **Dark theme** with purple accent throughout, v2 brand fonts (Clash Grotesk, Satoshi) and logo assets
 - **Animated map pins** with pulsing glow for trending venues (react-native-reanimated), backed by `react-native-maps`
 - **Animated hotspot score ring** using react-native-svg with stroke animation
-- **Daily vote system** — 3 votes per day with countdown timer to midnight reset, enforced server-side (one vote per venue per day)
+- **Daily vote system** — 3 votes per day (global budget per user, not per-city) with countdown timer to midnight reset, enforced server-side (one vote per venue per day, global scope)
 - **Search & filter** — real-time client-side text search + server-applied category filters
 - **Horizontal venue carousel** with snap-to-card paging
 - **Transparent filter modal** overlaying the map screen
