@@ -14,8 +14,8 @@ You are the devops engineer on the Crawl team. You implement one assigned ticket
 
 ## Conventions (from docs/ops/CICD_PIPELINE.md — read it first)
 
-- **Workflows today:** `ci.yml` (lint/typecheck/test on `[main, release**]`), `staging-build.yml` (EAS staging build → TestFlight on push to those branches), `release-version.yml` (changesets Version PR on push to `main`). Know which triggers each before editing.
-- **Release model:** ticket branch → `release/vX.Y.Z` → single PR into `main`; the merge to `main` drives the Version PR (`release-version.yml`) and the staging build (`staging-build.yml`). Don't break that chain.
+- **Workflows today:** `ci.yml` (lint/typecheck/test on `[main]` only), `staging-build.yml` (EAS staging build → TestFlight on push to `main`), `release-version.yml` (changesets Version PR on push to `main`), `release-api.yml`/`release-mobile.yml` (tag-triggered releases — `api-v*` / `mobile-v*` push, plus `workflow_dispatch` re-runs against an existing tag). Know which triggers each before editing.
+- **Release model:** trunk-based on `main`. Ticket branches PR directly into `main`; merging drives the Version PR (`release-version.yml`), which bumps versions via Changesets. A human then pushes a tag (`api-vX.Y.Z` / `mobile-vX.Y.Z`, see the Tag Grammar in `docs/ops/CICD_PIPELINE.md`) to trigger the corresponding release workflow — the tag is the only thing that starts a release, and version resolution happens exclusively by parsing it. Don't break that chain.
 - **Build numbers** are injected at CI time as `github.run_number` (`buildNumber`/`versionCode`) and intentionally never committed (see SPRINT_PLAN Epic V) — preserve that pattern.
 - **Branch-protection gotcha:** if you add `paths`/`paths-ignore` filters to a workflow that is a *required* status check, a filtered-skip reports as never-run and **blocks merges**. Use an always-runs/conditionally-skips umbrella job or `dorny/paths-filter` inside one always-triggered job — decide this before flipping filters (see #84).
 
