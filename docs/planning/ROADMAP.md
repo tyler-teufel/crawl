@@ -54,7 +54,21 @@ Still open:
 | Venue check-in           | GPS-verified check-in at venues. Earn badges and streaks.                            | 2 days |
 | Review & rating system   | User reviews, star ratings, and review feed on venue detail.                         | 3 days |
 | Bar crawl route planning | Multi-venue route builder with estimated walking times between stops.                | 3 days |
-| Admin dashboard          | Venue owner portal for updating hours, photos, highlights, and viewing analytics.    | 5 days |
+| Admin dashboard          | Venue owner portal for updating hours, photos, highlights, and viewing analytics. External/self-serve — distinct from the internal [admin venue portal](#admin-venue-portal-separate-repo-unscheduled) below. | 5 days |
+
+---
+
+## Admin Venue Portal (separate repo, unscheduled)
+
+A small standalone website letting internal admins edit venue information through a UI instead of hand-writing SQL in the Supabase dashboard. Invite-only accounts tied to an email address plus a phone number; writes go through an API that performs the SQL updates, so the browser never touches the database. Lives in **its own repository** — the first deliberate step toward an eventual microservices split.
+
+Distinct from the v2.0 "Admin dashboard" row above: that one is external, self-serve, per-venue, for venue owners, and includes analytics. This is internal, invite-only, all-venues, staff-only, no analytics.
+
+**Blocking constraint:** the Google Places sync job (`apps/api/src/jobs/syncVenues.ts`) upserts on `google_place_id` and overwrites `name`, `address`, `phone`, `website`, `hours`, `rating`, `price_level`, and `is_active` on every run — admin edits to those fields would be silently reverted. Fields the sync leaves alone (`description`, `image_url`, `highlights`, `is_trending`) are safe to edit today, and scoping v1 to those is the cheapest resolution.
+
+**Open decisions before scheduling:** whether the phone number is a second factor or a co-primary credential; whether admin writes extend `apps/api` or get their own service; how a repo outside the monorepo consumes `packages/shared-types`; hosting; and whether this supersedes the "in-house admin panel" option in the [rollout-control spike](https://github.com/tyler-teufel/crawl/issues/130).
+
+Tracked as [#152](https://github.com/tyler-teufel/crawl/issues/152).
 
 ---
 
