@@ -10,6 +10,8 @@ export interface City {
   state: string;
   centerLat: number;
   centerLng: number;
+  /** Radius of the city's venue coverage area, in meters. Used to size the map camera (#166). */
+  radiusMeters: number;
   /** "Name, State" — the format venues.city is denormalized in. */
   displayName: string;
 }
@@ -21,6 +23,7 @@ interface CityRow {
   state: string;
   center_lat: string | number;
   center_lng: string | number;
+  radius_meters: string | number;
 }
 
 export const cityKeys = {
@@ -29,8 +32,8 @@ export const cityKeys = {
 };
 
 // Only columns the mobile client consumes today are selected — `public.cities`
-// also has `timezone` and `radius_meters`, not modeled here or in `City`.
-const CITY_COLUMNS = 'id, slug, name, state, center_lat, center_lng';
+// also has `timezone`, not modeled here or in `City`.
+const CITY_COLUMNS = 'id, slug, name, state, center_lat, center_lng, radius_meters';
 
 export function rowToCity(row: CityRow): City {
   return {
@@ -40,6 +43,7 @@ export function rowToCity(row: CityRow): City {
     state: row.state,
     centerLat: Number(row.center_lat),
     centerLng: Number(row.center_lng),
+    radiusMeters: Number(row.radius_meters),
     displayName: `${row.name}, ${row.state}`,
   };
 }

@@ -9,9 +9,10 @@
  *
  * If react-native-maps isn't installed yet, the app falls back to MapPlaceholder.
  */
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
 import { Venue } from '@/types/venue';
+import { getRegionForCity, type RegionCity } from '@/lib/mapRegion';
 
 // Conditional import so the app still launches without the native module installed
 let MapView: any = null;
@@ -29,17 +30,33 @@ try {
 
 interface CrawlMapViewProps {
   venues: Venue[];
+  /** The selected city, used to frame the camera. Null only until `useCities()` resolves it. */
+  city: RegionCity | null;
   onVenuePress: (venue: Venue) => void;
 }
 
-const DEFAULT_REGION = {
+// Shown only until the selected city's row loads from `useCities()` — not a
+// reaction to the venue list being empty (see `getRegionForCity`, #166).
+const FALLBACK_REGION = {
   latitude: 35.2271,
   longitude: -80.8431,
   latitudeDelta: 0.05,
   longitudeDelta: 0.05,
 };
 
-export function CrawlMapView({ venues, onVenuePress }: CrawlMapViewProps) {
+export function CrawlMapView({ venues, city, onVenuePress }: CrawlMapViewProps) {
+  const mapRef = useRef<any>(null);
+
+  // `animateToRegion` (imperative, via ref) rather than a controlled `region`
+  // prop: a controlled region is reasserted on every render, which fights
+  // the user's own panning/pinching mid-gesture. Driving the camera through
+  // an effect keyed on the city lets it move only when the city actually
+  // changes.
+  useEffect(() => {
+    if (!city) return;
+    mapRef.current?.animateToRegion(getRegionForCity(city), 500);
+  }, [city]);
+
   if (!MapView) {
     return (
       <View style={styles.fallback}>
@@ -50,18 +67,14 @@ export function CrawlMapView({ venues, onVenuePress }: CrawlMapViewProps) {
     );
   }
 
-  const initialRegion =
-    venues.length > 0
-      ? {
-          latitude: venues[0].latitude,
-          longitude: venues[0].longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }
-      : DEFAULT_REGION;
+  const initialRegion = city ? getRegionForCity(city) : FALLBACK_REGION;
 
   return (
-    <MapView style={styles.map} initialRegion={initialRegion} userInterfaceStyle="dark">
+    <MapView
+      ref={mapRef}
+      style={styles.map}
+      initialRegion={initialRegion}
+      userInterfaceStyle="dark">
       {venues.map((venue) => (
         <Marker
           key={venue.id}
