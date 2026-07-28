@@ -8,6 +8,7 @@ import { getDb } from '../db/index.js';
 import { cities, venues, type NewCity, type NewVenue } from '../db/schema.js';
 import { PlacesClient, type Place } from './places/client.js';
 import { INCLUDED_TYPES, shouldKeep } from './places/filters.js';
+import { haversineDistanceMeters } from './places/geo.js';
 import { placeToVenue } from './places/transform.js';
 
 export interface SyncCityInput {
@@ -132,6 +133,13 @@ export async function syncCity(input: SyncCityInput): Promise<SyncCityResult> {
 
   // Search for each included type separately — searchText takes one
   // includedType at a time.
+  //
+  // NOTE: locationBias is a *soft* preference — Places API (New) still
+  // returns results outside the circle. searchText's locationRestriction
+  // field only accepts a rectangle (viewport), not a circle, so it cannot
+  // express this radius as a hard constraint at the API layer. The radius is
+  // instead enforced below via a post-fetch distance guard before a place is
+  // ever assigned to this city.
   const locationBias = {
     circle: {
       center: { latitude: center.lat, longitude: center.lng },
@@ -175,6 +183,20 @@ export async function syncCity(input: SyncCityInput): Promise<SyncCityResult> {
 
   const rows: NewVenue[] = [];
   for (const place of seen.values()) {
+    if (place.location) {
+      const distance = haversineDistanceMeters(center, {
+        lat: place.location.latitude,
+        lng: place.location.longitude,
+      });
+      if (distance > radiusMeters) {
+        const name = place.displayName?.text ?? place.id;
+        const msg = `out of bounds: "${name}" is ${Math.round(distance)}m from city center (radius ${radiusMeters}m)`;
+        log(`  rejected: ${msg}`);
+        errors.push({ placeId: place.id, name: place.displayName?.text, error: msg });
+        continue;
+      }
+    }
+
     const row = placeToVenue(place, { cityId: city.id, cityName: input.city });
     if (row) rows.push(row);
     else
