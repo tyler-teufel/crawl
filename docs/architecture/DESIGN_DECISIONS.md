@@ -228,6 +228,23 @@ Route handler (HTTP)  →  Service (business logic)  →  Repository (persistenc
 
 ---
 
+## Migration Ledger: `drizzle-kit generate` Only, Never `push` (#76)
+
+**Chosen over:** continuing to apply schema changes with `drizzle-kit push`.
+
+**The problem:** the live Supabase schema was being applied with `drizzle-kit push`, which diffs `schema.ts` against the live database and applies the delta directly — it never writes a row to Drizzle's migration-tracking table and doesn't require a migration file to exist at all. As of 2026-07-28, `apps/api/drizzle/` already contained `0000_redundant_excalibur.sql` (the initial schema) plus two later hand-authored files (`0001_venue_filter_indexes.sql`, `0002_rls_policies.sql`), but the live database's own migration ledger had zero recorded entries — the deployed schema and the files describing it had never been connected through `drizzle-kit migrate`. Every change since had been unauditable: nothing recorded *when* a given shape went live or *which* file, if any, produced it.
+
+**Verifying the existing files matched reality:** the columns `drizzle-kit generate` infers from `schema.ts` were checked column-by-column against a live introspection of `public.users`, `public.venues`, and `public.cities` taken the same day. They agreed — `0000_redundant_excalibur.sql` is a faithful baseline of what's deployed today, not a change. `drizzle-kit check` also reports no drift between `schema.ts` and the current snapshot chain.
+
+**Why:**
+- **`generate` produces a file before anything is applied.** Every schema change becomes a reviewable SQL diff in version control, checked in alongside the `schema.ts` edit that produced it.
+- **`migrate` records what ran.** Applying a migration through `drizzle-kit migrate` inserts a row into Drizzle's tracking table, so `list_migrations` against the live database becomes a real, queryable history instead of always returning empty.
+- **`push` is for local prototyping only**, if ever — never against Supabase/production. It leaves no record of what changed or when, which is exactly the gap this decision closes.
+
+**Trade-off accepted:** one extra step (`generate` then `migrate`, rather than a single `push`) per schema change. Acceptable — the audit trail is the entire point.
+
+---
+
 ## Validation: Zod (shared with mobile)
 
 **Chosen over:** Joi, AJV, Yup, TypeBox
