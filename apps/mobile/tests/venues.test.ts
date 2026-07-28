@@ -19,7 +19,7 @@ vi.mock('@tanstack/react-query', () => ({ useQuery: (opts: any) => opts }));
 // The Supabase tier filters on venues.city_id, so it resolves the selected
 // city's display name to a cities row id first (see @/api/cities). Stubbed
 // here so these tests exercise the venue query alone; the resolution itself is
-// covered in tests/citiesQuery.test.ts. Mocking the module also keeps the real
+// covered in tests/resolveCityId.test.ts. Mocking the module also keeps the real
 // query-client singleton out of this file's import graph.
 vi.mock('@/api/cities', () => ({ resolveCityId: resolveCityIdMock }));
 vi.mock('@/api/query-client', () => ({ queryClient: {} }));
