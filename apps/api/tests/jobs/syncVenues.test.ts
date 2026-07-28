@@ -175,6 +175,60 @@ describe('syncCity', () => {
     expect((venueInserts[0].values as { googlePlaceId: string }).googlePlaceId).toBe('keep-1');
   });
 
+  it('enforces the city radius: keeps a place inside it, rejects and reports one outside it', async () => {
+    searchTextMock.mockImplementation(async ({ includedType }) =>
+      includedType === 'bar'
+        ? ok([
+            // ~1.1km from the geocoded center — inside a 2500m radius.
+            makePlace('inside-1', { location: { latitude: 35.2371, longitude: -80.8431 } }),
+            // ~111km from the geocoded center — well outside a 2500m radius.
+            makePlace('outside-1', {
+              displayName: { text: 'The Palms Night Club' },
+              location: { latitude: 36.2271, longitude: -80.8431 },
+            }),
+          ])
+        : ok([])
+    );
+
+    const res = await syncCity({ city: 'Charlotte', state: 'NC', radiusMeters: 2500 });
+
+    expect(res.venuesUpserted).toBe(1);
+    const venueInserts = dbOps.filter((op) => op.kind === 'insert-venue');
+    expect(venueInserts).toHaveLength(1);
+    expect((venueInserts[0].values as { googlePlaceId: string; cityId: string }).googlePlaceId).toBe(
+      'inside-1'
+    );
+
+    expect(res.errors).toHaveLength(1);
+    expect(res.errors[0]).toMatchObject({ placeId: 'outside-1', name: 'The Palms Night Club' });
+    expect(res.errors[0].error).toMatch(/out of bounds/);
+    expect(res.errors[0].error).toMatch(/The Palms Night Club/);
+    expect(res.errors[0].error).toMatch(/\d+m/);
+  });
+
+  it('logs out-of-bounds rejections with the venue name and distance', async () => {
+    searchTextMock.mockImplementation(async ({ includedType }) =>
+      includedType === 'bar'
+        ? ok([
+            makePlace('outside-1', {
+              displayName: { text: 'Stray Bar' },
+              location: { latitude: 36.2271, longitude: -80.8431 },
+            }),
+          ])
+        : ok([])
+    );
+
+    const logs: string[] = [];
+    await syncCity({
+      city: 'Charlotte',
+      state: 'NC',
+      radiusMeters: 2500,
+      log: (msg) => logs.push(msg),
+    });
+
+    expect(logs.some((l) => l.includes('Stray Bar') && /\d+m/.test(l))).toBe(true);
+  });
+
   it('dedupes a place that appears under multiple included types', async () => {
     const shared = makePlace('shared-1');
     searchTextMock.mockImplementation(async ({ includedType }) =>
