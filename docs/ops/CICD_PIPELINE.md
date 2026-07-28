@@ -62,7 +62,15 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
            │  Versions are now bumped on main, but nothing has shipped.
            ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│  HUMAN: git tag api-vX.Y.Z (or mobile-vX.Y.Z[...]) && git push     │
+│             CREATE TAG (release-tag.yml)                           │
+│             Trigger: workflow_dispatch                             │
+│                                                                    │
+│  HUMAN picks service / channel / release_type. The workflow READS  │
+│  the version from package.json (never computes one), composes the  │
+│  tag — generating the OTA timestamp — and pushes it. Refuses to    │
+│  tag if: a changeset for that service is still unconsumed, mobile  │
+│  package.json and app.json disagree, the composed tag fails its    │
+│  consumer's grammar, or the tag already exists.                    │
 │  See "How to cut a release" below. The tag IS the release trigger. │
 └──────────┬─────────────────────────────────────────────────────────┘
            │  Tag push fires the matching workflow below.
@@ -102,6 +110,7 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 | `.github/workflows/ci.yml`                 | `pull_request`, `push → main` (always runs; job-level path filter) | Lint, typecheck, test (Turbo affected detection)       |
 | `.github/workflows/security.yml`           | PR, push → main, weekly schedule | CodeQL + gitleaks + npm audit                          |
 | `.github/workflows/release-version.yml`    | `push → main` (path-filtered)    | Open / update Changesets "Version Packages" PR         |
+| `.github/workflows/release-tag.yml`        | `workflow_dispatch`              | Compose and push a release tag from the version already on `main` — the guarded entry point to a release |
 | `.github/workflows/release-mobile.yml`     | `push → tags: mobile-v*`; `workflow_dispatch` (re-run an existing tag) | OTA or binary release of `apps/mobile` via EAS |
 | `.github/workflows/release-api.yml`        | `push → tags: api-v*`; `workflow_dispatch` (re-run an existing tag) | Docker build/push + optional migrate of `apps/api` |
 | `.github/workflows/staging-build.yml`      | `push → main` (path-filtered)    | EAS staging build (iOS → TestFlight, Android → internal) |
@@ -151,32 +160,55 @@ silent drift between the tag and what's inside the artifact.
    `apps/mobile/package.json` + `app.json` (`expo.version`), and writes the
    `CHANGELOG.md` section(s) that the release workflow later reuses as the
    GitHub Release body.
-2. Pull `main` and confirm the bumped version:
+2. Run **Actions → Release — Create Tag → Run workflow**, choosing:
+
+   | Input | Values |
+   | --- | --- |
+   | `service` | `mobile` or `api` |
+   | `channel` | `staging` or `production` |
+   | `release_type` | `binary` or `ota` (mobile only — must be `binary` for api) |
+
+   The workflow reads the version straight from `package.json` — it never
+   computes a bump — composes the tag (generating the OTA timestamp for you),
+   and pushes it. It always tags the tip of `main`, whichever branch you
+   dispatch it from.
+
+   It **refuses to tag** when any of these hold, so a bad release is stopped
+   before a tag exists rather than failing downstream:
+
+   - an unconsumed changeset targets that service — meaning step 1 was
+     skipped, so the version on disk is stale (this is what makes the
+     Changesets flow non-optional rather than merely conventional)
+   - `apps/mobile/package.json` and `app.json` `expo.version` disagree
+   - the composed tag doesn't match the grammar its consuming workflow parses
+   - the tag already exists — released versions are immutable
+
+   <details>
+   <summary>Manual fallback — tagging by hand</summary>
+
+   Only needed if the workflow itself is broken. The tag grammar is the
+   contract; anything matching it releases identically.
+
    ```bash
    git pull origin main
    node -p "require('./apps/api/package.json').version"
-   node -p "require('./apps/mobile/package.json').version"
-   ```
-3. Tag the commit and push the tag — pushing it is what triggers the release:
-   ```bash
-   # API, production
-   git tag api-v1.2.3 && git push origin api-v1.2.3
 
-   # API, staging
+   git tag api-v1.2.3 && git push origin api-v1.2.3            # API, production
    git tag api-v1.2.3-staging && git push origin api-v1.2.3-staging
+   git tag mobile-v1.2.3 && git push origin mobile-v1.2.3      # Mobile binary
 
-   # Mobile, binary (production)
-   git tag mobile-v1.2.3 && git push origin mobile-v1.2.3
-
-   # Mobile, OTA (production) — timestamp disambiguates repeat OTAs
-   git tag mobile-v1.2.3-ota.$(date -u +%Y%m%d%H%M%S)
-   git push origin --tags
+   # Mobile OTA — the timestamp disambiguates repeat OTAs of one version
+   TAG=mobile-v1.2.3-ota.$(date -u +%Y%m%d%H%M%S)
+   git tag "$TAG" && git push origin "$TAG"
    ```
-4. Watch the triggered workflow run under the Actions tab.
-5. If it targets `production`, approve the `production` GitHub Environment
+
+   </details>
+
+3. Watch the triggered release workflow run under the Actions tab.
+4. If it targets `production`, approve the `production` GitHub Environment
    gate when prompted — this is now the sole human checkpoint (there is no
    `workflow_dispatch` button to press first anymore; the tag is the trigger).
-6. On success, check the GitHub Release created for the tag. Staging tags are
+5. On success, check the GitHub Release created for the tag. Staging tags are
    marked as a prerelease.
 
 To re-run a release against a tag that's already been pushed (e.g. retry a

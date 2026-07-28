@@ -107,7 +107,7 @@ jobs:
 
       # Changesets (release-version.yml, on push to main) is the ONLY thing
       # allowed to bump apps/mobile/package.json — apps/mobile/app.json's
-      # expo.version is then kept in lockstep by scripts/sync-expo-version.mjs
+      # expo.version is then kept in lockstep by apps/mobile/scripts/sync-expo-version.mjs
       # right after `changeset version` runs. If the version baked into the
       # tag doesn't match BOTH files at that tag, either the Version PR wasn't
       # merged before tagging, or the two files drifted — either way, fail

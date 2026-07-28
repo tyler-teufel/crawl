@@ -1,0 +1,211 @@
+name: Release — Create Tag
+
+# Authors a release tag for release-api.yml / release-mobile.yml to consume.
+#
+# Those workflows are tag-triggered and deliberately never compute a version:
+# Changesets (release-version.yml) is the only thing that bumps package.json.
+# This workflow closes the remaining gap — it *reads* the already-bumped
+# version and composes a well-formed tag from it, rather than asking a human
+# to hand-type `mobile-v1.2.3-staging-ota.20260427143055` correctly.
+#
+# It cannot double-bump, because it never computes a version. Everything it
+# emits is derived from what the merged Version PR already wrote to disk.
+#
+# Four guards run before any tag is pushed, so a bad release is refused here
+# rather than failing downstream once a tag already exists:
+#   1. No unconsumed changesets for the service being released — a pending
+#      changeset means the Version PR has not merged, so package.json is
+#      stale and the tag would mislabel the release.
+#   2. (mobile) package.json version === app.json expo.version.
+#   3. The composed tag matches the exact grammar its consumer parses.
+#   4. The tag does not already exist locally or on the remote.
+#
+# The tag always points at the tip of `main` — this workflow checks main out
+# explicitly, regardless of which branch the dispatch was launched from.
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Which package to release'
+        required: true
+        type: choice
+        options:
+          - mobile
+          - api
+      channel:
+        description: 'Target environment'
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      release_type:
+        description: 'mobile only — binary (EAS build) or ota (eas update). Must be "binary" for api.'
+        required: true
+        default: binary
+        type: choice
+        options:
+          - binary
+          - ota
+
+concurrency:
+  group: release-tag
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    name: Tag ${{ inputs.service }} (${{ inputs.release_type }} → ${{ inputs.channel }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # pushes the tag
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Note the dispatch ref
+        if: github.ref_name != 'main'
+        run: |
+          echo "::notice::Dispatched from '${{ github.ref_name }}', but the tag will point at the tip of main — this workflow always releases main."
+
+      # api has no OTA path (no EAS update channel); reject the combination
+      # here rather than composing a tag release-api.yml cannot parse.
+      - name: Guard — release_type is valid for this service
+        run: |
+          if [ "${{ inputs.service }}" = "api" ] && [ "${{ inputs.release_type }}" = "ota" ]; then
+            echo "::error::release_type 'ota' is not valid for the api service — the API ships as a Docker image, not an EAS update. Re-run with release_type=binary."
+            exit 1
+          fi
+
+      # A changeset still sitting in .changeset/ means `changeset version` has
+      # not run for it, so the version on disk predates the work being shipped.
+      # Scoped per service so a pending mobile changeset doesn't block an API
+      # release (and vice versa); shared-types counts against api because api
+      # depends on it.
+      - name: Guard — no unconsumed changesets for this service
+        run: |
+          case "${{ inputs.service }}" in
+            mobile) PKG_RE='@crawl/mobile' ;;
+            api)    PKG_RE='@crawl/api|@crawl/shared-types' ;;
+          esac
+
+          # Only the YAML frontmatter counts. .changeset/README.md documents
+          # the format using real package names in a code sample, and a
+          # changeset's prose body may name packages too — matching anywhere
+          # in the file would produce false blocks. A real changeset opens
+          # with `---` on line 1; scan to the closing `---` and no further.
+          PENDING=""
+          for f in .changeset/*.md; do
+            [ -e "$f" ] || continue
+            [ "$(head -n 1 "$f")" = "---" ] || continue
+            if awk 'NR==1 { next } /^---[[:space:]]*$/ { exit } { print }' "$f" \
+              | grep -qE "^['\"]?(${PKG_RE})['\"]?[[:space:]]*:"; then
+              PENDING="${PENDING}${f}"$'\n'
+            fi
+          done
+
+          if [ -n "$PENDING" ]; then
+            echo "::error::Unconsumed changesets target ${{ inputs.service }} — the Changesets Version PR has not been merged, so the version on disk is stale. Merge it first, then re-run this workflow."
+            echo "Pending changesets:"
+            echo "$PENDING" | sed 's/^/  - /'
+            exit 1
+          fi
+          echo "No pending changesets for ${{ inputs.service }}."
+
+      - name: Read version from package.json
+        id: version
+        run: |
+          if [ "${{ inputs.service }}" = "api" ]; then
+            VERSION=$(node -p "require('./apps/api/package.json').version")
+          else
+            VERSION=$(node -p "require('./apps/mobile/package.json').version")
+            APP_JSON_VERSION=$(node -p "require('./apps/mobile/app.json').expo.version")
+            if [ "$VERSION" != "$APP_JSON_VERSION" ]; then
+              echo "::error::apps/mobile version drift — package.json=$VERSION app.json(expo.version)=$APP_JSON_VERSION. These describe the same artifact and are kept in lockstep by apps/mobile/scripts/sync-expo-version.mjs. Do not hand-edit either; re-run the Version PR."
+              exit 1
+            fi
+          fi
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' is not a bare X.Y.Z semver — refusing to build a tag from it."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version on main: $VERSION"
+
+      - name: Compose tag
+        id: compose
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          if [ "${{ inputs.service }}" = "api" ]; then
+            TAG="api-v${VERSION}"
+            [ "${{ inputs.channel }}" = "staging" ] && TAG="${TAG}-staging"
+            GRAMMAR='^api-v[0-9]+\.[0-9]+\.[0-9]+(-staging)?$'
+          else
+            TAG="mobile-v${VERSION}"
+            [ "${{ inputs.channel }}" = "staging" ] && TAG="${TAG}-staging"
+            if [ "${{ inputs.release_type }}" = "ota" ]; then
+              TAG="${TAG}-ota.$(date -u +%Y%m%d%H%M%S)"
+            fi
+            GRAMMAR='^mobile-v[0-9]+\.[0-9]+\.[0-9]+(-staging)?(-ota\.[0-9]+)?$'
+          fi
+
+          # Compose, then re-parse with the same grammar the consuming
+          # workflow uses. A tag this workflow emits must never be one the
+          # release workflow rejects.
+          if ! [[ "$TAG" =~ $GRAMMAR ]]; then
+            echo "::error::Composed tag '$TAG' does not match the ${{ inputs.service }} release tag grammar. This is a bug in release-tag.yml."
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Composed tag: $TAG"
+
+      - name: Guard — tag does not already exist
+        run: |
+          TAG="${{ steps.compose.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1 \
+            || git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag '$TAG' already exists. A released version is immutable — merge a new Version PR to bump before releasing again. (To re-run a release against this existing tag, use workflow_dispatch on release-${{ inputs.service }}.yml instead.)"
+            exit 1
+          fi
+          echo "Tag '$TAG' is free."
+
+      - name: Create and push tag
+        run: |
+          TAG="${{ steps.compose.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release ${{ inputs.service }} ${{ steps.version.outputs.version }} (${{ inputs.release_type }} → ${{ inputs.channel }})"
+          git push origin "$TAG"
+          echo "Pushed $TAG at $(git rev-parse --short HEAD)"
+
+      - name: Summary
+        run: |
+          TAG="${{ steps.compose.outputs.tag }}"
+          {
+            echo "### Release tag pushed"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Tag | \`$TAG\` |"
+            echo "| Commit | \`$(git rev-parse --short HEAD)\` |"
+            echo "| Service | ${{ inputs.service }} |"
+            echo "| Channel | ${{ inputs.channel }} |"
+            echo "| Release type | ${{ inputs.release_type }} |"
+            echo ""
+            echo "\`release-${{ inputs.service }}.yml\` has been triggered by this tag — watch it for the actual release."
+            if [ "${{ inputs.service }}" = "mobile" ] && [ "${{ inputs.channel }}" = "production" ] && [ "${{ inputs.release_type }}" = "binary" ]; then
+              echo ""
+              echo "> Production mobile binaries build and stop — promoting to the App Store stays a deliberate manual \`eas submit\`. The release run prints the command."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

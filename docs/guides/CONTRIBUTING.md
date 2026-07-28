@@ -239,7 +239,7 @@ Crawl is **trunk-based on `main`**. Every ticket branch merges directly to `main
 2. Implement the fix/feature, add a changeset with `npm run changeset` (if needed), and open a PR back into `main`.
 3. After merge, the PR triggers `staging-build.yml` (TestFlight staging build) and `release-version.yml` (Changesets Version PR).
 4. When `release-version.yml`'s "chore(release): version packages" PR merges, versions are bumped and CHANGELOGs are written.
-5. A human then pushes a git tag (`api-vX.Y.Z` or `mobile-vX.Y.Z[...]`) at that commit, and the tag push triggers the release.
+5. A human runs the **Release — Create Tag** workflow (`release-tag.yml`), which composes and pushes the tag (`api-vX.Y.Z` or `mobile-vX.Y.Z[...]`) from the version already on `main` — refusing if a changeset for that service is still unconsumed. The tag push triggers the release.
 
 See [Sprint Plan](../planning/SPRINT_PLAN_2026-07.md) for the current backlog and [CI/CD Pipeline](../ops/CICD_PIPELINE.md) for the full release workflow.
 
@@ -263,7 +263,7 @@ Versions change **only via changesets**. Never hand-edit version numbers in `pac
 2. Merge the PR into `main`.
 3. The **Version Packages PR** is automatically opened by `release-version.yml` (after your commit is on `main`).
 4. When you merge that PR, versions bump and `CHANGELOG.md` is written.
-5. Pull `main` and confirm the bumped version, then push a git tag (`api-vX.Y.Z` or `mobile-vX.Y.Z`) at that commit.
+5. Run **Actions → Release — Create Tag**, choosing `service`, `channel`, and `release_type`. It reads the bumped version from `package.json`, composes the tag (generating the OTA timestamp), and pushes it. You never hand-type a tag.
 6. Pushing the tag triggers the release workflow, which validates, builds, and ships the artifact.
 
 See `docs/ops/CICD_PIPELINE.md` for the full release workflow and `.changeset/README.md` for changeset format details.
