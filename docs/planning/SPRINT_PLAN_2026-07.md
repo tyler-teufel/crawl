@@ -16,6 +16,16 @@ Confirmed true baseline: **1.0.0, build 13** — currently deployed to staging/T
 
 **Rule to enforce:** for `apps/mobile`, `package.json.version` and `app.json expo.version` must always be identical — they describe the same shippable artifact.
 
+### v1.1.0 changelog reconciliation (2026-07-28, one-time)
+
+v1.1.0 was cut by hand: `apps/mobile` `package.json`/`app.json` were set to `1.1.0`, but `changeset version` never ran, so `CHANGELOG.md` stayed an empty stub and the six changesets describing that release were still sitting in `.changeset/`. Left alone, the next Version PR would have bumped `1.1.0 → 1.2.0` and written a changelog for work that had already shipped.
+
+The six were reconciled into a `## 1.1.0` `CHANGELOG.md` section and removed. **No version was changed** — their aggregate bump (3 minor + 3 patch → minor) resolves `1.0.0 → 1.1.0`, which is exactly the version already on disk, so the hand-cut number happened to be correct.
+
+Deliberately left pending: the three post-v1.1.0 `@crawl/mobile` patches from [#151](https://github.com/tyler-teufel/crawl/pull/151) (next mobile release is `1.1.1`), and `zod4-migration` for `@crawl/api`/`@crawl/shared-types` — the API has never been deployed, so its baseline is [#66](https://github.com/tyler-teufel/crawl/issues/66)'s call, not this reconciliation's.
+
+This is the same one-time sanctioned hand-edit pattern as Ticket 0, and should be the last of them: `release-tag.yml` now refuses to tag a service with unconsumed changesets, which makes this exact sequence impossible to repeat.
+
 Semver convention going forward: **patch** = bug fixes, **minor** = new non-breaking features/screens, **major** = breaking changes.
 
 ---
