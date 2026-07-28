@@ -1,5 +1,16 @@
 # @crawl/mobile
 
+## 1.1.1
+
+### Patch Changes
+
+- 273c705: Format Google Places venue types for display — `lounge_bar` now renders as "Lounge Bar" instead of a raw snake_case token on venue cards, list items, map callouts, and the detail screen. Applied at the data boundary in `rowToVenue`; already-formatted strings (bundled mock venues) pass through untouched.
+- 3021774: Fix the Explore map camera never recentering when the selected city changes (#166): it now animates to the selected city's center and frames its coverage radius (Sayville and Charlotte no longer render at the same zoom), instead of statically framing whichever venue happened to sort first.
+- 273c705: Fix live venue data never loading on Supabase-direct builds. Venue queries now filter on `venues.city_id` (resolved from the selected city via `resolveCityId`) instead of the denormalized `venues.city` text column, which the ingest job writes as `"Charlotte"` while the client holds `"Charlotte, NC"` — matching zero rows for every city. `useTrending` gains the Supabase tier it was missing, so Global Rankings shows real venues instead of silently rendering bundled mock data. All read hooks now branch on a single `dataSource` value from `env.ts`.
+- 273c705: Fix two spacing defects reported on the v1.1.0 TestFlight build: venue card badges no longer overlap the placeholder icon on image-less venues (they render inline above the venue name instead of overlaying the short hero), and the Explore filter chip row now has breathing room above the map.
+- Updated dependencies [23cec89]
+  - @crawl/shared-types@1.0.2
+
 ## 1.1.0
 
 ### Minor Changes
