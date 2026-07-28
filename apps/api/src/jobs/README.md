@@ -33,7 +33,7 @@ Jobs depend on service methods, not repositories directly. This means the same b
 
 ```ts
 // src/jobs/sync-venues.ts
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import type { VenueService } from '../services/venue.service.js';
 
 /**
@@ -47,7 +47,7 @@ import type { VenueService } from '../services/venue.service.js';
 export function scheduleVenueSync(
   venueService: VenueService,
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void }
-): cron.ScheduledTask {
+): ScheduledTask {
   return cron.schedule(
     '0 3 * * *', // 3:00 AM UTC every day
     async () => {
