@@ -11,13 +11,13 @@
  *   - Scores are normalized 0-100. Venues with score ≥ 80 are marked isTrending.
  *   - Scores are snapshotted hourly for trend direction (rising/falling).
  */
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import type { VenueService } from '../services/venue.service.js';
 
 export function scheduleScoreRecalculation(
   venueService: VenueService,
   logger: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void }
-): cron.ScheduledTask {
+): ScheduledTask {
   // Run at the top of every hour: '0 * * * *'
   return cron.schedule(
     '0 * * * *',
