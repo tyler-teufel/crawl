@@ -1,66 +1,115 @@
 name: Release — API
 
-# Production safety: dispatch ONLY for production. A separate auto-staging
-# path triggers on `api-v*-staging` tag push (the staging tag is itself
-# created via dispatch with `environment: staging`).
+# Tag-triggered (trunk-based release model). Changesets is the ONLY version
+# bumper (release-version.yml, merged to main) — this workflow never computes
+# a bump, runs `npm version`, or pushes a commit/tag. A human authors the tag
+# by hand after the Version PR merges (see docs/ops/CICD_PIPELINE.md
+# "How to cut a release"), and pushing it is what starts a release.
 #
-# Tags produced by this workflow:
-#   - api-v<new>-staging   (when environment == staging)
-#   - api-v<new>           (when environment == production)
+# Tag grammar (see the `resolve` job):
+#   api-vX.Y.Z            → production
+#   api-vX.Y.Z-staging    → staging
+#
+# workflow_dispatch exists only to re-run a release against an ALREADY-PUSHED
+# tag (e.g. retry a flaky build-and-push) — it takes the tag name as input
+# rather than any version/bump inputs, so there is exactly one place version
+# resolution happens.
 on:
+  push:
+    tags:
+      - 'api-v*'
   workflow_dispatch:
     inputs:
-      bump:
-        description: 'Semver bump'
+      tag:
+        description: 'Existing tag to (re-)release, e.g. api-v1.2.3 or api-v1.2.3-staging'
         required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-      environment:
-        description: 'Deploy target'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - production
-      run_migrations:
-        description: 'Run drizzle-kit migrate against the target DB (NON-DESTRUCTIVE only)'
-        required: false
-        default: false
-        type: boolean
-      cleanup_tag_on_failure:
-        description: 'Delete the version tag if a later job fails after the release job pushed it'
-        required: false
-        default: true
-        type: boolean
+        type: string
 
 concurrency:
-  # Never cancel an in-flight deploy. Serialize per environment.
-  group: release-api-${{ inputs.environment }}
+  # Never cancel an in-flight deploy. Serialize per environment. Top-level
+  # `concurrency:` can't see job outputs (`needs` isn't in scope here), so
+  # the environment is re-derived inline from the same tag the `resolve` job
+  # parses authoritatively — this is only a grouping key, not a source of
+  # truth for the release itself.
+  group: release-api-${{ contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-staging') && 'staging' || 'production' }}
   cancel-in-progress: false
 
+# Nothing in this workflow pushes commits or tags anymore, so the top-level
+# grant is read-only. Jobs that genuinely need writes (ghcr push, GitHub
+# Release creation) re-declare their own permissions block below.
 permissions:
-  contents: write # bump version, push commit + tag
+  contents: read
 
 jobs:
-  # ── Lint + typecheck + test gate ─────────────────────────────────
+  # ── Parse the tag into version + target environment ────────────────
+  # This is the single source of truth for "what does this tag mean" — every
+  # other job consumes these outputs instead of re-deriving them.
+  resolve:
+    name: Resolve tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      environment: ${{ steps.resolve.outputs.environment }}
+    steps:
+      - name: Parse tag
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+
+          if [[ "$TAG" =~ ^api-v([0-9]+\.[0-9]+\.[0-9]+)(-staging)?$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            if [ -n "${BASH_REMATCH[2]}" ]; then
+              ENVIRONMENT="staging"
+            else
+              ENVIRONMENT="production"
+            fi
+          else
+            echo "::error::Tag '$TAG' does not match the api release tag grammar. Expected api-vX.Y.Z (production) or api-vX.Y.Z-staging (staging)."
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          echo "Resolved $TAG -> version=$VERSION environment=$ENVIRONMENT"
+
+  # ── Lint + typecheck + test gate, plus the version-consistency guard ─
   validate:
     name: API — Validate
+    needs: [resolve]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - uses: actions/setup-node@v7
         with:
           node-version: 25
           cache: npm
+
+      # Changesets (release-version.yml, on push to main) is the ONLY thing
+      # allowed to bump apps/api/package.json. If the version baked into the
+      # tag doesn't match the version actually committed at that tag, someone
+      # tagged a commit whose version was never bumped by the Version PR —
+      # shipping it would desync the running service's reported version from
+      # its source. Fail loudly instead of shipping a mislabeled release.
+      - name: Version-consistency guard
+        run: |
+          TAG_VERSION="${{ needs.resolve.outputs.version }}"
+          PKG_VERSION=$(node -p "require('./apps/api/package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match apps/api/package.json version ($PKG_VERSION) at ${{ needs.resolve.outputs.tag }}. Versions are bumped exclusively by the Changesets Version PR — merge it first, then tag the resulting commit."
+            exit 1
+          fi
+          echo "Version consistency OK: $TAG_VERSION"
 
       - name: Install deps
         run: npm ci
@@ -77,74 +126,10 @@ jobs:
         working-directory: apps/api
         run: npm run test
 
-  # ── Bump version + tag ───────────────────────────────────────────
-  release:
-    name: Release (${{ inputs.environment }})
-    needs: [validate]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: ${{ inputs.environment }}
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      version: ${{ steps.version.outputs.new }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 25
-          cache: npm
-
-      - name: Compute new version
-        id: version
-        working-directory: apps/api
-        run: |
-          OLD=$(node -p "require('./package.json').version")
-          NEW=$(node -e "
-            const [maj, min, pat] = '$OLD'.split('.').map(Number);
-            const bump = '${{ inputs.bump }}';
-            let v;
-            if (bump === 'major') v = [maj + 1, 0, 0];
-            else if (bump === 'minor') v = [maj, min + 1, 0];
-            else v = [maj, min, pat + 1];
-            console.log(v.join('.'));
-          ")
-          echo "old=$OLD" >> "$GITHUB_OUTPUT"
-          echo "new=$NEW" >> "$GITHUB_OUTPUT"
-          echo "Bumping api $OLD → $NEW (${{ inputs.bump }})"
-
-      - name: Bump version in apps/api/package.json
-        working-directory: apps/api
-        run: npm version "${{ steps.version.outputs.new }}" --no-git-tag-version
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/api/package.json package-lock.json 2>/dev/null || true
-          git commit -m "chore(api): release v${{ steps.version.outputs.new }} (${{ inputs.environment }})" \
-            || echo "Nothing to commit"
-          git push origin HEAD:${{ github.ref_name }}
-
-      - name: Create tag
-        id: tag
-        run: |
-          if [ "${{ inputs.environment }}" = "production" ]; then
-            TAG="api-v${{ steps.version.outputs.new }}"
-          else
-            TAG="api-v${{ steps.version.outputs.new }}-staging"
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "Tagged $TAG"
-
-    # ── Build & Push Docker image ─────────────────────────────────────────────
+  # ── Build & Push Docker image ────────────────────────────────────────
   build-and-push:
     name: Build Docker Image
-    needs: [release]
+    needs: [resolve, validate]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Job-level permissions REPLACE the top-level block, so we re-declare
@@ -155,13 +140,20 @@ jobs:
     permissions:
       contents: read
       packages: write
+    # Production approval gate. This is the human checkpoint the old
+    # `release` job used to carry (it required approval before bumping +
+    # tagging); with bump/tag gone, the build-and-push of the actual
+    # deployable artifact is where that approval now belongs.
+    environment: ${{ needs.resolve.outputs.environment }}
     env:
-      TAG: ${{ needs.release.outputs.tag }}
+      TAG: ${{ needs.resolve.outputs.tag }}
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.push.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -180,7 +172,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}/api
           tags: |
             type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ needs.resolve.outputs.environment == 'production' }}
 
       - name: Build and push
         id: push
@@ -197,62 +189,92 @@ jobs:
           build-args: |
             APP_VERSION=${{ env.TAG }}
 
+  # ── Migrate DB (opt-in per GitHub Environment) ──────────────────────
+  # There is no tag equivalent of the old `run_migrations` dispatch checkbox,
+  # so the opt-in now lives as the `RUN_DB_MIGRATIONS` variable on the
+  # `staging` / `production` GitHub Environments (same place DATABASE_URL
+  # already lives). Defaults to off — unset or anything other than "true"
+  # skips the actual migrate step, matching the old input's default of
+  # `false`. See docs/ops/CICD_PIPELINE.md for how to turn it on.
   migrate:
-    name: Migrate DB (${{ inputs.environment }})
-    needs: [release, build-and-push]
-    if: inputs.run_migrations == true
+    name: Migrate DB (${{ needs.resolve.outputs.environment }})
+    needs: [resolve, build-and-push]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: ${{ inputs.environment }}
+    environment: ${{ needs.resolve.outputs.environment }}
     steps:
+      - name: Check migration gate
+        id: gate
+        run: |
+          if [ "${{ vars.RUN_DB_MIGRATIONS }}" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Migrations skipped — set RUN_DB_MIGRATIONS=true on the ${{ needs.resolve.outputs.environment }} GitHub Environment to enable."
+          fi
+
       - uses: actions/checkout@v7
+        if: steps.gate.outputs.run == 'true'
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - uses: actions/setup-node@v7
+        if: steps.gate.outputs.run == 'true'
         with:
           node-version: 25
           cache: npm
 
       - name: Install deps
+        if: steps.gate.outputs.run == 'true'
         run: npm ci
 
       - name: Run Drizzle migrations
+        if: steps.gate.outputs.run == 'true'
         working-directory: apps/api
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run db:migrate
 
-  # ── Cleanup stale tag if a later job fails ───────────────────────
-  # The release job pushes the version tag before downstream jobs run, so a
-  # failure in build-and-push or migrate leaves a tag pointing at a release
-  # that never shipped. This job deletes that tag (opt-out via input).
-  cleanup-on-failure:
-    name: Cleanup stale tag (on failure)
-    needs: [release, build-and-push, migrate]
-    if: |
-      always() &&
-      inputs.cleanup_tag_on_failure &&
-      needs.release.result == 'success' &&
-      (needs['build-and-push'].result == 'failure' || needs.migrate.result == 'failure')
+  # ── GitHub Release ────────────────────────────────────────────────
+  # The "tied to a release" half of the trunk-based model: every successful
+  # tag-triggered run gets a corresponding GitHub Release, body pulled from
+  # the CHANGELOG section Changesets already wrote for this version.
+  github-release:
+    name: Create GitHub Release
+    needs: [resolve, build-and-push, migrate]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
-      TAG: ${{ needs.release.outputs.tag }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
 
-      - name: Delete stale tag
+      - name: Extract changelog section
+        id: notes
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          echo "Deleting stale tag: $TAG"
-          git push origin --delete "$TAG" || echo "Remote tag $TAG already gone"
+          VERSION="${{ needs.resolve.outputs.version }}"
+          awk -v ver="$VERSION" '
+            $0 == "## " ver { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' apps/api/CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "_No CHANGELOG.md entry found for $VERSION._" > release-notes.md
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve.outputs.tag }}
+          name: ${{ needs.resolve.outputs.tag }}
+          body_path: release-notes.md
+          prerelease: ${{ needs.resolve.outputs.environment == 'staging' }}
 
   summary:
     name: Summary
-    # needs: [release, deploy]
-    needs: [release, build-and-push]
+    needs: [resolve, build-and-push, migrate, github-release]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -261,9 +283,8 @@ jobs:
           {
             echo "## API release"
             echo ""
-            echo "- **Environment:** ${{ inputs.environment }}"
-            echo "- **Bump:** ${{ inputs.bump }}"
-            echo "- **Version:** ${{ needs.release.outputs.version }}"
-            echo "- **Tag:** \`${{ needs.release.outputs.tag }}\`"
-            echo "- **Migrations:** ${{ inputs.run_migrations }}"
+            echo "- **Environment:** ${{ needs.resolve.outputs.environment }}"
+            echo "- **Version:** ${{ needs.resolve.outputs.version }}"
+            echo "- **Tag:** \`${{ needs.resolve.outputs.tag }}\`"
+            echo "- **Image:** ${{ needs.build-and-push.outputs.image-tag }}"
           } >> "$GITHUB_STEP_SUMMARY"

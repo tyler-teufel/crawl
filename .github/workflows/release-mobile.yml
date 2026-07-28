@@ -1,58 +1,96 @@
 name: Release — Mobile
 
-# Production safety: dispatch ONLY. No auto-trigger on tag push.
-# Tags are produced by this workflow and pushed back to the repo.
+# Tag-triggered (trunk-based release model). Changesets is the ONLY version
+# bumper (release-version.yml, merged to main) — this workflow never computes
+# a bump, runs `npm version`, or pushes a commit/tag. A human authors the tag
+# by hand after the Version PR merges (see docs/ops/CICD_PIPELINE.md
+# "How to cut a release"), and pushing it is what starts a release.
+#
+# Tag grammar (see the `resolve` job):
+#   mobile-vX.Y.Z                      → binary, production
+#   mobile-vX.Y.Z-staging               → binary, staging
+#   mobile-vX.Y.Z-ota.<UTC-timestamp>   → OTA, production
+#   mobile-vX.Y.Z-staging-ota.<ts>      → OTA, staging
+#
+# workflow_dispatch exists only to re-run a release against an ALREADY-PUSHED
+# tag — it takes the tag name as input rather than release_type/bump/channel
+# inputs, so there is exactly one place version resolution happens.
 on:
+  push:
+    tags:
+      - 'mobile-v*'
   workflow_dispatch:
     inputs:
-      release_type:
-        description: 'OTA (JS bundle) or binary (native build)'
+      tag:
+        description: 'Existing tag to (re-)release, e.g. mobile-v1.2.3 or mobile-v1.2.3-staging-ota.20260427143055'
         required: true
-        default: 'ota'
-        type: choice
-        options:
-          - ota
-          - binary
-      bump:
-        description: 'Semver bump'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-      channel:
-        description: 'EAS channel / profile'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - production
-      submit:
-        description: 'Submit to stores after binary build (production only)'
-        required: false
-        default: false
-        type: boolean
+        type: string
 
 concurrency:
-  group: release-mobile-${{ inputs.channel }}
+  # Top-level `concurrency:` can't see job outputs (`needs` isn't in scope
+  # here), so the channel is re-derived inline from the same tag the
+  # `resolve` job parses authoritatively — this is only a grouping key, not
+  # a source of truth for the release itself.
+  group: release-mobile-${{ contains(github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name, '-staging') && 'staging' || 'production' }}
   cancel-in-progress: false
 
 permissions:
-  contents: write # tag + push back
+  contents: read
 
 jobs:
+  # ── Parse the tag into version + channel + release type ────────────
+  resolve:
+    name: Resolve tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      channel: ${{ steps.resolve.outputs.channel }}
+      release_type: ${{ steps.resolve.outputs.release_type }}
+    steps:
+      - name: Parse tag
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+
+          if [[ "$TAG" =~ ^mobile-v([0-9]+\.[0-9]+\.[0-9]+)(-staging)?(-ota\.[0-9]+)?$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            if [ -n "${BASH_REMATCH[2]}" ]; then
+              CHANNEL="staging"
+            else
+              CHANNEL="production"
+            fi
+            if [ -n "${BASH_REMATCH[3]}" ]; then
+              RELEASE_TYPE="ota"
+            else
+              RELEASE_TYPE="binary"
+            fi
+          else
+            echo "::error::Tag '$TAG' does not match the mobile release tag grammar. Expected mobile-vX.Y.Z[-staging][-ota.<timestamp>]."
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+          echo "Resolved $TAG -> version=$VERSION channel=$CHANNEL release_type=$RELEASE_TYPE"
+
   release:
-    name: Mobile release (${{ inputs.release_type }} → ${{ inputs.channel }})
+    name: Mobile release (${{ needs.resolve.outputs.release_type }} → ${{ needs.resolve.outputs.channel }})
+    needs: [resolve]
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    environment: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
+    environment: ${{ needs.resolve.outputs.channel == 'production' && 'production' || 'staging' }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - uses: actions/setup-node@v7
         with:
@@ -67,6 +105,25 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      # Changesets (release-version.yml, on push to main) is the ONLY thing
+      # allowed to bump apps/mobile/package.json — apps/mobile/app.json's
+      # expo.version is then kept in lockstep by apps/mobile/scripts/sync-expo-version.mjs
+      # right after `changeset version` runs. If the version baked into the
+      # tag doesn't match BOTH files at that tag, either the Version PR wasn't
+      # merged before tagging, or the two files drifted — either way, fail
+      # loudly instead of shipping a mislabeled release.
+      - name: Version-consistency guard
+        working-directory: apps/mobile
+        run: |
+          TAG_VERSION="${{ needs.resolve.outputs.version }}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          APP_JSON_VERSION=$(node -p "require('./app.json').expo.version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$APP_JSON_VERSION" ]; then
+            echo "::error::Version mismatch at ${{ needs.resolve.outputs.tag }} — tag=$TAG_VERSION package.json=$PKG_VERSION app.json(expo.version)=$APP_JSON_VERSION. Versions are bumped exclusively by the Changesets Version PR (+ sync-expo-version.mjs) — merge it first, then tag the resulting commit."
+            exit 1
+          fi
+          echo "Version consistency OK: $TAG_VERSION"
+
       # ── Validate before releasing ────────────────────────────────
       - name: Lint
         working-directory: apps/mobile
@@ -76,103 +133,103 @@ jobs:
         working-directory: apps/mobile
         run: npm run typecheck
 
-      # ── Compute new version ──────────────────────────────────────
-      - name: Compute new version
-        id: version
-        working-directory: apps/mobile
-        run: |
-          OLD=$(node -p "require('./package.json').version")
-          NEW=$(node -e "
-            const [maj, min, pat] = '$OLD'.split('.').map(Number);
-            const bump = '${{ inputs.bump }}';
-            let v;
-            if (bump === 'major') v = [maj + 1, 0, 0];
-            else if (bump === 'minor') v = [maj, min + 1, 0];
-            else v = [maj, min, pat + 1];
-            console.log(v.join('.'));
-          ")
-          echo "old=$OLD" >> "$GITHUB_OUTPUT"
-          echo "new=$NEW" >> "$GITHUB_OUTPUT"
-          echo "Bumping mobile $OLD → $NEW (${{ inputs.bump }})"
-
       # ── OTA path ─────────────────────────────────────────────────
       - name: Push EAS Update (OTA)
-        if: inputs.release_type == 'ota'
+        if: needs.resolve.outputs.release_type == 'ota'
         working-directory: apps/mobile
         run: |
           eas update \
-            --channel "${{ inputs.channel }}" \
-            --message "mobile-v${{ steps.version.outputs.new }} OTA via ${{ github.actor }}" \
+            --channel "${{ needs.resolve.outputs.channel }}" \
+            --message "${{ needs.resolve.outputs.tag }} via ${{ github.actor }}" \
             --non-interactive
 
-      - name: Compute OTA tag
-        if: inputs.release_type == 'ota'
-        id: ota_tag
-        run: |
-          TS=$(date -u +%Y%m%d%H%M%S)
-          echo "tag=mobile-v${{ steps.version.outputs.new }}-ota.$TS" >> "$GITHUB_OUTPUT"
-
       # ── Binary path ──────────────────────────────────────────────
-      - name: Bump version in package.json (binary)
-        if: inputs.release_type == 'binary'
-        working-directory: apps/mobile
-        run: |
-          npm version "${{ steps.version.outputs.new }}" --no-git-tag-version
-          node scripts/sync-expo-version.mjs
-
       - name: EAS Build (binary)
-        if: inputs.release_type == 'binary'
+        if: needs.resolve.outputs.release_type == 'binary'
         working-directory: apps/mobile
         run: |
-          PROFILE="${{ inputs.channel }}"
           eas build \
-            --profile "$PROFILE" \
+            --profile "${{ needs.resolve.outputs.channel }}" \
             --platform all \
             --non-interactive
 
-      # Submit is opt-in via the `submit` input to prevent accidental store
-      # submissions. Staging submits iOS to TestFlight internal testers only.
-      # Production submits iOS to the App Store (Android TBD — needs Google
-      # Play service account).
-      - name: EAS Submit (opt-in)
-        if: inputs.release_type == 'binary' && inputs.submit == true
+      # Staging only. A tag push carries no inputs, so the old opt-in `submit`
+      # checkbox has no tag equivalent — but App Store submission is
+      # irreversible in a way an EAS build is not, so it does NOT become
+      # automatic just because the trigger changed. Staging submits to
+      # TestFlight internal testers unconditionally, which is already what
+      # staging-build.yml does on every push to main.
+      #
+      # A production tag builds the binary and stops. Promoting that build to
+      # the App Store stays a deliberate, separate human action — see
+      # "Submitting a production build" in docs/ops/CICD_PIPELINE.md.
+      - name: EAS Submit (staging → TestFlight)
+        if: needs.resolve.outputs.release_type == 'binary' && needs.resolve.outputs.channel == 'staging'
         working-directory: apps/mobile
         env:
           EXPO_APPLE_ID: ${{ secrets.APPLE_ID }}
           EXPO_ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
-          eas submit --profile "${{ inputs.channel }}" --platform ios --non-interactive
-
-      - name: Commit version bump (binary)
-        if: inputs.release_type == 'binary'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/mobile/package.json apps/mobile/app.json apps/mobile/package-lock.json package-lock.json 2>/dev/null || true
-          git commit -m "chore(mobile): release v${{ steps.version.outputs.new }}" || echo "Nothing to commit"
-          git push origin HEAD:${{ github.ref_name }}
-
-      # ── Tag and push ─────────────────────────────────────────────
-      - name: Create tag
-        id: tag
-        run: |
-          if [ "${{ inputs.release_type }}" = "ota" ]; then
-            TAG="${{ steps.ota_tag.outputs.tag }}"
-          else
-            TAG="mobile-v${{ steps.version.outputs.new }}"
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "Tagged $TAG"
+          eas submit --profile staging --platform ios --non-interactive
 
       - name: Summary
         run: |
           {
             echo "## Mobile release"
             echo ""
-            echo "- **Type:** ${{ inputs.release_type }}"
-            echo "- **Channel:** ${{ inputs.channel }}"
-            echo "- **Version:** ${{ steps.version.outputs.old }} → ${{ steps.version.outputs.new }}"
-            echo "- **Tag:** \`${{ steps.tag.outputs.tag }}\`"
+            echo "- **Type:** ${{ needs.resolve.outputs.release_type }}"
+            echo "- **Channel:** ${{ needs.resolve.outputs.channel }}"
+            echo "- **Version:** ${{ needs.resolve.outputs.version }}"
+            echo "- **Tag:** \`${{ needs.resolve.outputs.tag }}\`"
+            echo ""
+            if [ "${{ needs.resolve.outputs.release_type }}" = "binary" ] \
+              && [ "${{ needs.resolve.outputs.channel }}" = "production" ]; then
+              echo "### ⚠️ Not yet submitted to the App Store"
+              echo ""
+              echo "This build was **not** submitted — production submission is a"
+              echo "deliberate manual step. To promote it:"
+              echo ""
+              echo '```bash'
+              echo "cd apps/mobile && eas submit --profile production --platform ios --latest"
+              echo '```'
+            elif [ "${{ needs.resolve.outputs.release_type }}" = "binary" ]; then
+              echo "Submitted to TestFlight (internal testers)."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── GitHub Release ────────────────────────────────────────────────
+  # The "tied to a release" half of the trunk-based model: every successful
+  # tag-triggered run gets a corresponding GitHub Release, body pulled from
+  # the CHANGELOG section Changesets already wrote for this version.
+  github-release:
+    name: Create GitHub Release
+    needs: [resolve, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - name: Extract changelog section
+        id: notes
+        run: |
+          VERSION="${{ needs.resolve.outputs.version }}"
+          awk -v ver="$VERSION" '
+            $0 == "## " ver { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' apps/mobile/CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "_No CHANGELOG.md entry found for $VERSION._" > release-notes.md
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve.outputs.tag }}
+          name: ${{ needs.resolve.outputs.tag }}
+          body_path: release-notes.md
+          prerelease: ${{ needs.resolve.outputs.channel == 'staging' }}

@@ -338,6 +338,31 @@ For production, a second gate is enforced by the `production` GitHub Environment
 
 ---
 
+## Trunk-Based Development with Tag-Triggered Releases
+
+**Status:** Adopted 2026-07-27 (supersedes the dispatch-gated release model).
+
+**Chosen over:**
+1. **Release branches + dispatch-triggered releases** — the previous model, where `release/vX.Y.Z` branches were cut from `main`, ticket PRs merged into the release branch, and workflows computed version bumps on dispatch.
+2. **Repo-wide `vX.Y.Z` tags** — a single lock-step tag covering all services (alternative to per-service `api-v*` / `mobile-v*` tags).
+
+**Why this approach won:**
+
+The release-branch model created a **second integration point and a second version-bump mechanism** that could silently diverge. Changesets lived on `main` and bumped versions there; release-branch workflows also bumped versions (via `npm version`) and pushed tags. If a Changesets PR landed on `main` between release branches, the release workflow's `npm version` bump could land on top of it, double-bumping or stepping on the version the Changesets PR set.
+
+Collapsing to trunk-based + tag-triggered makes **Changesets the sole, authoritative version bumper.** A human merges the Changesets "Version Packages" PR on `main`, versions are bumped once, and then a human pushes a git tag at that commit. The tag alone triggers the release; the release workflows never run `npm version` or push commits — they parse the tag, validate it against `package.json` (fail loudly if it doesn't match), and build the artifact. This eliminates the double-bump conflict entirely.
+
+**Why not repo-wide tags:** Mobile and API ship on independent cadences and maintain independent semver lines. A single `vX.Y.Z` tag would force them into lock-step releases — the API would bump every time the mobile app shipped, polluting the API changelog with non-releases. Per-service tags (`mobile-vX.Y.Z`, `api-vX.Y.Z`) reflect what actually changed. The complexity cost (slightly longer tag names) is negligible vs. the clarity win (independent changelogs, independent release cadences).
+
+**Trade-offs accepted:**
+
+- **Hand-authored tag format.** Releases now depend on a correctly-formatted git tag (`api-v1.2.3`, `mobile-v1.2.3-ota.<timestamp>`). Mitigated by the `resolve` job in each release workflow (parse the tag with a strict regex, fail with `::error::` + non-zero exit if it doesn't match) and the version-consistency guard (cross-check the tag's semver against the tagged commit's `package.json` / `app.json`). A tag that doesn't parse is unshippable; a tag that parses but doesn't match the versioned commit is also caught.
+- **Main must always be releasable.** There is no holding area for in-progress work anymore. Ticket branches PR directly into `main` and merge there. The trade-off is acceptable because (a) PR reviews ensure code quality before merge, (b) the staging-build automation on every `main` push gives immediate signal if something is broken, (c) if a bad merge lands, a hot-fix branch off `main` + quick PR + tag re-cuts a fresh release.
+
+**Implementation surface:** See `docs/ops/CICD_PIPELINE.md` for the full pipeline, tag grammar, and release procedures.
+
+---
+
 ## Fingerprint Runtime Version for OTA
 
 **Chosen over:** `runtimeVersion: { policy: "appVersion" }` or `"sdkVersion"`, or a hand-maintained string.
