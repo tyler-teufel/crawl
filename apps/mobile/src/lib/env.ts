@@ -45,6 +45,17 @@ export const hasApi = env.apiUrl != null;
 /** True when Supabase auth/data is configured. */
 export const hasSupabase = env.supabaseUrl != null && env.supabaseKey != null;
 
+export type DataSource = 'api' | 'supabase' | 'mock';
+
+/**
+ * The read tier this bundle resolved to. Every read hook branches on this one
+ * value rather than re-deriving its own ladder from `hasApi`/`hasSupabase`:
+ * `useTrending` kept a two-tier ladder of its own after the Supabase-direct
+ * path landed, so Global Rankings quietly served bundled mock venues on every
+ * staging build while Explore read live data (#150).
+ */
+export const dataSource: DataSource = hasApi ? 'api' : hasSupabase ? 'supabase' : 'mock';
+
 /**
  * Keys that must be present for the given delivery mode. Used by the pipeline's
  * env check, NOT by app runtime — the app never blocks on this.

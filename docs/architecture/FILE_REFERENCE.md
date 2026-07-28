@@ -387,11 +387,22 @@ Exports `verifySentryDelivery()`, a fire-and-forget heartbeat invoked from an ef
 
 ### `src/api/cities.ts`
 
-`useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`. Also exports `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.
+`useCities()` TanStack Query hook returning the active rows of the `cities` table as `City[]` (`{ id, slug, name, state, centerLat, centerLng, displayName }`). 1-hour `staleTime`, built from the exported `citiesQueryOptions` so imperative callers share the cache entry. Also exports:
+
+- `findNearestCity(cities, location, maxMiles=50)` — a haversine-based picker used by `VenueContext` to seed the initial city from onboarding-captured `userLocation`, returning `null` when no covered city is within range.
+- `resolveCityId(client, displayName)` — maps a `City.displayName` to the `cities.id` that `venues.city_id` references, via `queryClient.fetchQuery(citiesQueryOptions)` (so it reuses whatever `useCities` already cached). Venue queries filter on this id because the denormalized `venues.city` column disagrees with `displayName`: the ingest job writes `'Charlotte'`, the client holds `'Charlotte, NC'`, and equality matched zero rows for every city (#149). Throws when nothing matches, so an unresolvable city renders an error state rather than an empty list that reads as "no venues here".
 
 ### `src/api/trending.ts`
 
-`useTrending(city)` TanStack Query hook returning the top-10 venues for a given city, sorted by hotspot score descending. Exported `trendingKeys` factory for queryKey composition and cache invalidation. On the real-API path (`hasApi`), calls `GET /api/v1/trending/:city`. Falls back to `getMockTrending(city)` (exported, used by tests) which sorts `mockVenuesByCity[city]` by score and slices the top 10. 30-second `staleTime`. Used by `app/(tabs)/global.tsx` for the city leaderboard.
+`useTrending(city)` TanStack Query hook returning the top-10 venues for a given city, sorted by hotspot score descending with `name` as a deterministic tiebreak (every live venue currently scores 0, so an unbroken tie would reshuffle the leaderboard on each refetch). Exported `trendingKeys` factory for queryKey composition and cache invalidation. Branches on `dataSource`: `'api'` calls `GET /api/v1/trending/:city`; `'supabase'` reads `public.venues` filtered by `city_id` + `is_active` with `.limit(10)`, mapping rows through the shared `venueRow.ts` helpers; `'mock'` uses `getMockTrending(city)` (exported, used by tests). The Supabase branch was missing until #150, so staging builds silently rendered mock venues as live rankings. 30-second `staleTime`. Used by `app/(tabs)/global.tsx` for the city leaderboard.
+
+### `src/lib/formatVenueType.ts`
+
+Exports `formatVenueType(type)` — turns a raw Google Places `primaryType` token into display text (`'night_club'` → `'Night Club'`, `'bar_and_grill'` → `'Bar and Grill'`, `'tex_mex_restaurant'` → `'Tex-Mex Restaurant'` via a small override map). Connector words stay lowercase unless they lead. Strings that are already human-formatted — anything with spaces, capitals, or punctuation — pass through untouched, so bundled mock values like `'BBQ & Bar'` aren't mangled into `'Bbq & Bar'`. Applied once in `rowToVenue` (`src/api/venueRow.ts`) rather than at each render site, so the venue card, list item, map callout, and detail screen cannot disagree.
+
+### `src/api/venueRow.ts`
+
+The `public.venues` read shape shared by every Supabase-direct venue query. Exports `VENUE_COLUMNS` (the `select()` list), the `VenueRow` interface (snake_case column names; `numeric` columns arrive as strings over supabase-js), `rowToVenue(row)` → `Venue | null`, and `rowsToVenues(rows)` which drops the nulls. `rowToVenue` returns `null` for rows whose latitude/longitude don't parse to finite numbers (warning in `__DEV__`) so one malformed row can't blank the map. Extracted from `venues.ts` so the list, trending, and detail queries cannot drift into separate column lists or mappings — that drift is what left Global Rankings on mock data (#150).
 
 ### `src/api/voteStorage.ts`
 

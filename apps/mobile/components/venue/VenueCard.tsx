@@ -19,7 +19,15 @@ const HERO_HEIGHT_EMPTY = 52;
 
 export function VenueCard({ venue, onPress, width }: VenueCardProps) {
   const priceLevel = venue.priceLevel;
-  const heroHeight = venue.imageUrl ? HERO_HEIGHT : HERO_HEIGHT_EMPTY;
+  const hasImage = !!venue.imageUrl;
+  const heroHeight = hasImage ? HERO_HEIGHT : HERO_HEIGHT_EMPTY;
+  const badges =
+    venue.isTrending || venue.isOpen ? (
+      <View className="flex-row gap-1">
+        {venue.isTrending && <Badge label="Trending" variant="trending" />}
+        {venue.isOpen && <Badge label="Open Now" variant="open" />}
+      </View>
+    ) : null;
 
   return (
     // Outer wrapper carries the elevation shadow + shape (NO overflow-hidden, which
@@ -30,7 +38,7 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
       <Pressable onPress={onPress} className="overflow-hidden rounded-crawl-lg">
         {/* Hero — photography-first; graceful tinted placeholder when imageUrl is absent */}
         <View style={{ height: heroHeight }} className="w-full overflow-hidden bg-crawl-surface">
-          {venue.imageUrl ? (
+          {hasImage ? (
             <Image source={{ uri: venue.imageUrl }} resizeMode="cover" className="h-full w-full" />
           ) : (
             <View className="h-full w-full items-center justify-center bg-crawl-purple/10">
@@ -38,11 +46,10 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
             </View>
           )}
 
-          {/* Badges over the image */}
-          <View className="absolute bottom-2 left-2 flex-row gap-1">
-            {venue.isTrending && <Badge label="Trending" variant="trending" />}
-            {venue.isOpen && <Badge label="Open Now" variant="open" />}
-          </View>
+          {/* Badges over the image. The image-less placeholder is too short to
+              overlay them without covering its centered icon, so in that case
+              they render inline above the venue name instead. */}
+          {hasImage && badges && <View className="absolute bottom-2 left-2">{badges}</View>}
 
           {/* Bookmark affordance — presentational only; real save-venue is follow-up work */}
           <View className="absolute right-2 top-2 h-8 w-8 items-center justify-center rounded-full bg-crawl-bg/60">
@@ -52,6 +59,7 @@ export function VenueCard({ venue, onPress, width }: VenueCardProps) {
 
         {/* Content */}
         <View className="p-3">
+          {!hasImage && badges && <View className="mb-2">{badges}</View>}
           <Text className="font-display-bold text-lg text-white" numberOfLines={1}>
             {venue.name}
           </Text>

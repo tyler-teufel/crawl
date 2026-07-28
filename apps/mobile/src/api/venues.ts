@@ -2,16 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { Venue } from '@/types/venue';
 import { mockVenues, mockVenuesByCity } from '@/data/venues';
 import { apiClient } from './client';
+import { queryClient } from './query-client';
+import { resolveCityId } from './cities';
+import { VENUE_COLUMNS, rowToVenue, rowsToVenues, type VenueRow } from './venueRow';
 import { supabase } from '@/lib/supabase';
-import { hasApi, hasSupabase } from '@/lib/env';
+import { dataSource } from '@/lib/env';
 import { filterVenues } from '@/lib/filterVenues';
 
-// Read priority: Railway API (EXPO_PUBLIC_API_URL) → Supabase-direct
-// (EXPO_PUBLIC_SUPABASE_URL/KEY, RLS permits public read) → bundled mock data.
-// Supabase reads apply filters client-side via filterVenues, same as mock
-// mode, so filter behavior is identical across both fallback tiers.
-const USE_REAL_API = hasApi;
-const USE_SUPABASE = hasSupabase;
+// Read tier is resolved once in @/lib/env: Railway API (EXPO_PUBLIC_API_URL) →
+// Supabase-direct (EXPO_PUBLIC_SUPABASE_URL/KEY, RLS permits public read) →
+// bundled mock data. Supabase reads apply filters client-side via filterVenues,
+// same as mock mode, so filter behavior is identical across both fallback tiers.
 
 export const venueKeys = {
   all: ['venues'] as const,
@@ -20,87 +21,33 @@ export const venueKeys = {
   detail: (id: string) => ['venues', 'detail', id] as const,
 };
 
-// Shape of a row returned by `select(VENUE_COLUMNS)` against `public.venues`.
-// Supabase preserves Postgres snake_case column names and serializes
-// `numeric` columns as strings. Only columns the mobile client actually
-// consumes are selected — `public.venues` has additional columns
-// (city_id, google_place_id, types[], rating, total_ratings, phone, website)
-// not modeled here or in the shared Venue type.
-interface VenueRow {
-  id: string;
-  name: string;
-  primary_type: string;
-  address: string;
-  latitude: string | number;
-  longitude: string | number;
-  hotspot_score: number;
-  vote_count: number;
-  is_open: boolean;
-  is_trending: boolean;
-  highlights: string[] | null;
-  price_level: number | null;
-  hours: string | null;
-  description: string | null;
-  image_url: string | null;
-}
-
-const VENUE_COLUMNS =
-  'id, name, primary_type, address, latitude, longitude, hotspot_score, vote_count, is_open, is_trending, highlights, price_level, hours, description, image_url';
-
-function rowToVenue(row: VenueRow): Venue | null {
-  const lat = Number(row.latitude);
-  const lng = Number(row.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    if (__DEV__) {
-      console.warn(`[useVenues] Venue ${row.id} (${row.name}) has invalid coordinates`, {
-        latitude: row.latitude,
-        longitude: row.longitude,
-      });
-    }
-    return null;
-  }
-  return {
-    id: row.id,
-    name: row.name,
-    primaryType: row.primary_type,
-    address: row.address,
-    distance: '',
-    hotspotScore: row.hotspot_score,
-    voteCount: row.vote_count,
-    isOpen: row.is_open,
-    isTrending: row.is_trending,
-    highlights: row.highlights ?? [],
-    latitude: lat,
-    longitude: lng,
-    imageUrl: row.image_url ?? undefined,
-    priceLevel: row.price_level,
-    hours: row.hours ?? '',
-    description: row.description ?? '',
-  };
-}
-
 export function useVenues(city: string, filters: string[]) {
   return useQuery<Venue[]>({
+    // Keyed on the display name, not the resolved id: the two are 1:1 and the
+    // display name is what the caller (and the vote cache) already holds.
     queryKey: venueKeys.list(city, filters),
     queryFn: async () => {
-      if (USE_REAL_API) {
+      if (dataSource === 'api') {
         const res = await apiClient<{ data: Venue[] }>(
           `/venues?city=${encodeURIComponent(city)}${filters.length ? `&filters=${filters.join(',')}` : ''}`
         );
         return res.data;
       }
-      if (USE_SUPABASE) {
+      if (dataSource === 'supabase') {
+        const cityId = await resolveCityId(queryClient, city);
         const { data, error } = await supabase
           .from('venues')
           .select(VENUE_COLUMNS)
           .eq('is_active', true)
-          .eq('city', city)
-          .order('hotspot_score', { ascending: false });
+          .eq('city_id', cityId)
+          // Name breaks the tie: every venue currently scores 0 (nothing
+          // recalculates hotspot_score outside the unpaid Fastify API), and
+          // without a tiebreak Postgres is free to return an all-ties set in a
+          // different order on each refetch, visibly reshuffling the list.
+          .order('hotspot_score', { ascending: false })
+          .order('name');
         if (error) throw error;
-        const venues = ((data ?? []) as VenueRow[])
-          .map(rowToVenue)
-          .filter((v): v is Venue => v !== null);
-        return filterVenues(venues, filters);
+        return filterVenues(rowsToVenues((data ?? []) as VenueRow[]), filters);
       }
       return filterVenues(mockVenuesByCity[city] ?? mockVenues, filters);
     },
@@ -109,10 +56,10 @@ export function useVenues(city: string, filters: string[]) {
 }
 
 async function fetchVenueDetail(id: string): Promise<Venue | undefined> {
-  if (USE_REAL_API) {
+  if (dataSource === 'api') {
     return apiClient<Venue>(`/venues/${id}`);
   }
-  if (USE_SUPABASE) {
+  if (dataSource === 'supabase') {
     const { data, error } = await supabase
       .from('venues')
       .select(VENUE_COLUMNS)

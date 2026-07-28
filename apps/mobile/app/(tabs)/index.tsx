@@ -59,7 +59,7 @@ export default function ExploreScreen() {
         />
       </View>
 
-      <View className="h-12 justify-center">
+      <View className="mb-3 h-12 justify-center">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

@@ -40,6 +40,23 @@ describe('env', () => {
     expect(env.apiUrl).toBe('https://host/api/v1');
   });
 
+  it('resolves dataSource to one tier that every read hook shares', async () => {
+    // One derived value so a hook cannot keep its own stale ladder — the
+    // trending hook did exactly that and served mock data on staging (#150).
+    vi.stubEnv('EXPO_PUBLIC_API_URL', '');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', '');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_KEY', '');
+    expect((await loadEnv()).dataSource).toBe('mock');
+
+    // The staging configuration: Supabase present, API deliberately unset.
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://x.supabase.co');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_KEY', 'k');
+    expect((await loadEnv()).dataSource).toBe('supabase');
+
+    vi.stubEnv('EXPO_PUBLIC_API_URL', 'https://host/api/v1');
+    expect((await loadEnv()).dataSource).toBe('api');
+  });
+
   it('missingEnvForMode reports required keys per mode', async () => {
     vi.stubEnv('EXPO_PUBLIC_API_URL', '');
     vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', '');
