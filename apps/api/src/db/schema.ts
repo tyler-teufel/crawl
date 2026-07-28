@@ -18,6 +18,7 @@ import {
   numeric,
   uniqueIndex,
   index,
+  check,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -90,14 +91,26 @@ export const venues = pgTable(
   })
 );
 
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
-  displayName: text('display_name'),
-  city: text('city').notNull().default('Austin, TX'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const users = pgTable(
+  'users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Nullable: Supabase anonymous sign-in creates identities with no email.
+    // Populated once a user links Apple/Google (see auth.uid()-keyed profile
+    // rows auto-provisioned by the `on_auth_user_created` trigger).
+    email: text('email').unique(),
+    displayName: text('display_name'),
+    city: text('city').notNull().default('Austin, TX'),
+    // Abuse/dedup signal only — set by the mobile client, no server-side
+    // enforcement. Not used for any reinstall-restore or auth flow.
+    deviceId: text('device_id'),
+    role: text('role').notNull().default('user'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    roleCheck: check('users_role_check', sql`${table.role} in ('user', 'developer')`),
+  })
+);
 
 export const votes = pgTable(
   'votes',

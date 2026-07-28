@@ -24,9 +24,7 @@ const envSchema = z.object({
 
   // Local-dev JWT (not used when USE_REAL_DB=true)
   JWT_SECRET: z.string().default('dev-secret-change-in-production'),
-  JWT_REFRESH_SECRET: z.string().default('dev-refresh-secret-change-in-production'),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
-  JWT_REFRESH_EXPIRY: z.string().default('7d'),
 
   REDIS_URL: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),

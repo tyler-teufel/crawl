@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
@@ -5,18 +6,11 @@ import { buildApp } from '../../src/app.js';
 const SEED_VENUE_ID = '11111111-1111-1111-1111-111111111111';
 const SEED_VENUE_ID_2 = '22222222-2222-2222-2222-222222222222';
 
-async function registerAndLogin(app: FastifyInstance, email: string) {
-  await app.inject({
-    method: 'POST',
-    url: '/api/v1/auth/register',
-    payload: { email, password: 'password123', displayName: 'Test' },
-  });
-  const loginRes = await app.inject({
-    method: 'POST',
-    url: '/api/v1/auth/login',
-    payload: { email, password: 'password123' },
-  });
-  return loginRes.json().tokens.accessToken as string;
+// Auth in this codebase is Supabase-only in production (JWKS-verified); local
+// dev/test mode just needs a validly-signed access token for `sub`, so tests
+// mint one directly rather than going through an HTTP auth endpoint.
+function mintAccessToken(app: FastifyInstance, email: string): string {
+  return app.jwt.sign({ sub: randomUUID(), email });
 }
 
 describe('Votes routes', () => {
@@ -26,7 +20,7 @@ describe('Votes routes', () => {
   beforeAll(async () => {
     app = buildApp();
     await app.ready();
-    token = await registerAndLogin(app, `votes-test-${Date.now()}@example.com`);
+    token = mintAccessToken(app, `votes-test-${Date.now()}@example.com`);
   });
 
   afterAll(async () => {
@@ -102,7 +96,7 @@ describe('Votes routes', () => {
         '22222222-2222-2222-2222-222222222222',
         '33333333-3333-3333-3333-333333333333',
       ];
-      const token2 = await registerAndLogin(app, `votes-limit-${Date.now()}@example.com`);
+      const token2 = mintAccessToken(app, `votes-limit-${Date.now()}@example.com`);
 
       for (const id of venueIds) {
         await app.inject({
