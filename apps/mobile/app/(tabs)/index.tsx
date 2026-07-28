@@ -35,6 +35,7 @@ export default function ExploreScreen() {
     isVenuesLoading,
     isVenuesError,
     refetchVenues,
+    selectedCityData,
   } = useVenueContext();
 
   // Height of the map/content area, measured so the bottom sheet can compute its
@@ -81,7 +82,11 @@ export default function ExploreScreen() {
       <View className="flex-1 overflow-hidden" onLayout={onContentLayout}>
         <View className="absolute inset-0">
           {hasNativeMaps ? (
-            <CrawlMapView venues={filteredVenues} onVenuePress={handleVenuePress} />
+            <CrawlMapView
+              venues={filteredVenues}
+              city={selectedCityData}
+              onVenuePress={handleVenuePress}
+            />
           ) : (
             <MapPlaceholder venues={filteredVenues} onPinPress={handleVenuePress} />
           )}

@@ -48,6 +48,7 @@ const SAMPLE_ROW = {
   state: 'CO',
   center_lat: '39.7392',
   center_lng: '-104.9903',
+  radius_meters: '5000',
 };
 
 describe('useCities tier selection', () => {
@@ -75,6 +76,7 @@ describe('useCities tier selection', () => {
         state: 'CO',
         centerLat: 39.7392,
         centerLng: -104.9903,
+        radiusMeters: 5000,
         displayName: 'Denver, CO',
       },
     ]);

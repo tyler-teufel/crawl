@@ -11,7 +11,7 @@ import { Venue, FilterOption, VoteState } from '@/types/venue';
 import { defaultFilters } from '@/data/filters';
 import { useVenues } from '@/api/venues';
 import { useVoteState, useCastVote, useRemoveVote, DEFAULT_VOTE_STATE } from '@/api/votes';
-import { useCities, findNearestCity } from '@/api/cities';
+import { useCities, findNearestCity, type City } from '@/api/cities';
 import { useAuth } from '@/context/AuthContext';
 
 interface VenueContextValue {
@@ -20,6 +20,8 @@ interface VenueContextValue {
   voteState: VoteState;
   searchQuery: string;
   selectedCity: string;
+  /** The full `cities` row for `selectedCity`, or null until `useCities()` resolves it. */
+  selectedCityData: City | null;
   setSearchQuery: (q: string) => void;
   setSelectedCity: (city: string) => void;
   toggleFilter: (id: string) => void;
@@ -69,6 +71,11 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
     seededRef.current = true;
     setSelectedCity(city);
   }, []);
+
+  const selectedCityData = useMemo(
+    () => cities.find((c) => c.displayName === selectedCity) ?? null,
+    [cities, selectedCity]
+  );
 
   const activeFilterIds = useMemo(
     () => filters.filter((f) => f.enabled).map((f) => f.id),
@@ -134,6 +141,7 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
         voteState,
         searchQuery,
         selectedCity,
+        selectedCityData,
         setSearchQuery,
         setSelectedCity: setSelectedCityManual,
         toggleFilter,

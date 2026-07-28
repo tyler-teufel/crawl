@@ -15,6 +15,7 @@ function makeCity(overrides: Partial<City> & { centerLat: number; centerLng: num
     slug: 'test',
     name: 'Test',
     state: 'TX',
+    radiusMeters: 2500,
     displayName: 'Test, TX',
     ...overrides,
   };
@@ -68,6 +69,7 @@ describe('rowToCity', () => {
       state: 'CO',
       center_lat: '39.7392',
       center_lng: '-104.9903',
+      radius_meters: '5000',
     });
     expect(result.id).toBe('42');
     expect(result.slug).toBe('denver');
@@ -76,9 +78,10 @@ describe('rowToCity', () => {
     expect(result.displayName).toBe('Denver, CO');
     expect(result.centerLat).toBe(39.7392);
     expect(result.centerLng).toBe(-104.9903);
+    expect(result.radiusMeters).toBe(5000);
   });
 
-  it('coerces string lat/lng to numbers', () => {
+  it('coerces string lat/lng/radius to numbers', () => {
     const result = rowToCity({
       id: '1',
       slug: 'x',
@@ -86,12 +89,14 @@ describe('rowToCity', () => {
       state: 'TX',
       center_lat: '30.2672',
       center_lng: '-97.7431',
+      radius_meters: '2500',
     });
     expect(typeof result.centerLat).toBe('number');
     expect(typeof result.centerLng).toBe('number');
+    expect(typeof result.radiusMeters).toBe('number');
   });
 
-  it('handles numeric lat/lng that are already numbers', () => {
+  it('handles numeric lat/lng/radius that are already numbers', () => {
     const result = rowToCity({
       id: '1',
       slug: 'x',
@@ -99,9 +104,11 @@ describe('rowToCity', () => {
       state: 'TX',
       center_lat: 30.2672,
       center_lng: -97.7431,
+      radius_meters: 2500,
     });
     expect(result.centerLat).toBe(30.2672);
     expect(result.centerLng).toBe(-97.7431);
+    expect(result.radiusMeters).toBe(2500);
   });
 });
 

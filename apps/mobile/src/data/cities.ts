@@ -11,6 +11,7 @@ export const mockCities: City[] = [
     state: 'NC',
     centerLat: 35.2271,
     centerLng: -80.8431,
+    radiusMeters: 8000,
     displayName: 'Charlotte, NC',
   },
   {
@@ -20,6 +21,7 @@ export const mockCities: City[] = [
     state: 'NY',
     centerLat: 40.7659,
     centerLng: -73.0151,
+    radiusMeters: 2500,
     displayName: 'Patchogue, NY',
   },
 ];
