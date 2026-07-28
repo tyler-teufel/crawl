@@ -13,10 +13,22 @@ updates:
         patterns:
           - 'expo*'
           - '@expo/*'
+      # `react` and `react-dom` are listed explicitly because neither matches
+      # 'react-native*'. Without them they get their own ungrouped PRs, which
+      # is how #143 came to propose react-dom 19.2.7 while react stayed pinned
+      # at 19.1.0 — react-dom@19.2.7 peers on react@^19.2.7, so merging it
+      # alone would have split a pair that has to move together.
+      #
+      # React Native is what pins React (RN 0.86 peers on react@^19.2.3), so
+      # this group is the correct unit. It also means the pair arrives as a
+      # major, which dependabot-auto.yml will not auto-merge — an ungrouped
+      # react-dom minor would have.
       react-native:
         patterns:
           - 'react-native*'
           - '@react-native*'
+          - 'react'
+          - 'react-dom'
       dev-dependencies:
         dependency-type: development
 
