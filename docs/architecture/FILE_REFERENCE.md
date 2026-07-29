@@ -432,7 +432,6 @@ One file per resource: `health.ts`, `venues.ts`, `votes.ts`, `trending.ts`, `aut
 
 - `venue.service.ts` — listing/pagination, trending lookup, hotspot score recalculation, daily metric reset. Wraps the venue repository.
 - `vote.service.ts` — vote-state lookup, cast (enforces max 3/day and one-per-venue/day), and remove logic. Wraps the vote repository. `VoteError` carries the codes surfaced in `API_REFERENCE.md` (`ALREADY_VOTED`, `NO_VOTES_REMAINING`, etc.).
-- `auth.service.ts` — register/login for the local-dev JWT auth mode, `bcryptjs` password hashing (12 rounds). `AuthError` carries codes like `EMAIL_IN_USE`, `INVALID_CREDENTIALS`.
 
 ### `apps/api/src/repositories/`
 
@@ -444,7 +443,7 @@ Each entity (`user`, `venue`, `vote`) has an interface plus two implementations 
 ### `apps/api/src/plugins/`
 
 - `cors.ts` — registers `@fastify/cors` with origins parsed from `CORS_ORIGIN` (comma-separated), credentials enabled.
-- `jwt.ts` — dual-mode auth plugin. Local dev signs/verifies its own HS256 tokens via `@fastify/jwt` (separate access/refresh namespaces). When `USE_REAL_DB=true`, verifies Supabase-issued tokens via JWKS (`get-jwks`) with a legacy HS256 fallback (`SUPABASE_JWT_SECRET`), and auto-upserts the authenticated Supabase user into the local `users` table on first request. Decorates `fastify.authenticate` for use as a route `preHandler`.
+- `jwt.ts` — authentication plugin. Verifies Supabase-issued tokens via JWKS (`get-jwks`). User profile rows in `public.users` are auto-provisioned by a `on_auth_user_created` database trigger (see migrations wave #181) rather than by per-request upsert, so the row exists even if the user never calls an authenticated API endpoint. Decorates `fastify.authenticate` for use as a route `preHandler`.
 - `error-handler.ts` — centralizes Zod validation errors (400), Fastify HTTP errors, and unhandled exceptions (500) into the consistent `{ error, message, statusCode, details? }` envelope documented in `API_REFERENCE.md`.
 
 ### `apps/api/src/jobs/`
@@ -457,7 +456,7 @@ Each entity (`user`, `venue`, `vote`) has an interface plus two implementations 
 
 ### `apps/api/src/db/schema.ts`
 
-Drizzle schema for four tables: `cities` (slug, name, state, timezone, center lat/lng, radius), `venues` (FK to `cities`, Google Place ID, name/type/address, PostGIS `location`, rating, hours, `hotspotScore`, `voteCount`, trending/active flags), `users` (email, `passwordHash`, `displayName`, default city), `votes` (FK to `users`/`venues`, unique on `(userId, venueId, votedAt)`).
+Drizzle schema for four tables: `cities` (slug, name, state, timezone, center lat/lng, radius), `venues` (FK to `cities`, Google Place ID, name/type/address, PostGIS `location`, rating, hours, `hotspotScore`, `voteCount`, trending/active flags), `users` (email nullable, `displayName`, city, `deviceId` for abuse-signal tracking, `role` with check constraint for user/developer, auto-provisioned by `on_auth_user_created` trigger), `votes` (FK to `users`/`venues`, unique on `(userId, venueId, votedAt)`).
 
 ### `apps/api/drizzle/`
 

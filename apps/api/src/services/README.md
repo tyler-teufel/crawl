@@ -25,7 +25,6 @@ Services receive their repository dependencies via constructor injection. They d
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `venue.service.ts` | `listVenues` (filtered + paginated), `getVenue`, `getTrendingVenues`, `recalculateHotspotScores`, `resetDailyMetrics`                    |
 | `vote.service.ts`  | `getVoteState`, `castVote` (enforces 3/day and dedup), `removeVote`, `resetDailyVotes`. Throws `VoteError` with typed `code` strings.    |
-| `auth.service.ts`  | `register` (bcrypt hash, dedup check), `login` (bcrypt compare), `findById`, `toPublicUser` (strips `passwordHash`). Throws `AuthError`. |
 
 ## Adding a new service
 

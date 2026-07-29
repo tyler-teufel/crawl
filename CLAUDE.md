@@ -194,9 +194,6 @@ GET    /api/v1/trending/:city      Ranked venues for a city
 GET    /api/v1/votes               User's vote state (auth required)
 POST   /api/v1/votes               Cast a vote (auth required, max 3/day)
 DELETE /api/v1/votes/:venueId      Remove a vote (auth required)
-POST   /api/v1/auth/register       Create account (local dev JWT mode)
-POST   /api/v1/auth/login          Authenticate (local dev JWT mode)
-POST   /api/v1/auth/refresh        Refresh JWT
 ```
 
 ### Architecture Pattern
@@ -213,7 +210,7 @@ Route handler (HTTP layer)
 - **Framework**: Fastify 5 with `fastify-type-provider-zod`
 - **Database**: Postgres + PostGIS, hosted on Supabase
 - **ORM**: Drizzle ORM (`drizzle-kit` for migrations); repositories have both an in-memory implementation (default, `USE_REAL_DB` unset) and a Drizzle implementation (`USE_REAL_DB=true`)
-- **Auth**: Hybrid JWT — local dev signs/verifies its own HS256 tokens (`@fastify/jwt`, access + refresh); when `USE_REAL_DB=true` the API verifies Supabase-issued tokens via JWKS instead
+- **Auth**: Supabase-only. The mobile app authenticates with Supabase directly (anonymous bootstrap + Apple/Google linking); the API verifies Supabase-issued tokens via JWKS. User profile rows in `public.users` are auto-provisioned by a database trigger on Supabase's `auth.users` inserts.
 - **Scheduled jobs**: `node-cron`, in-process — daily vote reset (00:00 UTC), hourly hotspot score recalculation
 - **Validation**: Zod (shared with mobile app via `packages/shared-types`)
 - **Testing**: Vitest
@@ -221,7 +218,7 @@ Route handler (HTTP layer)
 
 ### Environment Variables
 
-See `apps/api/.env.example` for the authoritative list. Key vars: `DATABASE_URL`/`DIRECT_URL` (Supabase Postgres), `USE_REAL_DB`, `SUPABASE_URL`/`SUPABASE_JWT_SECRET`, `JWT_SECRET`/`JWT_REFRESH_SECRET` (local dev mode), `CORS_ORIGIN`, `GOOGLE_PLACES_API_KEY` (venue ingest).
+See `apps/api/.env.example` for the authoritative list. Key vars: `DATABASE_URL`/`DIRECT_URL` (Supabase Postgres), `USE_REAL_DB`, `SUPABASE_URL`/`SUPABASE_JWT_SECRET`, `JWT_SECRET` (local dev mode), `CORS_ORIGIN`, `GOOGLE_PLACES_API_KEY` (venue ingest).
 
 ## Documentation
 

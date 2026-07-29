@@ -24,7 +24,6 @@ Routes receive a typed `opts` object containing the services they need. This is 
 | `venues.ts`   | `GET /api/v1/venues`, `GET /api/v1/venues/:id` — list/detail with city, geo, and text filtering              |
 | `votes.ts`    | `GET /api/v1/votes`, `POST /api/v1/votes`, `DELETE /api/v1/votes/:venueId` — authenticated daily voting flow |
 | `trending.ts` | `GET /api/v1/trending/:city` — hotspot-ranked venue list for a city                                          |
-| `auth.ts`     | `POST /api/v1/auth/register`, `/auth/login`, `/auth/refresh` — JWT token lifecycle                           |
 
 ## Adding a new route file
 
