@@ -36,7 +36,7 @@ The top-level layout wrapping the entire application. Responsibilities:
 - **`AuthProvider`** — bootstraps the Supabase session (anonymous if none persisted) and exposes auth + location state to the rest of the app. Sits **above** `VenueProvider` so future user-scoped queries can read the user.
 - **`VenueProvider`** — React Context wrapping all routes so filter state, search, and votes are shared between tabs, modals, and stack screens
 - **`Stack` navigator** — four route entries: `(onboarding)` (first-launch group), `(tabs)` (default), `venue/[id]` (push navigation), and `filters` (transparent modal with fade animation)
-- **`OnboardingGate`** — sibling of `Stack` that reads `crawl.firstLaunchComplete.v1` from AsyncStorage; until the flag is set, emits `<Redirect href="/(onboarding)" />` so first-launch users land on the welcome splash
+- **`OnboardingGate`** — sibling of `Stack` that reads two signals to determine whether a user has already completed onboarding: the `crawl.firstLaunchComplete.v1` AsyncStorage flag (first-launch marker) and a Supabase session read that detects a session persisted before this launch — anonymous or linked — which means the auth step was already completed. Holds a `'loading'` state until both reads settle, since resolving on the flag alone lets a redirect fire off the session read's stale default and `<Redirect>` cannot be undone by a later re-render. See `src/lib/onboarding.ts` for `resolveOnboardingGateStatus()` (the pure decision logic) and `readOnboardingFlag()` (error-reporting wrapper)
 - **`StatusBar`** — set to `"light"` for white status bar text against the dark background
 - **`PortalHost`** — from `@rn-primitives/portal`, rendered last to support overlay rendering for RNR components (dialogs, selects, etc.)
 
@@ -109,7 +109,7 @@ User profile and identity screen. Layout from top to bottom:
 4. **Settings section** — placeholder menu rows (Settings, About, Feedback)
 5. **Sign-out button** — calls `signOut()` (from `AuthContext`), which clears the Supabase session and the API client token, then navigates to `/(onboarding)`
 
-Note: `OnboardingGate` only watches the `crawl.firstLaunchComplete.v1` AsyncStorage flag, not auth state — the explicit `router.replace('/(onboarding)')` on sign-out is required to re-trigger onboarding.
+Note: `OnboardingGate` reads both the `crawl.firstLaunchComplete.v1` AsyncStorage flag and a Supabase session read; a returning user with a persisted session is considered already-onboarded even if the flag is unset (#158). An explicit `router.replace('/(onboarding)')` on sign-out re-triggers onboarding for that session.
 
 ### `app/venue/[id].tsx` — Venue Detail
 
@@ -364,11 +364,13 @@ Exports `filterVenues(venues, activeFilterIds)` — maps each filter chip id fro
 
 ### `src/lib/onboarding.ts`
 
-Helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1`:
+Helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1` and the `OnboardingGate`'s two-signal decision logic (#158):
 
 - `isOnboardingComplete()` — read flag.
-- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/auth.tsx` once the user picks any auth path) and notify any subscribers so the OnboardingGate re-reads the flag without polling.
+- `readOnboardingFlag()` — wraps `isOnboardingComplete()` and reports read failures to Sentry before falling back to `false`, replacing the old silent discard.
+- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/auth.tsx` once the user picks any auth path) and notify any subscribers so the `OnboardingGate` re-reads the flag without polling.
 - `subscribeToOnboardingStatus(listener)` — register a listener that fires when the flag flips. Used by `OnboardingGate` so finishing onboarding doesn't bounce the user back to the splash.
+- `resolveOnboardingGateStatus(flagStatus, sessionStatus, hasReturningSession)` — pure decision logic for `OnboardingGate`, extracted for unit testing. Takes the flag read status, session read status (both can be `'loading'` or `'done'`), and whether a Supabase session existed before this launch. Returns `'loading'` if either read is pending, `'done'` if the flag is set or a session exists, and `'onboarding'` otherwise. Ensures the gate holds loading until both async reads settle, preventing a race-condition redirect on the session read's stale default.
 
 ### `src/lib/supabase.ts`
 
@@ -452,7 +454,7 @@ Each entity (`user`, `venue`, `vote`) has an interface plus two implementations 
 `node-cron`-scheduled tasks, started from `startJobs()` in `index.ts` (skipped when `NODE_ENV=test`):
 
 - `reset-votes.ts` — daily at 00:00 UTC. Clears all votes and resets each venue's daily metrics.
-- `recalculate-scores.ts` — hourly. Recomputes `hotspotScore` for every venue (currently `min(100, voteCount * 2)` — a placeholder formula per an in-code TODO).
+- `recalculate-scores.ts` — hourly cron job (node-cron, `'0 * * * *'`). Recomputes `hotspotScore` for every venue using the Phase 2 weighted formula: `(velocity * 0.4) + (dailyCount * 0.3) + (historicalAvg * 0.2) + (externalRating * 0.1)`. **Currently dormant** — the Fastify API is not deployed for this beta (Railway trial expired), so this job never runs. The responsibility has moved to Postgres via the `pg_cron` extension (see migration `0006_hotspot_score_pg_cron.sql` below). The node-cron job is retained in the codebase in case the Fastify path returns post-beta.
 - `syncVenues.ts` / `syncVenues.cli.ts` / `places/*` — Google Places client, filters, and transform logic to populate the `venues` table. Not cron-scheduled; run manually via `npm run sync:venues`.
 
 ### `apps/api/src/db/schema.ts`
@@ -461,7 +463,15 @@ Drizzle schema for four tables: `cities` (slug, name, state, timezone, center la
 
 ### `apps/api/drizzle/`
 
-SQL migrations generated by `drizzle-kit`, in order: `0000_redundant_excalibur.sql` (initial tables), `0001_venue_filter_indexes.sql` (see below), `0002_rls_policies.sql` (enables Postgres RLS on all tables; public read on `cities`/`venues`, user-scoped read/write on `users`/`votes`; the API bypasses RLS for writes via the Supabase service-role key).
+SQL migrations generated by `drizzle-kit`, in order:
+
+- `0000_redundant_excalibur.sql` — initial schema: `cities`, `venues`, `users`, `votes` tables.
+- `0001_venue_filter_indexes.sql` — compound and partial indexes backing filter predicates (see below).
+- `0002_rls_policies.sql` — enables Postgres RLS on all tables; public read on `cities`/`venues`, user-scoped read/write on `users`/`votes`. The API bypasses RLS for writes via the Supabase service-role key.
+- `0003_users_provisioning_columns.sql` — adds `device_id` and `role` columns to `users` for OAuth device tracking and developer roles (#129, #131).
+- `0004_users_drop_password_hash.sql` — removes `password_hash` from `users` as OAuth-only authentication was adopted.
+- `0005_users_provisioning_and_geo_remediation.sql` — auto-provisioning trigger for auth.users to public.users, column-level RLS hardening on `role`, South End→Charlotte city merge (#156), and venue geo-radius remediation pass (#167).
+- `0006_hotspot_score_pg_cron.sql` — `pg_cron` extension, a SECURITY DEFINER `recalculate_hotspot_scores()` function (Phase 2 scoring: velocity/dailyCount/historicalAvg/googleRating weighted formula), and hourly schedule to recalculate scores for all active venues (#154).
 
 ### `apps/api/drizzle/0001_venue_filter_indexes.sql`
 

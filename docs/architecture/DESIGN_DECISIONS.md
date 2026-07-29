@@ -471,7 +471,7 @@ The mobile app's first-launch experience is anonymous-first. On boot the app che
 - `src/lib/auth.ts` — `ensureSignedIn()`, `signInWithApple()`, `signInWithGoogle()`, `signOut()`.
 - `src/context/AuthContext.tsx` — exposes `user`, `isAnonymous`, `userLocation`, `linkApple`, `linkGoogle`, `signOut`. Subscribes to `supabase.auth.onAuthStateChange`.
 - `app/(onboarding)/` — three screens (`index`, `location`, `auth`) that run only on first launch, gated by `crawl.firstLaunchComplete.v1` in AsyncStorage.
-- `app/_layout.tsx` — `OnboardingGate` reads the flag and emits `<Redirect href="/(onboarding)" />` until the user completes the flow.
+- `app/_layout.tsx` — `OnboardingGate` reads two signals (the flag and a Supabase session read) and emits `<Redirect href="/(onboarding)" />` until either signal confirms onboarding is done. See `src/lib/onboarding.ts` for the two-signal decision logic (#158).
 
 **Required external configuration (one-time):**
 
