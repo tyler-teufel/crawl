@@ -89,7 +89,6 @@ A Fastify API server backed by Drizzle ORM and Postgres+PostGIS (Supabase-hosted
 | `expo-font`                     | Loads Clash Grotesk + Satoshi custom fonts                       |
 | `expo-splash-screen`            | Holds splash screen until fonts finish loading                   |
 | `node-cron` (API)               | In-process scheduled jobs (vote reset, score recalculation)      |
-| `bcryptjs` (API)                | Password hashing for local-dev JWT auth                          |
 | `get-jwks` (API)                | JWKS verification for Supabase-issued tokens                     |
 
 ## Quick Start

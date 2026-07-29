@@ -15,10 +15,7 @@ Protected endpoints require a JWT `Bearer` token in the `Authorization` header:
 Authorization: Bearer <accessToken>
 ```
 
-The API runs in one of two auth modes, selected by `USE_REAL_DB` (see [Design Decisions](./DESIGN_DECISIONS.md)):
-
-- **Local dev** (`USE_REAL_DB` unset) — tokens come from `POST /auth/login` or `POST /auth/register` below. Access tokens expire after **15 minutes**; use `POST /auth/refresh` to rotate the pair.
-- **`USE_REAL_DB=true`** — the API verifies Supabase-issued tokens via JWKS instead; the mobile app obtains these through Supabase Auth (anonymous bootstrap + Apple/Google linking), not through the `/auth/*` routes below. Authenticated users are auto-upserted into the local `users` table on first request.
+The API verifies Supabase-issued tokens via JWKS. The mobile app obtains these through Supabase Auth (anonymous bootstrap + Apple/Google linking). When a user first authenticates with Supabase, a `public.users` row is auto-provisioned by a database trigger (`on_auth_user_created`). All client code must authenticate with Supabase directly; there are no custom auth routes on the API.
 
 ---
 
@@ -192,81 +189,6 @@ Returns venues for a city sorted by hotspot score descending. No auth required.
 
 ---
 
-### Auth
-
-#### `POST /auth/register`
-
-Create a new user account.
-
-**Request body:**
-```json
-{
-  "email": "user@example.com",
-  "password": "securepassword123",
-  "displayName": "Tyler"
-}
-```
-
-**Response 201:**
-```json
-{
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "displayName": "Tyler",
-    "city": "Austin, TX",
-    "createdAt": "2026-04-20T00:00:00.000Z"
-  },
-  "tokens": {
-    "accessToken": "eyJ...",
-    "refreshToken": "eyJ...",
-    "expiresIn": 900
-  }
-}
-```
-
-**Response 409:** `EMAIL_IN_USE` — email already registered
-
----
-
-#### `POST /auth/login`
-
-Authenticate with email and password.
-
-**Request body:**
-```json
-{ "email": "user@example.com", "password": "securepassword123" }
-```
-
-**Response 200:** Same shape as register response (201)
-**Response 401:** `INVALID_CREDENTIALS`
-
----
-
-#### `POST /auth/refresh`
-
-Rotate token pair using a valid refresh token.
-
-**Request body:**
-```json
-{ "refreshToken": "eyJ..." }
-```
-
-**Response 200:**
-```json
-{
-  "tokens": {
-    "accessToken": "eyJ...",
-    "refreshToken": "eyJ...",
-    "expiresIn": 900
-  }
-}
-```
-
-**Response 401:** `INVALID_TOKEN` — token expired, malformed, or is an access token
-
----
-
 ## Error Response Shape
 
 All errors follow this envelope:
@@ -289,7 +211,6 @@ Validation errors include a `details` array from Fastify's schema validation.
 | Endpoint group   | Limit                    |
 |------------------|--------------------------|
 | `POST /votes`    | 10 requests/min per user |
-| `POST /auth/*`   | 5 requests/min per IP    |
 | General API      | 100 requests/min per user|
 
 ---

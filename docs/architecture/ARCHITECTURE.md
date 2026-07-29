@@ -529,12 +529,11 @@ apps/api/src/
 └──────────┘   └────────────┘   └─────────┘   └──────────────┘   └──────────┘
 ```
 
-### Auth: Dual-Mode JWT
+### Auth: Supabase-Only
 
-`plugins/jwt.ts` supports two modes, selected by `USE_REAL_DB`:
+`plugins/jwt.ts` verifies Supabase-issued tokens against Supabase's JWKS endpoint. The mobile app's `AuthProvider` handles all auth: anonymous bootstrap via `supabase.auth.signInAnonymously()`, linking via Apple/Google OAuth, and client-side token refresh via `autoRefreshToken: true`.
 
-- **Local dev** (`USE_REAL_DB` unset) — the API signs and verifies its own HS256 JWTs via `@fastify/jwt` (`JWT_SECRET` for access tokens, `JWT_REFRESH_SECRET` for refresh, in a separate namespace). `/auth/register` and `/auth/login` issue token pairs directly.
-- **Production** (`USE_REAL_DB=true`) — the API verifies Supabase-issued tokens against Supabase's JWKS endpoint (with a legacy HS256 fallback via `SUPABASE_JWT_SECRET`). Authenticated Supabase users are auto-upserted into the local `users` table on first request. This is the mode the mobile app's `AuthProvider` (anonymous bootstrap + Apple/Google linking) is designed against — see [`auth-flow.svg`](./auth-flow.svg).
+When a user first authenticates with Supabase, a `public.users` row is auto-provisioned by the `on_auth_user_created` trigger (see migrations wave #181). This happens at identity-creation time, regardless of whether the user ever calls an authenticated API endpoint. This is the mode the mobile app is designed against — see [`auth-flow.svg`](./auth-flow.svg).
 
 ### Scheduled Jobs
 

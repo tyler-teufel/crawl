@@ -59,9 +59,10 @@ venues
   created_at / updated_at (timestamptz)
 
 users
-  id (uuid, PK)    display_name (text, nullable)
-  email (text, UNIQUE)  city (text, default 'Austin, TX')
-  password_hash (text)  created_at (timestamptz)
+  id (uuid, PK)    device_id (text, nullable)
+  email (text, UNIQUE, nullable)  role (text, default 'user')
+  display_name (text, nullable)  created_at (timestamptz)
+  city (text, default 'Austin, TX')
 
 votes
   id (uuid, PK)    voted_at (date, default CURRENT_DATE)

@@ -38,7 +38,6 @@ Because all repositories are in-memory, every test starts with a fresh, determin
 | `venues.test.ts`   | `GET /api/v1/venues` (city filter, text search, pagination limits) and `GET /api/v1/venues/:id` (found, 404, bad UUID)                   |
 | `votes.test.ts`    | Full authenticated vote flow — 401 without token, cast, dedup, remove, 3-vote limit, unknown venue                                       |
 | `trending.test.ts` | `GET /api/v1/trending/:city` — sort order, limit, unknown city, limit > 50                                                               |
-| `auth.test.ts`     | Register (201, duplicate 409, validation), login (200, wrong password, unknown email), refresh (valid, invalid, access-token-as-refresh) |
 
 ### `tests/services/`
 
@@ -46,7 +45,6 @@ Because all repositories are in-memory, every test starts with a fresh, determin
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `venue.service.test.ts` | `listVenues` (city filter, text search, pagination, totalPages), `getVenue` (found, null), `getTrendingVenues` (sort order, limit)                                              |
 | `vote.service.test.ts`  | `getVoteState`, `castVote` (vote count increments, ALREADY_VOTED, NO_VOTES_REMAINING, VENUE_NOT_FOUND), `removeVote` (count decrements, VOTE_NOT_FOUND)                         |
-| `auth.service.test.ts`  | `register` (hash stored, lowercase email, EMAIL_IN_USE), `login` (correct credentials, wrong password, unknown email, case-insensitive), `toPublicUser` (passwordHash stripped) |
 
 ## Adding a new route test file
 
@@ -56,29 +54,19 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.js';
 
-// If you need an authenticated user, register + login first:
-async function registerAndLogin(app: FastifyInstance, email: string): Promise<string> {
-  await app.inject({
-    method: 'POST',
-    url: '/api/v1/auth/register',
-    payload: { email, password: 'password123', displayName: 'Test' },
-  });
-  const res = await app.inject({
-    method: 'POST',
-    url: '/api/v1/auth/login',
-    payload: { email, password: 'password123' },
-  });
-  return res.json().tokens.accessToken as string;
-}
+// For authenticated tests, use a valid Supabase JWT (or mock one for testing)
+// In the real test suite, you would inject a Supabase token.
+// For in-memory tests without a Supabase instance, you can mock the JWT verification
+// by directly calling the route with a valid token structure.
+const mockUserId = '11111111-1111-1111-1111-111111111111';
+const mockToken = 'mock-jwt-token'; // In real tests, this would be a Supabase token
 
 describe('Highlights routes', () => {
   let app: FastifyInstance;
-  let token: string;
 
   beforeAll(async () => {
     app = buildApp(); // fresh in-memory state every test suite
     await app.ready();
-    token = await registerAndLogin(app, `highlights-${Date.now()}@example.com`);
   });
 
   afterAll(async () => {
@@ -107,7 +95,7 @@ describe('Highlights routes', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/highlights',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${mockToken}` },
         payload: { venueId: '11111111-1111-1111-1111-111111111111', title: 'Great vibes' },
       });
       expect(res.statusCode).toBe(201);
@@ -118,7 +106,7 @@ describe('Highlights routes', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/highlights',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${mockToken}` },
         payload: { venueId: '11111111-1111-1111-1111-111111111111' }, // missing title
       });
       expect(res.statusCode).toBe(400);

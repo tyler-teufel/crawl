@@ -398,18 +398,19 @@ Route handler (HTTP)  →  Service (business logic)  →  Repository (persistenc
 4. Set environment variables in Railway dashboard.
 5. Uncomment the deploy step in `.github/workflows/api-deploy.yml`.
 
-## Two-Secret JWT via `@fastify/jwt` Namespaces
+## Two-Secret JWT via `@fastify/jwt` Namespaces (Superseded)
 
-**Chosen over:** single-secret JWT, signing refresh tokens with a separate library (`jsonwebtoken`, raw `fast-jwt`), or encoding the access/refresh distinction only in the payload.
+**Status:** Removed 2026-07-28 (PR #181, custom-auth removal)
 
-**Why:**
-- Access and refresh tokens are signed with **different secrets** (`JWT_SECRET` vs `JWT_REFRESH_SECRET`) so that a leak of the access secret — which is present in many more code paths — does not let an attacker mint refresh tokens.
-- `@fastify/jwt`'s `namespace` option registers a second plugin instance under `fastify.jwt.refresh`, giving its own `sign()` / `verify()` with an independent secret. This keeps all JWT logic inside one battle-tested plugin instead of introducing a second signing library.
-- In v10 of `@fastify/jwt`, per-call `{ secret }` overrides on `sign` / `verify` were removed, so a single-registration approach with two secrets is no longer possible — namespacing is the supported path.
+**What was chosen:** Access and refresh tokens signed with different secrets (`JWT_SECRET` vs `JWT_REFRESH_SECRET`) via separate `@fastify/jwt` plugin instances registered under namespaces (`fastify.jwt` and `fastify.jwt.refresh`).
 
-**Trade-off:** Two JWT instances mean two plugin registrations and a module augmentation (`interface JWT { refresh: JWT }`) so TypeScript sees `fastify.jwt.refresh`. The extra ~10 lines are the cost of keeping the security boundary between access and refresh tokens.
+**What replaced it:** Supabase-only authentication. The API no longer mints or refreshes any tokens — it only verifies Supabase-issued access tokens via JWKS. The mobile app handles all auth: anonymous bootstrap via `supabase.auth.signInAnonymously()`, linking via Apple/Google OAuth, and client-side token refresh via `autoRefreshToken: true` on the Supabase client config.
 
-**Version note:** `@fastify/jwt` was upgraded from `^9.1.0` to `^10.0.0` in this change to resolve critical CVEs in `fast-jwt` (algorithm confusion — GHSA-mvf2-f6gm-w987 CVSS 9.1; cacheKey collision identity mixup — GHSA-rp9m-7r4c-75qg CVSS 9.1). Staying on v9 is not an option.
+**Why the change:** The custom-auth path was dead in production. In local dev, `fastify.jwt.refresh` existed only in the `else` branch (when `USE_REAL_DB` unset), so `/auth/refresh` never worked against production. In production, the API verified Supabase tokens and read from Supabase's auth system, not from custom-auth-created users. The `/auth/register` and `/auth/login` endpoints could only resolve users created by themselves (a closed loop), which is impossible in production where all users come through Supabase. Removing this dead path eliminates maintenance burden and source-code confusion.
+
+**Trade-off accepted:** The custom-auth route was never tested in production, so removing it closes a gap between the codebase and reality. No active users were relying on it (all real auth happens through Supabase).
+
+**Still applicable — the `@fastify/jwt` v10 floor.** Only the two-secret *namespace* pattern above is superseded. `@fastify/jwt` itself remains a production dependency (`^10.0.0`), used to verify Supabase-issued tokens via JWKS in `apps/api/src/plugins/jwt.ts`. It was upgraded from `^9.1.0` to `^10.0.0` to resolve critical CVEs in `fast-jwt` — algorithm confusion (GHSA-mvf2-f6gm-w987, CVSS 9.1) and cacheKey collision identity mixup (GHSA-rp9m-7r4c-75qg, CVSS 9.1). **Do not downgrade below v10**; the vulnerabilities are in the token-verification path this API still depends on.
 
 ---
 

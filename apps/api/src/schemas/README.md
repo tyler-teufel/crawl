@@ -107,9 +107,9 @@ f.post('/highlights', {
 
 ## Conventions
 
-- One file per resource (venue, vote, auth, highlight…). Do not put unrelated schemas in the same file.
+- One file per resource (venue, vote, highlight…). Do not put unrelated schemas in the same file.
 - Always export inferred TypeScript types alongside the schemas (`export type Foo = z.infer<typeof fooSchema>`). Services and repositories import the type, not the schema.
 - Reuse `paginationQuery` and `errorResponse` from `common.schema.ts` — never redefine them.
 - Use `.extend()` to add fields to an existing schema rather than duplicating it.
 - For optional query params that need coercion (e.g. `?limit=10`), use `z.coerce.number()` — query string values arrive as strings.
-- Response schemas act as an allowlist: any field not declared is stripped from the response. Use this intentionally to avoid leaking internal fields like `passwordHash`.
+- Response schemas act as an allowlist: any field not declared is stripped from the response. Use this intentionally to avoid leaking internal fields (e.g. the `email` field on anonymous users is nullable in the DB but may be omitted in API responses for privacy).
