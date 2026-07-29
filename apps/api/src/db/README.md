@@ -1,11 +1,11 @@
 # `src/db/`
 
-The database layer. Contains the Drizzle ORM schema (single source of truth for table structure) and the lazy connection helper. In Phase 1 the app runs entirely without a database — this directory is scaffolded and ready but nothing here is called until `DATABASE_URL` is set.
+The database layer. Contains the Drizzle ORM schema (single source of truth for table structure) and the lazy connection helper. The API can still run without a database (`USE_REAL_DB` unset selects the in-memory repositories), but Supabase Postgres is live and this schema is what's actually deployed there — see `apps/api/drizzle/` for the migration history and #76 for how the ledger was reconciled with the live schema.
 
 ## How it fits in the architecture
 
 ```
-Phase 1 (current)               Phase 2 (when DATABASE_URL is set)
+USE_REAL_DB unset (in-memory)   USE_REAL_DB=true (Supabase Postgres)
 ─────────────────────           ─────────────────────────────────────
 InMemoryRepository              DrizzleRepository
   │ (no DB needed)                │
@@ -14,42 +14,53 @@ InMemoryRepository              DrizzleRepository
   │                               │
   │                             schema.ts  ──►  drizzle-kit migrations
   │
-  └── src/db/ is unused but compiled and ready
+  └── src/db/ is unused in this mode but compiled and ready
 ```
 
-When you're ready to connect a real database:
+Making a schema change:
 
-1. Set `DATABASE_URL` in `.env` (see `.env.example`).
-2. Run `npm run db:generate` to create migration SQL from `schema.ts`.
-3. Run `npm run db:migrate` to apply migrations.
-4. Implement `Drizzle*` repository classes (see `src/repositories/README.md`).
-5. Swap the in-memory constructors in `src/app.ts`.
+1. Set `DIRECT_URL`/`DATABASE_URL` in `.env` (see `.env.example`).
+2. Edit `schema.ts`, then run `npm run db:generate` to write a migration SQL file to `apps/api/drizzle/`.
+3. Run `npm run db:migrate` to apply it and record it in Drizzle's migration ledger.
+4. Never run `npm run db:push` against Supabase — it applies the diff directly and leaves no record in the ledger (that's how the live schema ended up with an empty migration history in the first place; see #76).
 
 ## Files
 
 | File        | Purpose                                                                                                                                                                                                     |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.ts` | Drizzle table definitions for `venues`, `users`, and `votes`. Single source of truth — `drizzle-kit` diffs this file to generate migrations. Also exports `$inferSelect` / `$inferInsert` TypeScript types. |
+| `schema.ts` | Drizzle table definitions for `cities`, `venues`, `users`, and `votes`. Single source of truth — `drizzle-kit` diffs this file to generate migrations. Also exports `$inferSelect` / `$inferInsert` TypeScript types. |
 | `index.ts`  | `getDb()` — lazily constructs a `node-postgres` connection pool and passes it to Drizzle. Throws a descriptive error if called without `DATABASE_URL` set, rather than silently failing at query time.      |
 
 ## Schema overview
 
 ```
+cities
+  id (uuid, PK)           radius_meters (int, default 8000)
+  slug (text, UNIQUE)     is_active (bool, default true)
+  name (text)             created_at / updated_at (timestamptz)
+  state (text)
+  timezone (text, default 'America/New_York')
+  center_lat / center_lng (numeric)
+
 venues
-  id (uuid, PK)           hotspot_score (int, default 0)
-  name (text)             vote_count (int, default 0)
-  type (text)             is_open (bool, default true)
-  address (text)          is_trending (bool, default false)
-  city (text)             highlights (text[], default [])
-  location (text, WKT)    price_level (int 1-4)
-  latitude_e6 (int)       hours (text)
-  longitude_e6 (int)      description (text)
-                          image_url (text, nullable)
-                          created_at / updated_at (timestamptz)
+  id (uuid, PK)            hotspot_score (int, default 0)
+  city_id (uuid → cities)  vote_count (int, default 0)
+  google_place_id (text)   is_open (bool, default true)
+  name (text)              is_trending (bool, default false)
+  primary_type (text)      is_active (bool, default true)
+  types (text[], default []) highlights (text[], default [])
+  address (text)           price_level (int, nullable)
+  city (text — denormalized, unread by the mobile client; slated for removal)
+  location (text, WKT)     rating (numeric, nullable)
+  latitude / longitude (numeric) total_ratings (int, nullable)
+  phone / website (text, nullable)
+  hours (text)             description (text)
+  image_url (text, nullable)
+  created_at / updated_at (timestamptz)
 
 users
   id (uuid, PK)    display_name (text, nullable)
-  email (text, UNIQUE)  city (text)
+  email (text, UNIQUE)  city (text, default 'Austin, TX')
   password_hash (text)  created_at (timestamptz)
 
 votes
@@ -59,7 +70,7 @@ votes
   UNIQUE(user_id, venue_id, voted_at)   ← one vote per venue per day
 ```
 
-> **PostGIS note:** The `location` column stores a WKT `POINT(lng lat)` string. Drizzle doesn't have a first-class PostGIS type, so geo queries will use `db.execute(sql\`...\`)` with raw PostGIS functions (`ST_DWithin`, `ST_MakePoint`). The `latitude_e6`/`longitude_e6` integer columns (lat × 10⁶) provide a B-tree indexable alternative for bounding-box pre-filters.
+> **PostGIS note:** The `location` column stores a WKT `POINT(lng lat)` string. Drizzle doesn't have a first-class PostGIS type, so geo queries use `db.execute(sql\`...\`)` with raw PostGIS functions (`ST_DWithin`, `ST_MakePoint`). The `latitude`/`longitude` numeric columns provide a plain B-tree indexable alternative for bounding-box pre-filters.
 
 ## Adding a new table
 
@@ -140,8 +151,7 @@ export class DrizzleHighlightRepository implements HighlightRepository {
 
 ## Conventions
 
-- `schema.ts` is the only place table structure is defined. Never run manual `ALTER TABLE` — always update the schema and generate a migration.
+- `schema.ts` is the only place table structure is defined. Never run manual `ALTER TABLE` and never run `drizzle-kit push` against Supabase — always update the schema, `db:generate` a migration file, and `db:migrate` to apply + record it (#76).
 - Use `getDb()` inside repository methods (lazy getter), not at import time. This ensures the module loads cleanly even if `DATABASE_URL` is absent.
 - Keep `schema.ts` free of business logic — it's a structural definition only.
-- Integer lat/lng (`latitude_e6`, `longitude_e6`) are for B-tree indexes. Always store and query the float representations in the repository layer's `toVenue()` mapper by dividing by `1_000_000`.
 - Foreign key `onDelete: 'cascade'` is the default for child rows (votes cascade-delete when a user or venue is deleted). Override only when orphan records are intentional.
