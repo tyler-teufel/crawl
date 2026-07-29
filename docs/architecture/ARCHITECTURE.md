@@ -117,13 +117,18 @@ Root Stack (app/_layout.tsx)
 
 ### First-Launch Gate
 
-`app/_layout.tsx` renders an `OnboardingGate` component that reads
-`crawl.firstLaunchComplete.v1` from AsyncStorage. Until the flag is set, the
-gate emits `<Redirect href="/(onboarding)" />` so the user lands on the
-welcome splash. The flag is written by `markOnboardingComplete()` after the
-user picks an auth path on `/auth`. Subsequent launches skip the onboarding
-group entirely. Reinstalling the app clears AsyncStorage and restarts the
-flow.
+`app/_layout.tsx` renders an `OnboardingGate` component that derives onboarding
+completion from two independent signals: (1) the `crawl.firstLaunchComplete.v1`
+AsyncStorage flag, and (2) whether a Supabase session already existed before
+this launch's auth bootstrap (#158). A returning user with a persisted session
+is considered already onboarded even if the flag is unset, since they completed
+auth in a prior launch. The gate holds a `'loading'` state until both async
+reads settle, preventing a race-condition redirect on the session read's stale
+`false` default. The flag is still written by `markOnboardingComplete()` after
+the user picks an auth path on `/auth`, and it still gates the welcome and
+location screens for new installs. Subsequent launches skip the onboarding
+group if either signal says done; reinstalling the app clears AsyncStorage and
+Supabase storage, restarting the flow.
 
 ### Navigation Stack Behavior
 
@@ -507,9 +512,10 @@ apps/api/src/
 │   ├── jwt.ts              # dual-mode auth (see below)
 │   └── error-handler.ts    # Zod validation errors, Fastify HTTP errors → JSON envelope
 ├── jobs/
-│   ├── reset-votes.ts       # daily 00:00 UTC — clears votes, resets venue metrics
-│   ├── recalculate-scores.ts # hourly — recomputes hotspotScore
-│   └── syncVenues.ts        # Google Places ingest, run manually via npm run sync:venues
+│   ├── reset-votes.ts         # daily 00:00 UTC — clears votes, resets venue metrics
+│   ├── recalculate-scores.ts  # hourly (dormant) — node-cron job now superseded by
+│   │                           # pg_cron (see migration 0006)
+│   └── syncVenues.ts          # Google Places ingest, run manually via npm run sync:venues
 └── db/schema.ts             # Drizzle schema: cities, venues, users, votes
 ```
 
