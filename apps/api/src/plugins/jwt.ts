@@ -3,16 +3,11 @@ import fastifyJwt from '@fastify/jwt';
 import buildGetJwks from 'get-jwks';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { env } from '../config.js';
-import { getDb } from '../db/index.js';
-import { users } from '../db/schema.js';
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { sub: string; email: string; type?: 'refresh' };
+    payload: { sub: string; email: string };
     user: { sub: string; email: string };
-  }
-  interface JWT {
-    refresh: JWT;
   }
 }
 
@@ -72,29 +67,16 @@ export const jwtPlugin = fp(async (fastify) => {
       secret: env.JWT_SECRET,
       sign: { expiresIn: env.JWT_ACCESS_EXPIRY },
     });
-
-    await fastify.register(fastifyJwt, {
-      secret: env.JWT_REFRESH_SECRET,
-      namespace: 'refresh',
-      sign: { expiresIn: env.JWT_REFRESH_EXPIRY },
-    });
   }
 
+  // Profile row provisioning for Supabase identities is handled by the
+  // `on_auth_user_created` trigger on `auth.users` (see the users migration
+  // wave) rather than a per-request upsert here — the trigger fires once at
+  // identity-creation time regardless of whether the user ever calls an
+  // authenticated endpoint, which a request-scoped upsert cannot guarantee.
   fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await request.jwtVerify();
-
-      // When using real DB, upsert the Supabase user on every authenticated request
-      if (useRealDb) {
-        const { sub, email } = request.user;
-        const db = getDb();
-        // Insert the user record the first time we see this Supabase sub.
-        // On subsequent requests the unique id constraint fires and we skip.
-        await db
-          .insert(users)
-          .values({ id: sub, email, passwordHash: 'supabase-managed' })
-          .onConflictDoNothing();
-      }
     } catch {
       reply
         .code(401)
