@@ -65,10 +65,32 @@ jobs:
     permissions:
       contents: write # pushes the tag
     steps:
+      # The tag MUST be pushed with a credential other than GITHUB_TOKEN.
+      # GitHub deliberately does not start workflow runs from events created by
+      # GITHUB_TOKEN (anti-recursion), so a tag pushed with it silently fails to
+      # trigger release-mobile.yml / release-api.yml — the composer succeeds and
+      # nothing ships. See #184; observed on mobile-v1.1.1-staging (2026-07-29).
+      #
+      # RELEASE_TAG_TOKEN must be a GitHub App installation token or a PAT with
+      # `contents: write` on this repo. Checked explicitly below so a missing
+      # secret fails with an actionable message rather than a confusing
+      # checkout/auth error.
+      - name: Guard — tag-push credential is configured
+        env:
+          RELEASE_TAG_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_TAG_TOKEN" ]; then
+            echo "::error::RELEASE_TAG_TOKEN is not set. The tag would be pushed with GITHUB_TOKEN, which does not trigger release-mobile.yml / release-api.yml (see #184), so the release would never run. Add a GitHub App installation token or a PAT with contents:write as the RELEASE_TAG_TOKEN repository secret."
+            exit 1
+          fi
+          echo "Tag-push credential present."
+
       - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
+          # Persisted so `git push` below uses this credential, not GITHUB_TOKEN.
+          token: ${{ secrets.RELEASE_TAG_TOKEN }}
 
       - name: Note the dispatch ref
         if: github.ref_name != 'main'
@@ -188,6 +210,10 @@ jobs:
           git tag -a "$TAG" -m "Release ${{ inputs.service }} ${{ steps.version.outputs.version }} (${{ inputs.release_type }} → ${{ inputs.channel }})"
           git push origin "$TAG"
           echo "Pushed $TAG at $(git rev-parse --short HEAD)"
+          echo "release-${{ inputs.service }}.yml should now be starting from this tag push."
+          echo "If it does not appear in the Actions tab within a minute, the push credential"
+          echo "is not triggering workflows — see #184 — and the release can be run manually"
+          echo "via workflow_dispatch on release-${{ inputs.service }}.yml with tag=$TAG."
 
       - name: Summary
         run: |

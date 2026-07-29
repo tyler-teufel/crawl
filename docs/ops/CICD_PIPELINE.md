@@ -173,6 +173,22 @@ silent drift between the tag and what's inside the artifact.
    and pushes it. It always tags the tip of `main`, whichever branch you
    dispatch it from.
 
+   > **Why the tag push needs its own credential.** `release-tag.yml` pushes
+   > using a `RELEASE_TAG_TOKEN` secret (a GitHub App installation token, or a
+   > PAT with `contents: write`) rather than the default `GITHUB_TOKEN`.
+   >
+   > This is not optional. GitHub deliberately does not start workflow runs
+   > from events created by `GITHUB_TOKEN`, as an anti-recursion safeguard — so
+   > a tag pushed with it **does not trigger `release-mobile.yml` /
+   > `release-api.yml` at all**. The composer reports success, the tag exists,
+   > and nothing ships. This was hit for real on `mobile-v1.1.1-staging`
+   > (2026-07-29); see [#184](https://github.com/tyler-teufel/crawl/issues/184).
+   >
+   > The workflow guards on the secret being present and fails with an
+   > actionable error if it is missing, rather than pushing a tag that goes
+   > nowhere. Because both services tag through this one workflow, the fix
+   > covers the API path as well as mobile.
+
    It **refuses to tag** when any of these hold, so a bad release is stopped
    before a tag exists rather than failing downstream:
 
