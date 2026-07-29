@@ -43,6 +43,13 @@
       "when": 1785268204358,
       "tag": "0005_users_provisioning_and_geo_remediation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785343875799,
+      "tag": "0006_hotspot_score_pg_cron",
+      "breakpoints": true
     }
   ]
 }
