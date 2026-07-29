@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 // Imported for its side effect of being the unit under test. Declared here so
 // eslint's import/first is satisfied; vi.mock calls below are hoisted above it.
 import OnboardingAuth from '../app/(onboarding)/auth';
+import { readOnboardingFlag, resolveOnboardingGateStatus } from '@/lib/onboarding';
 
 // Regression coverage for the onboarding auth screen (ticket #49). The v1.1.0
 // reskin touched app/(onboarding)/auth.tsx presentation only; the three auth
@@ -23,6 +24,8 @@ const linkGoogle = vi.hoisted(() => vi.fn());
 const ensureSignedIn = vi.hoisted(() => vi.fn());
 const markOnboardingComplete = vi.hoisted(() => vi.fn());
 const alert = vi.hoisted(() => vi.fn());
+const getItem = vi.hoisted(() => vi.fn());
+const captureException = vi.hoisted(() => vi.fn());
 
 // Override only `useState` so the component can run outside a React dispatcher;
 // everything else (createElement / jsx-runtime) stays real.
@@ -48,7 +51,15 @@ vi.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ linkApple, linkGoogle }) }));
 vi.mock('@/lib/auth', () => ({ ensureSignedIn }));
-vi.mock('@/lib/onboarding', () => ({ markOnboardingComplete }));
+// Only `markOnboardingComplete` is stubbed here — the onboarding-gate tests
+// below (#158) exercise the real `readOnboardingFlag` against a mocked
+// AsyncStorage, so the rest of the module's exports stay real.
+vi.mock('@/lib/onboarding', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/onboarding')>();
+  return { ...actual, markOnboardingComplete };
+});
+vi.mock('@react-native-async-storage/async-storage', () => ({ default: { getItem } }));
+vi.mock('@/lib/sentry', () => ({ Sentry: { captureException } }));
 
 type El = { props?: Record<string, unknown> } | unknown;
 
@@ -181,5 +192,68 @@ describe('onboarding auth handlers — failure paths (#49 regression)', () => {
     expect(replace).not.toHaveBeenCalled();
     expect(setPending).toHaveBeenNthCalledWith(1, 'anon');
     expect(lastSetPending()).toBeNull();
+  });
+});
+
+// Regression coverage for OnboardingGate's flag-decision logic (#158). Every
+// launch was re-showing the onboarding/auth flow because an AsyncStorage read
+// failure was silently swallowed into "show onboarding" with no visibility.
+// `readOnboardingFlag` is the extracted, gate-testable piece of that decision:
+// it wraps `isOnboardingComplete()` and reports failures to Sentry instead of
+// hiding them. (The gate's additional "recover via an already-persisted
+// Supabase session" fallback lives in app/_layout.tsx and is device-verified
+// only — see the PR description.)
+describe('readOnboardingFlag — onboarding gate decision logic (#158 regression)', () => {
+  beforeEach(() => {
+    getItem.mockReset();
+    captureException.mockReset();
+  });
+
+  it('resolves true when the completion flag is present', async () => {
+    getItem.mockResolvedValue('1');
+
+    await expect(readOnboardingFlag()).resolves.toBe(true);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('resolves false when the completion flag is absent', async () => {
+    getItem.mockResolvedValue(null);
+
+    await expect(readOnboardingFlag()).resolves.toBe(false);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('reports to Sentry and falls back to false when the read throws', async () => {
+    const err = new Error('AsyncStorage unavailable');
+    getItem.mockRejectedValue(err);
+
+    await expect(readOnboardingFlag()).resolves.toBe(false);
+    expect(captureException).toHaveBeenCalledWith(err);
+  });
+});
+
+// Regression coverage for OnboardingGate's combinator (#158 code review):
+// the flag read and the "does a returning session exist" read settle
+// independently, and `hasReturningSession` starts at a stale `false` default
+// until its read resolves. `resolveOnboardingGateStatus` must not let a
+// flag-only 'onboarding' verdict escape as a real redirect while the slower
+// session read (which can involve a network token refresh) is still pending
+// — otherwise a returning user can get redirected into onboarding by a
+// `<Redirect>`, which is one-shot and can't be undone by a later re-render.
+describe('resolveOnboardingGateStatus — combining the flag and session reads (#158 regression)', () => {
+  it('stays loading (does not redirect) when the flag says onboarding but the session read is still pending', () => {
+    expect(resolveOnboardingGateStatus('onboarding', 'loading', false)).toBe('loading');
+  });
+
+  it('redirects to onboarding once both reads have settled and no returning session was found', () => {
+    expect(resolveOnboardingGateStatus('onboarding', 'done', false)).toBe('onboarding');
+  });
+
+  it('resolves done once both reads have settled and a returning session was found', () => {
+    expect(resolveOnboardingGateStatus('onboarding', 'done', true)).toBe('done');
+  });
+
+  it('resolves done from the flag alone once both reads have settled, no session required', () => {
+    expect(resolveOnboardingGateStatus('done', 'done', false)).toBe('done');
   });
 });
