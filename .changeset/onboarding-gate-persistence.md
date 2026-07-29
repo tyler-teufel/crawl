@@ -1,0 +1,5 @@
+---
+'@crawl/mobile': patch
+---
+
+Fix onboarding/auth flow reappearing on every launch (#158). `OnboardingGate` (`app/_layout.tsx`) only had one source of truth — the `crawl.firstLaunchComplete.v1` AsyncStorage flag — and a read failure on that key was silently swallowed into "show onboarding," with no report and no fallback. The gate now also checks whether a Supabase session was already persisted before this launch's auth bootstrap ran; a returning session is proof the user already completed the auth step, regardless of what the flag read back, while a session freshly minted for a genuinely new install still does not skip onboarding. The flag read and the session read settle independently and at different speeds (the session read can trigger a network token refresh), so the gate now withholds rendering until both have settled (`resolveOnboardingGateStatus`) instead of redirecting off a stale flag-only verdict. AsyncStorage read failures for the flag are now reported via `Sentry.captureException` (`src/lib/onboarding.ts`'s new `readOnboardingFlag`) instead of failing silently.

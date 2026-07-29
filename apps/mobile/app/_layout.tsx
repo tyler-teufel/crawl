@@ -18,7 +18,12 @@ import { queryClient } from '@/api/query-client';
 import { AuthProvider } from '@/context/AuthContext';
 import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
-import { isOnboardingComplete, subscribeToOnboardingStatus } from '@/lib/onboarding';
+import {
+  readOnboardingFlag,
+  resolveOnboardingGateStatus,
+  subscribeToOnboardingStatus,
+} from '@/lib/onboarding';
+import { supabase } from '@/lib/supabase';
 import { verifySentryDelivery } from '@/lib/sentry-verify';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
 import { AnimatedSplash } from '../components/layout/AnimatedSplash';
@@ -158,24 +163,56 @@ const errorStyles = StyleSheet.create({
  * Reads the first-launch flag from AsyncStorage and redirects to (onboarding)
  * until the user finishes the onboarding flow. Lives inside the navigator so
  * it can use expo-router's <Redirect>.
+ *
+ * The flag is not the only source of truth (#158): a returning user proves
+ * they already finished the auth step just by having a Supabase session that
+ * was already persisted before this launch, regardless of what the flag read
+ * back. The flag read and the session read are independent and settle at
+ * different speeds — the flag is a single local AsyncStorage.getItem, while
+ * the session read can itself trigger a network token refresh when the
+ * persisted token is close to expiry (routine for a user reopening the app
+ * after any real gap). `resolveOnboardingGateStatus` withholds rendering
+ * until BOTH reads have settled so a still-`false` `hasReturningSession`
+ * default can never let a stale flag-only redirect fire and strand a
+ * returning user on the welcome screen (`<Redirect>` is one-shot; a later
+ * re-render can't undo it).
+ *
+ * This read must not observe a session freshly minted for a genuinely new
+ * install, or brand-new users would skip onboarding entirely. That holds
+ * today because `ensureSignedIn()` (`src/lib/auth.ts`) only calls
+ * `signInAnonymously()` — the sole call that creates and persists a new
+ * session — after its own local `getSession()` read finds nothing; that read
+ * and this gate's `getSession()` read race on the same underlying local
+ * storage, and a local read finishes far faster than the network round trip
+ * `signInAnonymously()` needs before anything new is persisted. This is a
+ * real invariant, but a fragile one spanning two modules and supabase-js's
+ * internals rather than a formal ordering guarantee — revisit it if
+ * supabase-js is upgraded, a custom `lock` is added to the client, or
+ * `ensureSignedIn()`'s existing-session-first check changes.
  */
 function OnboardingGate() {
-  const [status, setStatus] = React.useState<'loading' | 'onboarding' | 'done'>('loading');
+  const [flagStatus, setFlagStatus] = React.useState<'loading' | 'onboarding' | 'done'>('loading');
+  const [sessionStatus, setSessionStatus] = React.useState<'loading' | 'done'>('loading');
+  const [hasReturningSession, setHasReturningSession] = React.useState(false);
   const segments = useSegments();
 
   React.useEffect(() => {
     let mounted = true;
 
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (mounted) setHasReturningSession(!!session?.user);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setSessionStatus('done');
+      });
+
     const refresh = () => {
-      isOnboardingComplete()
-        .then((done) => {
-          if (mounted) setStatus(done ? 'done' : 'onboarding');
-        })
-        .catch(() => {
-          // If AsyncStorage throws, default to showing onboarding rather than
-          // skipping it — better to over-prompt than to leave a new user stranded.
-          if (mounted) setStatus('onboarding');
-        });
+      readOnboardingFlag().then((done) => {
+        if (mounted) setFlagStatus(done ? 'done' : 'onboarding');
+      });
     };
 
     refresh();
@@ -188,6 +225,8 @@ function OnboardingGate() {
       unsubscribe();
     };
   }, []);
+
+  const status = resolveOnboardingGateStatus(flagStatus, sessionStatus, hasReturningSession);
 
   // Hide everything until we know which branch to take. The Stack already
   // rendered above us; we just don't redirect yet.
