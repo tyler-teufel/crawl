@@ -197,3 +197,95 @@ describe('useRemoveVote mutationFn — no Supabase RPC exists for vote removal (
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 });
+
+// Regression tests for #196: useVoteState's queryFn branched on hasApi alone,
+// so a Supabase-only build (the beta's shape — EXPO_PUBLIC_API_URL unset)
+// wrote votes to Postgres via cast_vote but read them back from AsyncStorage.
+// A reinstall looked like a fresh daily budget while the server still held
+// the user's votes. The read now goes through the get_vote_state RPC
+// (apps/api/drizzle/0008_get_vote_state_rpc.sql).
+describe('useVoteState queryFn — tier selection (#196)', () => {
+  it("calls supabase.rpc('get_vote_state') with no arguments and returns the server's state", async () => {
+    stubTier(SUPABASE_TIER);
+    const rpcState = {
+      remainingVotes: 1,
+      maxVotes: 3,
+      votedVenueIds: ['v1', 'v2'],
+      resetAt: '2026-07-31T08:00:00.000Z',
+    };
+    supabaseMock.rpc.mockResolvedValue({ data: rpcState, error: null });
+
+    const { useVoteState } = await loadVotes();
+    const result = await (useVoteState('Charlotte, NC') as any).queryFn();
+
+    // No parameter: the RPC is SECURITY INVOKER and scopes to auth.uid()
+    // under RLS, so passing a user id would be both useless and unsafe.
+    expect(supabaseMock.rpc).toHaveBeenCalledWith('get_vote_state');
+    expect(result).toEqual(rpcState);
+  });
+
+  it('does NOT fall back to mock storage when Supabase is configured — the bug #196 fixed', async () => {
+    // Seed AsyncStorage with a full budget, as a fresh install would have.
+    const { castMockVote } = await loadVotes();
+    await castMockVote('mock-venue');
+
+    stubTier(SUPABASE_TIER);
+    supabaseMock.rpc.mockResolvedValue({
+      data: { remainingVotes: 0, maxVotes: 3, votedVenueIds: ['a', 'b', 'c'] },
+      error: null,
+    });
+
+    const { useVoteState } = await loadVotes();
+    const result = await (useVoteState('Charlotte, NC') as any).queryFn();
+
+    // The server says the budget is exhausted; local storage disagrees.
+    // Before #196 the local answer won, which is exactly how a reinstall
+    // appeared to grant a fresh budget.
+    expect(result.remainingVotes).toBe(0);
+    expect(result.votedVenueIds).toEqual(['a', 'b', 'c']);
+  });
+
+  it('surfaces AUTH_REQUIRED as a VoteError rather than swallowing it or defaulting to a full budget', async () => {
+    stubTier(SUPABASE_TIER);
+    supabaseMock.rpc.mockResolvedValue({ data: null, error: { message: 'AUTH_REQUIRED' } });
+
+    const { useVoteState, VoteError } = await loadVotes();
+    const queryFn = (useVoteState('Charlotte, NC') as any).queryFn;
+
+    await expect(queryFn()).rejects.toBeInstanceOf(VoteError);
+    await expect(queryFn()).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
+  });
+
+  it('rethrows an unrecognized RPC error unmodified instead of miscoding it', async () => {
+    stubTier(SUPABASE_TIER);
+    const raw = { message: 'permission denied for function get_vote_state' };
+    supabaseMock.rpc.mockResolvedValue({ data: null, error: raw });
+
+    const { useVoteState, VoteError } = await loadVotes();
+
+    await expect((useVoteState('Charlotte, NC') as any).queryFn()).rejects.not.toBeInstanceOf(
+      VoteError
+    );
+  });
+
+  it('prefers the Railway API tier over Supabase when both are configured', async () => {
+    stubTier({ api: 'https://api.example.com', ...SUPABASE_TIER });
+
+    const { useVoteState } = await loadVotes();
+    await (useVoteState('Charlotte, NC') as any).queryFn().catch(() => undefined);
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('falls through to mock storage when neither API nor Supabase is configured', async () => {
+    const { castMockVote } = await loadVotes();
+    await castMockVote('v1');
+
+    stubTier({});
+    const { useVoteState } = await loadVotes();
+    const result = await (useVoteState('Charlotte, NC') as any).queryFn();
+
+    expect(result.votedVenueIds).toEqual(['v1']);
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+});
