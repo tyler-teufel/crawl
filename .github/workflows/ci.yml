@@ -55,6 +55,38 @@ jobs:
     timeout-minutes: 15
     env:
       TURBO_TELEMETRY_DISABLED: '1'
+      # Scratch Postgres (see `services.postgres` below) for
+      # apps/api/tests/db/cast-vote-rpc.test.ts, which applies the real
+      # 0007 migration SQL against a live Postgres to guard the cast_vote
+      # RPC's vote cap / advisory-lock concurrency safety. Deliberately NOT
+      # DATABASE_URL/DIRECT_URL, which may point at a real dev/prod
+      # database — see the test file's own doc comment. Must also be listed
+      # in turbo.json's `tasks.test.env`, or Turbo's strict env mode strips
+      # it before vitest ever sees it and the suite silently skips.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crawl_ci_test
+    services:
+      # Always started for this job (service containers can't be
+      # conditionally skipped the way steps can via `if:`), but cheap:
+      # postgres:16-alpine plus the health check typically adds well under
+      # 15s, and `validate` already always runs as the required status
+      # check (see the `changes` job comment above). 16 matches the
+      # version this suite's own doc comment says to test against locally
+      # ("scratch Postgres 16+") — the migration under test uses only
+      # core SQL (gen_random_uuid, pg_advisory_xact_lock) with no PostGIS
+      # or pg_cron dependency, so no extensions/newer version are required.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: crawl_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
         with:
