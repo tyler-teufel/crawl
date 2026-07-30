@@ -541,9 +541,47 @@ The mobile app's first-launch experience is anonymous-first. On boot the app che
 
 **Required external configuration (one-time):**
 
-1. **Supabase dashboard** — enable the Apple and Google providers under Authentication → Providers. Paste the iOS bundle id and the Google Web client ID into the relevant Supabase fields.
-2. **Apple Developer** — create a Services ID for "Sign in with Apple" and tie it to the iOS bundle id. The id_token Supabase verifies is signed by Apple against this configuration.
-3. **Google Cloud Console** — create OAuth 2.0 client IDs of type "iOS" and "Web application". Set `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` in `apps/mobile/.env`. Paste the reversed iOS client ID into `apps/mobile/app.json` under the `@react-native-google-signin/google-signin` plugin's `iosUrlScheme`.
+> **This is a native-only integration, so the OAuth/web settings do not apply.**
+> Both providers are wired through `signInWithIdToken`, which verifies a token
+> the OS issued. Supabase's own guidance: _"If you're building a native app
+> only, you do not need to configure the OAuth settings."_ Concretely that means
+> **no Apple Services ID, no `.p8` signing key, no Apple secret-key JWT, and no
+> Google client secret** — and therefore none of Apple's 6-month secret
+> rotation, which only applies to the web flow. The dashboard's "Secret Key (for
+> OAuth)", "Client Secret (for OAuth)", and "Callback URL" fields are all left
+> empty/ignored. Recorded because an earlier version of this section prescribed
+> the web path, which costs a signing key and a recurring rotation for nothing.
+
+1. **Apple Developer** — an **App ID** for the iOS bundle identifier
+   (`com.tylerteufel.crawl`) with **Sign in with Apple** enabled in its
+   Capabilities list. Leave Server-to-Server notification endpoints blank —
+   Supabase Auth does not support them. A Services ID is *not* needed.
+2. **Google Cloud Console** — OAuth 2.0 client IDs of type **iOS** (give it the
+   bundle identifier) and **Web application**. The web client id is required
+   even on mobile: `@react-native-google-signin/google-signin` needs it to
+   request an `id_token`. Android Google sign-in additionally needs an
+   **Android** client keyed to the app's SHA-1 signing fingerprint, and the
+   debug and release fingerprints differ — register both.
+3. **Supabase dashboard** → Authentication → Providers:
+   - **Apple** — enable; set _Client IDs_ to the bundle identifier
+     (comma-separate any `.dev`/`.preview` variants, plus `host.exp.Exponent`
+     if testing through Expo Go). Leave the secret key empty.
+   - **Google** — enable; set _Client IDs_ to the **web and iOS client ids,
+     comma-separated**. Leave the client secret empty. **Turn on "Skip nonce
+     checks"** — required for the iOS native flow, because the app never sees
+     the nonce used to issue the token. Without it, iOS Google sign-in fails.
+4. **App config** — set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` and
+   `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in `apps/mobile/.env` **and** in the
+   `staging` GitHub Environment. Paste the **reversed** iOS client id into
+   `apps/mobile/app.json` under the `@react-native-google-signin/google-signin`
+   plugin's `iosUrlScheme`.
+
+**Apple never returns the user's full name in the identity token.** It is
+supplied in the credential on the **first** authorization only, and never again
+— not on re-sign-in, not in any later token. Any feature that displays a name
+(e.g. the profile screen) must capture and persist it at that first link, or it
+is unrecoverable without the user revoking the app in iOS Settings and
+re-authorizing.
 
 ---
 
