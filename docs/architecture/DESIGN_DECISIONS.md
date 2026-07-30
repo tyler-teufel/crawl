@@ -559,9 +559,23 @@ The mobile app's first-launch experience is anonymous-first. On boot the app che
 2. **Google Cloud Console** — OAuth 2.0 client IDs of type **iOS** (give it the
    bundle identifier) and **Web application**. The web client id is required
    even on mobile: `@react-native-google-signin/google-signin` needs it to
-   request an `id_token`. Android Google sign-in additionally needs an
-   **Android** client keyed to the app's SHA-1 signing fingerprint, and the
-   debug and release fingerprints differ — register both.
+   request an `id_token`. Under **Google Auth Platform**, the console splits
+   this across four tabs — Branding, Audience, Clients, Data Access — and the
+   one that silently blocks testers is **Audience**: while publishing status is
+   *Testing*, only listed test users can sign in and everyone else gets
+   `access_denied`, which surfaces in-app as a generic failure. Publishing is
+   instant with only `openid`/`email`/`profile`, which are non-sensitive and
+   need no verification review; scopes on the **Data Access** tab need no
+   configuration, since the library requests them itself.
+
+   **Android Google sign-in is deliberately not configured.** It requires a
+   third client keyed to the app's SHA-1 signing fingerprint, with different
+   fingerprints for debug and release. No Android build is being produced and
+   an Android release is not planned before v2, so the client was not created
+   and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`/`_WEB_CLIENT_ID` are set at repo
+   level rather than per environment (see the CI/CD runbook for why that is
+   safe today). Revisit when Android ships: the keystore is managed by EAS, so
+   the fingerprints come from `eas credentials` → Android → Keystore.
 3. **Supabase dashboard** → Authentication → Providers:
    - **Apple** — enable; set _Client IDs_ to the bundle identifier
      (comma-separate any `.dev`/`.preview` variants, plus `host.exp.Exponent`

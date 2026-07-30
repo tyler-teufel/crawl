@@ -431,9 +431,34 @@ Every step writes to `$GITHUB_STEP_SUMMARY` rather than relying on the raw log �
 | Variable | `EXPO_PUBLIC_SENTRY_DSN`      | `staging-build.yml`      | Injected into `eas.json` at build time; **unset → staging build fails** (see below) |
 | Variable | `EXPO_PUBLIC_SUPABASE_URL`    | `staging-build.yml`      | Injected into `eas.json` at build time; **unset → staging build fails** — the beta reads directly from Supabase |
 | Variable | `EXPO_PUBLIC_SUPABASE_KEY`    | `staging-build.yml`      | Injected into `eas.json` at build time; **unset → staging build fails** — the beta reads directly from Supabase |
-| Variable | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | `staging-build.yml` | Injected into `eas.json` at build time; unset → Google sign-in degraded (warning only, see #127) |
-| Variable | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | `staging-build.yml` | Injected into `eas.json` at build time; unset → Google sign-in degraded (warning only, see #127) |
+| Variable | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | `staging-build.yml` | Injected into `eas.json` at build time; unset → Google sign-in degraded (warning only, see #127). **Set at repo level** — see below |
+| Variable | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | `staging-build.yml` | Injected into `eas.json` at build time; unset → Google sign-in degraded (warning only, see #127). **Set at repo level** — see below |
 | Secret   | `GITHUB_TOKEN`                | All                      | Provided automatically                         |
+
+**Why the Google client IDs are repo-level, not on the `staging` environment.**
+`staging-build.yml` reads them through the `vars.` context, and with
+`environment: staging` on the job GitHub resolves `vars.X` as environment →
+repository → organization. An undefined environment variable therefore falls
+back to the repo-level one, so repo-level works with no workflow change, and a
+future environment-level value silently overrides it.
+
+They live at repo level because they are environment-agnostic **today**:
+
+- The **web** client id is not bound to a bundle identifier at all. One web
+  client serves every environment permanently.
+- The **iOS** client id *is* bound to the bundle identifier, and there is
+  currently exactly one (`com.tylerteufel.crawl`, no per-profile override in
+  `eas.json`). It is agnostic because of that, not inherently — **adopting
+  per-environment bundle ids (`.dev`, `.preview`) means a distinct iOS client
+  per bundle id**, and the value stops being repo-level-safe.
+
+**Android is deliberately not configured.** Google sign-in on Android needs its
+own client keyed to the app's SHA-1 signing fingerprint, and the debug and
+release fingerprints differ — so it is per-environment by nature and must never
+be a repo-level variable. No Android build is being produced and an Android
+release is not planned before v2, so the client was not created. When that
+changes, register both fingerprints (`eas credentials` → Android → Keystore,
+since the keystore is managed by EAS) and set the value per environment.
 
 CodeQL needs the `security-events: write` permission, which is set on the workflow itself. No additional secret is required.
 
