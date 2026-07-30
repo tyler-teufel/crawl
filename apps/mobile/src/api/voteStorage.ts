@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEFAULT_VOTE_DAY_TIMEZONE, voteDayFor } from '@crawl/shared-types';
 import { VoteState } from '@/types/venue';
 
 // Persists the MOCK vote state so query refetches (staleTime expiry, cache GC,
@@ -9,8 +10,11 @@ import { VoteState } from '@/types/venue';
 
 const STORAGE_KEY = 'crawl.mockVoteState.v1';
 
-// Same date-key convention as the server's vote.service.ts `today()`.
-const todayKey = () => new Date().toISOString().slice(0, 10);
+// Same vote-day convention as the server's vote.service.ts `today()`: a
+// 04:00-local rollover rather than the raw UTC calendar date (#64). Mobile
+// doesn't resolve a per-city timezone yet, so this falls back to the same
+// default the API uses.
+const todayKey = () => voteDayFor(new Date(), DEFAULT_VOTE_DAY_TIMEZONE);
 
 interface PersistedVoteState {
   date: string;
