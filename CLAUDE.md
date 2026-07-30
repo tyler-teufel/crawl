@@ -28,8 +28,11 @@ Sprint work is delegated to a roster of specialized subagents (`.claude/agents/`
 | Pre-PR diff review (read-only) | `code-reviewer` |
 | Security pass on auth/secrets/validation/RLS diffs; Dependabot alert & dependency-PR triage | `security-reviewer` |
 | Ticket triage/assignment across the board | run `/scrum` (main session — subagents cannot spawn subagents) |
+| Record what a session decided, reversed, and left open | run `/tldr` at a stopping point (writes `docs/sessions/`, comments on the PR) |
 
 Workers start cold: every dispatch brief must include the ticket's root cause, fix approach, acceptance criteria, and target branch. Workers report; the main session commits, pushes, and handles GitHub bookkeeping.
+
+Every `/scrum` run closes with `/tldr`. Sprint work generates decisions, assumptions, and reversals that the diff does not capture and that scrollback buries — the session record is where they live.
 
 ## Git Workflow
 

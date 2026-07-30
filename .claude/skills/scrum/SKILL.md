@@ -62,6 +62,7 @@ Do not report a ticket done on a worker's claim alone — check the verifier out
 - Ship a changeset with any `apps/mobile`-touching work (versioning rule — no hand-edited versions).
 - Refresh the sprint plan doc only if scope/dates actually changed.
 - Summarize to the user: what shipped, what's blocked, what's next.
+- **Close the ceremony with `/tldr`** once the run reaches a stopping point. It writes the durable session record — decisions and who made them, reversals, and open items — to `docs/sessions/` and posts a condensed version to the PR. The chat summary above is for the user right now; the TLDR is for whoever reads this in three weeks. Do not skip it because the session "went smoothly" — a run with no reversals still has decisions and assumptions worth recording.
 
 ## Boundaries
 
