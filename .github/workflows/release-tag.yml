@@ -28,11 +28,11 @@ name: Release — Create Tag
 # `push: tags:` triggers in release-mobile.yml / release-api.yml) from events
 # created by GITHUB_TOKEN — an anti-recursion safeguard. A push made with
 # GITHUB_TOKEN would succeed and produce a real tag, but the release workflow
-# it's supposed to kick off would simply never start. So this workflow mints
-# a short-lived GitHub App installation token (via actions/create-github-app-token)
-# and checks out with it instead — the resulting push is attributed to the
-# App's installation, which does trigger downstream workflows normally. See
-# "GitHub App for release tag pushes" in docs/ops/CICD_PIPELINE.md.
+# it's supposed to kick off would simply never start. So this workflow checks
+# out with a fine-grained personal access token (RELEASE_TAG_PAT) instead —
+# the resulting push is attributed to that token, which does trigger
+# downstream workflows normally. See "Personal access token for release tag
+# pushes" in docs/ops/CICD_PIPELINE.md.
 
 on:
   workflow_dispatch:
@@ -74,26 +74,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read # the tag push authenticates as the GitHub App below, not GITHUB_TOKEN
+      contents: read # the tag push authenticates as RELEASE_TAG_PAT below, not GITHUB_TOKEN
     steps:
-      # Exchanges the App ID + private key (repo secrets) for a short-lived
-      # installation token via GitHub's REST API. This does not consume or
-      # depend on GITHUB_TOKEN's permissions — it's an independent credential.
-      # Fails loudly (non-zero exit) if RELEASE_TAG_APP_ID /
-      # RELEASE_TAG_APP_PRIVATE_KEY are missing or invalid; there is no
-      # fallback to GITHUB_TOKEN.
-      - name: Mint GitHub App installation token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.RELEASE_TAG_APP_ID }}
-          private-key: ${{ secrets.RELEASE_TAG_APP_PRIVATE_KEY }}
+      # Fails loudly if RELEASE_TAG_PAT is unset or invalid — checkout errors
+      # out rather than silently falling back to GITHUB_TOKEN and pushing a
+      # tag that triggers nothing (the #184 failure mode this exists to fix).
+      - name: Guard — RELEASE_TAG_PAT is set
+        run: |
+          if [ -z "${{ secrets.RELEASE_TAG_PAT }}" ]; then
+            echo "::error::RELEASE_TAG_PAT is not set. A tag pushed with GITHUB_TOKEN will not trigger release-mobile.yml/release-api.yml — see 'Personal access token for release tag pushes' in docs/ops/CICD_PIPELINE.md."
+            exit 1
+          fi
 
       - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.RELEASE_TAG_PAT }}
 
       - name: Note the dispatch ref
         if: github.ref_name != 'main'

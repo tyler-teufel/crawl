@@ -73,8 +73,8 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 │  consumer's grammar, or the tag already exists.                    │
 │  See "How to cut a release" below. The tag IS the release trigger. │
 └──────────┬─────────────────────────────────────────────────────────┘
-           │  Pushed with a GitHub App installation token (not
-           │  GITHUB_TOKEN — see "GitHub App for release tag pushes").
+           │  Pushed with a personal access token (not GITHUB_TOKEN —
+           │  see "Personal access token for release tag pushes").
            │  Tag push fires the matching workflow below.
            ▼
 ┌─────────────────────────────────┐  ┌─────────────────────────────┐
@@ -112,7 +112,7 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 | `.github/workflows/ci.yml`                 | `pull_request`, `push → main` (always runs; job-level path filter) | Lint, typecheck, test (Turbo affected detection)       |
 | `.github/workflows/security.yml`           | PR, push → main, weekly schedule | CodeQL + gitleaks + npm audit                          |
 | `.github/workflows/release-version.yml`    | `push → main` (path-filtered)    | Open / update Changesets "Version Packages" PR         |
-| `.github/workflows/release-tag.yml`        | `workflow_dispatch`              | Compose and push a release tag from the version already on `main` — the guarded entry point to a release. Pushes with a GitHub App token, not `GITHUB_TOKEN` (see "GitHub App for release tag pushes") |
+| `.github/workflows/release-tag.yml`        | `workflow_dispatch`              | Compose and push a release tag from the version already on `main` — the guarded entry point to a release. Pushes with a personal access token, not `GITHUB_TOKEN` (see "Personal access token for release tag pushes") |
 | `.github/workflows/release-mobile.yml`     | `push → tags: mobile-v*`; `workflow_dispatch` (re-run an existing tag) | OTA or binary release of `apps/mobile` via EAS |
 | `.github/workflows/release-api.yml`        | `push → tags: api-v*`; `workflow_dispatch` (re-run an existing tag) | Docker build/push + optional migrate of `apps/api` |
 | `.github/workflows/staging-build.yml`      | `push → main` (path-filtered)    | EAS staging build (iOS → TestFlight, Android → internal) |
@@ -418,8 +418,7 @@ Every step writes to `$GITHUB_STEP_SUMMARY` rather than relying on the raw log �
 | Type     | Name                          | Used by                  | Notes                                          |
 | -------- | ----------------------------- | ------------------------ | ---------------------------------------------- |
 | Secret   | `EXPO_TOKEN`                  | `release-mobile.yml`     | EAS auth                                       |
-| Secret   | `RELEASE_TAG_APP_ID`          | `release-tag.yml`        | GitHub App ID — mints the installation token used to push the release tag. See "GitHub App for release tag pushes" below |
-| Secret   | `RELEASE_TAG_APP_PRIVATE_KEY` | `release-tag.yml`        | GitHub App private key (PEM), paired with `RELEASE_TAG_APP_ID` |
+| Secret   | `RELEASE_TAG_PAT`             | `release-tag.yml`        | Fine-grained personal access token used to push the release tag. See "Personal access token for release tag pushes" below |
 | Secret   | `RAILWAY_TOKEN`               | `release-api.yml`        | Railway CLI auth (not currently referenced by any step — see note below) |
 | Secret   | `DATABASE_URL`                | `release-api.yml` (migrate job) | Only set in the GitHub Environment that runs migrations |
 | Secret   | `DIRECT_URL`                  | `db-migrate.yml`         | Supabase direct/session-pooler connection (port 5432), set on the `database` GitHub Environment. See "Applying database migrations" above for why this is `DIRECT_URL` and not `DATABASE_URL` |
@@ -464,11 +463,11 @@ CodeQL needs the `security-events: write` permission, which is set on the workfl
 
 **Note (pre-existing, not part of this pivot):** `RAILWAY_TOKEN`, `RAILWAY_SERVICE_STAGING`/`RAILWAY_SERVICE_PRODUCTION`, and `STAGING_URL`/`PRODUCTION_URL` are documented as used by `release-api.yml` but no step in the current workflow (before or after this change) actually reads them — the workflow builds/pushes a Docker image and stops; there is no `railway up` or deploy step. This mismatch predates the tag-trigger pivot and wasn't introduced by it; flagging it here rather than silently resolving it, since fixing it may mean either adding a real Railway deploy step or removing these entries, and both are a product decision outside this ticket's scope.
 
-### GitHub App for release tag pushes
+### Personal access token for release tag pushes
 
 `release-tag.yml`'s "Create and push tag" step pushes the release tag using
-a **GitHub App installation token** (`RELEASE_TAG_APP_ID` /
-`RELEASE_TAG_APP_PRIVATE_KEY`), not the default `GITHUB_TOKEN`.
+a **fine-grained personal access token** (`RELEASE_TAG_PAT`), not the default
+`GITHUB_TOKEN`.
 
 **Why `GITHUB_TOKEN` is insufficient:** GitHub Actions deliberately does not
 start new workflow runs from events (including tag pushes) created by the
@@ -478,21 +477,32 @@ default `GITHUB_TOKEN` — an anti-recursion safeguard, documented in GitHub's
 `GITHUB_TOKEN` is real and well-formed but never starts either workflow.
 This was confirmed live: on 2026-07-29, `release-tag.yml` pushed
 `mobile-v1.1.1-staging` successfully at 13:51:40 on head `4e23c1b`, and
-`release-mobile.yml` had zero runs for it (#184). A GitHub App installation
-token was chosen over a PAT or SSH deploy key because it is short-lived
-(minted fresh per run), scoped to a single repo installation, and revocable
-independently of any individual's personal account.
+`release-mobile.yml` had zero runs for it (#184). A push authored by a PAT
+(or a GitHub App token) does trigger downstream workflows normally; a PAT
+was chosen over a GitHub App for #184's fix because it needs no App
+registration or private-key management — one token, one repo secret.
 
-**How it works:** the `tag` job's first step
-(`actions/create-github-app-token`) exchanges `RELEASE_TAG_APP_ID` +
-`RELEASE_TAG_APP_PRIVATE_KEY` for a short-lived installation token via
-GitHub's API. The `actions/checkout` step immediately after takes that token
-as its `token:` input, so the checked-out repo's persisted git credentials —
-and therefore the later `git push origin "$TAG"` — authenticate as the App
-installation instead of `GITHUB_TOKEN`. There is no fallback: if the secrets
-are missing or invalid, `actions/create-github-app-token` fails the run
-before checkout rather than silently pushing (and failing to trigger
-anything) as `GITHUB_TOKEN`.
+**Trade-off accepted, on purpose:** a fine-grained PAT is tied to the
+personal account that generated it and (unlike a GitHub App installation
+token) is not minted fresh per run — it is a standing credential until it
+expires or is revoked. Two mitigations, both non-negotiable when creating
+it:
+
+- **Scope it to this repository only**, never "all repositories."
+- **Grant only Contents: Read and write** on that repository. No other
+  permission is needed to push a tag.
+
+Set an explicit expiration and put a reminder on the calendar to rotate it —
+an expired PAT fails the same way a missing one does (see the guard step
+below), so this degrades safely, but silently, until someone re-runs a
+release and hits it.
+
+**How it works:** `actions/checkout` takes `RELEASE_TAG_PAT` directly as its
+`token:` input, so the checked-out repo's persisted git credentials — and
+therefore the later `git push origin "$TAG"` — authenticate as the PAT
+instead of `GITHUB_TOKEN`. A guard step before checkout fails the run with
+`::error::` if the secret is unset, rather than falling through to
+`GITHUB_TOKEN` and silently pushing a tag that triggers nothing.
 
 **Covers both services.** `release-tag.yml` has exactly one "Create and push
 tag" step shared by both the `mobile` and `api` service paths — `inputs.service`
@@ -503,23 +513,23 @@ path had the identical defect and had simply never been exercised.
 
 **One-time human setup** (GitHub Settings, not this repo's code):
 
-1. Create a GitHub App (Settings → Developer settings → GitHub Apps → New
-   GitHub App) owned by the org/user that owns this repo.
-2. Repository permissions: **Contents: Read and write** — this is what lets
-   the installation token push tags. No other permissions are required.
-3. No webhook subscription is needed — this App only exists to mint tokens
-   for the `create-github-app-token` action.
-4. Generate a private key (PEM) for the App and download it.
-5. Install the App on this repository only.
-6. Add two repo secrets (Settings → Secrets and variables → Actions):
-   `RELEASE_TAG_APP_ID` (the App's numeric ID) and
-   `RELEASE_TAG_APP_PRIVATE_KEY` (the full PEM contents from step 4).
+1. Settings → Developer settings → Personal access tokens → **Fine-grained
+   tokens** → Generate new token.
+2. **Resource owner:** the account that owns this repo. **Repository
+   access:** "Only select repositories" → this repo. Never "All
+   repositories."
+3. **Repository permissions:** **Contents: Read and write**. No other
+   permission is required.
+4. Set an expiration (not "No expiration") and note it somewhere you'll see
+   it before it lapses.
+5. Generate the token and copy it immediately — GitHub shows it once.
+6. Add it as a repo secret (Settings → Secrets and variables → Actions):
+   `RELEASE_TAG_PAT`.
 7. Re-run `Release — Create Tag` and confirm the matching release workflow
-   starts automatically with no manual dispatch. This could not be verified
-   as part of #184 — provisioning the App requires GitHub org-admin access.
+   starts automatically with no manual dispatch.
 
-**Recovery route, unchanged.** If the App credential is ever broken (expired
-key, App uninstalled, etc.), both release workflows still accept
+**Recovery route, unchanged.** If the PAT is ever broken (expired, revoked,
+account access changed), both release workflows still accept
 `workflow_dispatch` with an existing tag name as input, re-running the
 release against a tag that's already on the remote without depending on
 `release-tag.yml` having triggered anything. See "Manual fallback — tagging
