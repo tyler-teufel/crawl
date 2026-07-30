@@ -121,6 +121,44 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 
 ---
 
+## Database-gated tests in CI (`validate` / Postgres service)
+
+`apps/api/tests/db/cast-vote-rpc.test.ts` applies the real `0007_cast_vote_rpc.sql`
+migration against a live Postgres and asserts the `cast_vote` RPC's 3-votes/day
+cap, duplicate rejection, and — critically — that the `pg_advisory_xact_lock`
+inside it actually serializes concurrent casts from the same user (a deleted
+lock would silently reopen a cap bypass). The suite is gated by
+`describe.skipIf(!process.env.TEST_DATABASE_URL)` so it skips cleanly for any
+developer without a local Postgres; it does **not** run against
+`DATABASE_URL`/`DIRECT_URL`, which may point at a real dev/prod database.
+
+`validate` (`ci.yml`) provides that database via a job-level `services.postgres`
+container (`postgres:16-alpine`, health-checked with `pg_isready` before steps
+run) and sets `TEST_DATABASE_URL` in the job's `env`. **This alone is not
+sufficient** — Turbo's default strict env mode filters out any env var not
+declared in `turbo.json`, so `TEST_DATABASE_URL` must also be listed in
+`turbo.json`'s `tasks.test.env` (scoped to the `test` task only, not
+`globalEnv`, so it doesn't also invalidate `lint`/`typecheck` caches for every
+workspace) or Turbo strips it before vitest ever sees it — the suite would
+silently skip while `validate` still reports green. Confirm the fix is
+holding by checking the `test` step's summary line in the `validate` run: it
+should read `Tests  136 passed (136)`, not `110 passed | 26 skipped`.
+
+The Postgres service is declared unconditionally on `validate` (services
+can't be conditionally skipped the way steps can via `if:`, and `validate` is
+a required status check that must always produce a run — see Path-Filter
+Policy below). Cost is bounded: image pull + `pg_isready` health check, not
+gated behind an `apps/api`-only path filter — Turbo's own affected-package
+detection (`--filter=...[origin/<base>]` on PRs) already skips actually
+invoking `apps/api`'s `test` task when a PR doesn't touch anything that
+affects it, so the container mostly just sits idle and unused in that case.
+
+Local developers don't need Docker/Actions to exercise this suite — run a
+scratch Postgres 16+ and point `TEST_DATABASE_URL` at it directly (see the
+test file's own header comment for the `createdb` + `npm test` invocation).
+
+---
+
 ## Tag Grammar
 
 Both release workflows are triggered purely by pushing a tag; each workflow's
