@@ -169,12 +169,17 @@ GRANT EXECUTE ON FUNCTION public.recalculate_hotspot_scores() TO postgres;
 -- `pg_advisory_xact_lock`, keyed on (user, vote day), serializes concurrent
 -- casts from the *same* user for the lock's duration (auto-released at
 -- transaction end) without taking a table-level lock that would serialize
--- unrelated users' votes against each other. Per-venue duplicate votes are
+-- unrelated users' votes against each other. Regression-tested in
+-- apps/api/tests/db/cast-vote-rpc.test.ts (5 concurrent casts, one user,
+-- 5 distinct venues → exactly 3 succeed). Per-venue duplicate votes are
 -- additionally backstopped by the `votes_user_venue_date_idx` unique index
 -- (0000_redundant_excalibur.sql) — the explicit dedup check below is the
 -- normal path, but a second layer (the unique_violation handler) exists in
 -- case two requests ever land on either side of the advisory lock's tiny
--- acquisition window.
+-- acquisition window. The venue-exists check above and the INSERT below are
+-- similarly non-atomic with respect to a concurrent DELETE of that venue —
+-- the foreign_key_violation handler alongside it is that same second layer
+-- for VENUE_NOT_FOUND.
 --
 -- Hardening: same as 0006 — `search_path` pinned to `public, pg_temp` (with
 -- `pg_temp` listed explicitly last, so a same-named temp table can't shadow
@@ -261,14 +266,24 @@ BEGIN
   BEGIN
     INSERT INTO public.votes (user_id, venue_id, voted_at)
     VALUES (v_user_id, p_venue_id, v_vote_day);
-  EXCEPTION WHEN unique_violation THEN
-    -- Belt-and-suspenders: see the concurrency note above. The explicit
-    -- check above is the normal path; this only fires if two requests
-    -- somehow land on either side of the advisory lock.
-    RAISE EXCEPTION USING
-      MESSAGE = 'ALREADY_VOTED',
-      DETAIL = 'You have already voted for this venue today.',
-      ERRCODE = 'P0001';
+  EXCEPTION
+    WHEN unique_violation THEN
+      -- Belt-and-suspenders: see the concurrency note above. The explicit
+      -- check above is the normal path; this only fires if two requests
+      -- somehow land on either side of the advisory lock.
+      RAISE EXCEPTION USING
+        MESSAGE = 'ALREADY_VOTED',
+        DETAIL = 'You have already voted for this venue today.',
+        ERRCODE = 'P0001';
+    WHEN foreign_key_violation THEN
+      -- The existence check above and this INSERT aren't atomic — a venue
+      -- deleted in that window trips `votes_venue_id_venues_id_fk` instead.
+      -- Translated to VENUE_NOT_FOUND so the error contract holds and the
+      -- internal constraint name never reaches the PostgREST caller.
+      RAISE EXCEPTION USING
+        MESSAGE = 'VENUE_NOT_FOUND',
+        DETAIL = 'Venue not found.',
+        ERRCODE = 'P0001';
   END;
 
   UPDATE public.venues
@@ -280,6 +295,18 @@ BEGIN
   FROM public.votes
   WHERE user_id = v_user_id AND voted_at = v_vote_day;
 
+  -- Assumption: VOTE_DAY_CUTOFF_HOUR (04:00, hardcoded here as the literal
+  -- ' 04:00:00') must not fall inside c_tz's DST transition hour. US
+  -- transitions land at 02:00 local, so 04:00 is never ambiguous
+  -- (fall-back) or nonexistent (spring-forward) — verified for both 2026
+  -- transitions in apps/api/tests/db/cast-vote-rpc.test.ts. If either
+  -- VOTE_DAY_CUTOFF_HOUR or c_tz's default ever changes, re-verify parity
+  -- with packages/shared-types/src/voteDay.ts's voteDayResetAt: naive
+  -- `timestamp AT TIME ZONE zone` resolves an ambiguous or nonexistent
+  -- wall-clock time using the pre-transition UTC offset, which is not
+  -- guaranteed to agree with voteDayResetAt's two-pass zoned-time
+  -- conversion (built specifically to handle that case) for instants that
+  -- do fall inside a gap.
   v_reset_at := ((v_vote_day + 1)::text || ' 04:00:00')::timestamp AT TIME ZONE c_tz;
 
   RETURN jsonb_build_object(
