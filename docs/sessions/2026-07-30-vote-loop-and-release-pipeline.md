@@ -126,10 +126,19 @@ together. Resolved in `0008` via a shared `public.vote_day()`.
   one by design. Recovery via `workflow_dispatch` against an existing tag is
   unchanged.
 - **Apple/Google provider setup** (#127) — Phase 4, the last beta gate.
-- **#170 merged against the recommendation** to first do one real release run on
-  `action-gh-release@v2`. The `github-release` job has still never executed, so
-  its first run is now simultaneously a first-ever integration test and a major
-  version bump — a failure will be ambiguous between the two.
+- **#170 was merged after `Release — Create Tag` succeeded.** That job has always
+  succeeded — creating the tag was never the broken part, the missing trigger
+  was. Checked afterwards: the downstream `Release — Mobile` run dispatched
+  2026-07-29 14:27 **failed** at the "Mobile release (binary → staging)" EAS
+  build job, both of that workflow's runs ever have failed, and
+  `list_releases` is empty. So `action-gh-release` still has not executed and
+  `body_path` plus the `awk` changelog extraction remain unexercised. Low risk
+  regardless — the v2→v3 diff is a Node 20→24 runtime change with no change to
+  the four inputs used — but unvalidated, and a first failure will be ambiguous
+  between the bump and the never-run job.
+- **The release path's live blocker is EAS build quota, not the tag trigger.**
+  #184 fixes the trigger; a first successful end-to-end release still needs
+  build capacity (see #186, which made staging builds manual-dispatch only).
 
 **Needs access this session did not have**
 - The Supabase connector was never authorised, so **nothing in migrations
