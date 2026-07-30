@@ -26,6 +26,6 @@ export function startJobs(): void {
   scheduleScoreRecalculation(venueService, simpleLogger);
 
   simpleLogger.info(
-    '[jobs] Cron jobs scheduled: vote reset (midnight UTC), score recalculation (hourly).'
+    '[jobs] Cron jobs scheduled: vote reset (04:00 America/New_York), score recalculation (hourly).'
   );
 }
