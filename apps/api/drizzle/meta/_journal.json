@@ -50,6 +50,13 @@
       "when": 1785343875799,
       "tag": "0006_hotspot_score_pg_cron",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785423319289,
+      "tag": "0007_cast_vote_rpc",
+      "breakpoints": true
     }
   ]
 }
