@@ -10,7 +10,7 @@ src/index.ts
   ▼
 src/jobs/index.ts
   │  schedules each job
-  ├── scheduleVoteReset(...)       runs at 00:00 UTC daily
+  ├── scheduleVoteReset(...)       runs at 04:00 America/New_York daily
   └── scheduleScoreRecalculation(...)  runs at :00 every hour
          │
          ▼
@@ -23,7 +23,7 @@ Jobs depend on service methods, not repositories directly. This means the same b
 
 | File                    | Schedule                        | What it does                                                                                 |
 | ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `reset-votes.ts`        | `0 0 * * *` (midnight UTC)      | Deletes all today's votes, resets venue `voteCount` and `hotspotScore` to 0                  |
+| `reset-votes.ts`        | `0 4 * * *` @ `America/New_York` | Deletes all today's votes, resets venue `voteCount` and `hotspotScore` to 0. 04:00 city-local is the vote-day boundary (#64), not midnight |
 | `recalculate-scores.ts` | `0 * * * *` (top of every hour) | Recomputes hotspot scores for all venues; marks top scorers as trending                      |
 | `index.ts`              | —                               | Wires services into each job and calls all `schedule*` functions; imported by `src/index.ts` |
 
