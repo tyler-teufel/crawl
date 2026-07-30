@@ -1,24 +1,39 @@
-# Builds and publishes to the staging EAS channel on every push to main.
-# iOS builds use app-store distribution so the binary can be submitted to TestFlight.
-# Android builds use internal distribution (download via EAS dashboard link).
+# Builds and publishes to the staging EAS channel. iOS builds use app-store
+# distribution so the binary can be submitted to TestFlight. Android builds use
+# internal distribution (download via EAS dashboard link).
+#
+# ── TEMPORARY: manual dispatch only (2026-07-29) ─────────────────────────────
+# The EAS monthly build quota is exhausted, so every build is now billed
+# per-build. This workflow no longer runs on push to main; a build happens only
+# when someone explicitly runs it from the Actions tab.
+#
+# The push trigger it replaced is kept below, commented, so restoring it is a
+# one-line change once quota resets. Do not restore it without also fixing the
+# lockfile hole described there.
+#
+# on:
+#   push:
+#     branches: [main]
+#     # Skip the EAS cloud build + TestFlight submit when a push touches only
+#     # files that cannot affect the shipped app (CI config, pinned Action
+#     # versions, docs, API-only code). A push is skipped only when *every*
+#     # changed file matches.
+#     #
+#     # KNOWN HOLE — this is why builds were still billed for API-only work:
+#     # a root package-lock.json change is not classifiable by path filters, so
+#     # an apps/api-only merge that touches the lockfile still triggered a full
+#     # mobile build. Observed on the #164 and #181 merges (2026-07-28/29),
+#     # both API-only, both billed. Restoring the push trigger without solving
+#     # this re-opens that leak.
+#     paths-ignore:
+#       - '.github/**'
+#       - 'docs/**'
+#       - 'wiki/**'
+#       - 'apps/api/**'
+#       - '**/*.md'
 name: Staging Build
 
 on:
-  push:
-    branches: [main]
-    # Skip the EAS cloud build + TestFlight submit when a push touches only
-    # files that cannot affect the shipped app (CI config, pinned Action
-    # versions, docs, API-only code). This saves the limited EAS build quota
-    # on no-op-for-mobile merges — e.g. Dependabot GitHub-Actions bumps or
-    # workflow tweaks. A push is skipped only when *every* changed file matches.
-    # NOTE: a root package-lock.json change (e.g. a devDependency bump) still
-    # triggers a build — path filters can't classify individual lockfile hunks.
-    paths-ignore:
-      - '.github/**'
-      - 'docs/**'
-      - 'wiki/**'
-      - 'apps/api/**'
-      - '**/*.md'
   workflow_dispatch:
 
 concurrency:
