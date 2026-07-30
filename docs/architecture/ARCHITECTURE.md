@@ -512,7 +512,7 @@ apps/api/src/
 │   ├── jwt.ts              # dual-mode auth (see below)
 │   └── error-handler.ts    # Zod validation errors, Fastify HTTP errors → JSON envelope
 ├── jobs/
-│   ├── reset-votes.ts         # daily 00:00 UTC — clears votes, resets venue metrics
+│   ├── reset-votes.ts         # 04:00 America/New_York daily — clears votes, resets venue metrics
 │   ├── recalculate-scores.ts  # hourly (dormant) — node-cron job now superseded by
 │   │                           # pg_cron (see migration 0006)
 │   └── syncVenues.ts          # Google Places ingest, run manually via npm run sync:venues
@@ -538,7 +538,7 @@ apps/api/src/
 
 ### Scheduled Jobs
 
-Two `node-cron` jobs run in-process (no Redis, no worker queue — see `DESIGN_DECISIONS.md` for the trade-off): a midnight vote reset and an hourly hotspot-score recalculation. Both are skipped when `NODE_ENV=test`.
+Two `node-cron` jobs run in-process (no Redis, no worker queue — see `DESIGN_DECISIONS.md` for the trade-off): a daily vote reset at 04:00 America/New_York (the nightlife-day boundary; see #64) and an hourly hotspot-score recalculation. Both are skipped when `NODE_ENV=test`.
 
 ### Deployment
 
