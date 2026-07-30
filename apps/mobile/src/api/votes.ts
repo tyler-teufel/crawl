@@ -3,7 +3,8 @@ import { VoteState } from '@/types/venue';
 import { apiClient, castVote as castVoteApi } from './client';
 import { venueKeys } from './venues';
 import { readPersistedVoteState, writePersistedVoteState } from './voteStorage';
-import { hasApi } from '@/lib/env';
+import { supabase } from '@/lib/supabase';
+import { hasApi, hasSupabase } from '@/lib/env';
 
 const USE_REAL_API = hasApi;
 
@@ -25,9 +26,10 @@ export const DEFAULT_VOTE_STATE: VoteState = {
   votedVenueIds: [],
 };
 
-// Mirrors the server's VoteError (apps/api/src/services/vote.service.ts) so
-// mock-mode consumers of useCastVote hit the same onError code path as the
-// real API.
+// Mirrors the server's VoteError (apps/api/src/services/vote.service.ts) and
+// the `cast_vote` Postgres RPC's error codes (apps/api/drizzle/0007_cast_vote_rpc.sql)
+// so mock-mode AND Supabase-mode consumers of useCastVote hit the same onError
+// code path as the (currently undeployed) real API — see castSupabaseVote below.
 export class VoteError extends Error {
   constructor(
     public readonly code: string,
@@ -68,6 +70,31 @@ export async function castMockVote(venueId: string): Promise<VoteState> {
   return next;
 }
 
+// Error codes the `cast_vote` RPC (apps/api/drizzle/0007_cast_vote_rpc.sql)
+// raises, surfaced by supabase-js as `error.message` — an exact string, not a
+// substring/prefix. Messages mirror apps/api/src/services/vote.service.ts's
+// VoteError so a code carries the same copy regardless of which mode threw
+// it. AUTH_REQUIRED has no mock-mode equivalent (mock never lacks a "user").
+const VOTE_RPC_ERROR_MESSAGES: Record<string, string> = {
+  NO_VOTES_REMAINING: 'You have used all your votes for today.',
+  ALREADY_VOTED: 'You have already voted for this venue today.',
+  VENUE_NOT_FOUND: 'Venue not found.',
+  AUTH_REQUIRED: 'A valid Supabase session is required to vote.',
+};
+
+// Supabase-direct implementation (#126): the RPC enforces the vote cap and
+// dedup inside its own transaction, so this is a straight call-and-translate,
+// unlike castMockVote which has to implement that logic client-side.
+export async function castSupabaseVote(venueId: string): Promise<VoteState> {
+  const { data, error } = await supabase.rpc('cast_vote', { p_venue_id: venueId });
+  if (error) {
+    const message = VOTE_RPC_ERROR_MESSAGES[error.message];
+    if (message) throw new VoteError(error.message, message);
+    throw error;
+  }
+  return data as VoteState;
+}
+
 export async function removeMockVote(venueId: string): Promise<VoteState> {
   const current = await getMockVoteState();
   if (!current.votedVenueIds.includes(venueId)) return current;
@@ -96,8 +123,9 @@ export function useCastVote(city: string) {
 
   return useMutation<VoteState, Error, string>({
     mutationFn: async (venueId: string) => {
-      if (!USE_REAL_API) return castMockVote(venueId);
-      return castVoteApi(venueId) as Promise<VoteState>;
+      if (hasApi) return castVoteApi(venueId) as Promise<VoteState>;
+      if (hasSupabase) return castSupabaseVote(venueId);
+      return castMockVote(venueId);
     },
     onMutate: async (venueId) => {
       // Optimistically increment voteCount on the venue detail
@@ -127,6 +155,11 @@ export function useRemoveVote(city: string) {
   const queryClient = useQueryClient();
 
   return useMutation<VoteState, Error, string>({
+    // No Supabase branch (#126): the backend ships no remove-vote RPC, and RLS
+    // blocks a direct DELETE on `votes` for `authenticated`. So in Supabase-only
+    // mode (hasApi false) this deliberately falls through to the mock
+    // implementation rather than hitting Supabase directly and failing at
+    // runtime — same as USE_REAL_API's existing hasApi-only branch above.
     mutationFn: async (venueId: string) => {
       if (!USE_REAL_API) return removeMockVote(venueId);
       return apiClient<VoteState>(`/votes/${venueId}`, { method: 'DELETE' });
