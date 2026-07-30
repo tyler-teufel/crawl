@@ -78,12 +78,37 @@ describe('mock vote state persistence', () => {
   });
 
   it('returns a fresh default state after day rollover', async () => {
+    // The vote day rolls over at 04:00 America/New_York (#64), i.e. 08:00 UTC
+    // during EDT — not raw UTC midnight.
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-07-09T12:00:00Z'));
+    vi.setSystemTime(new Date('2026-07-09T12:00:00Z')); // 08:00 EDT, vote day 2026-07-09
     await castMockVote('v1');
     expect((await getMockVoteState()).remainingVotes).toBe(2);
 
-    vi.setSystemTime(new Date('2026-07-10T00:00:01Z'));
+    vi.setSystemTime(new Date('2026-07-09T23:59:59Z')); // 19:59:59 EDT, still vote day 2026-07-09
+    expect((await getMockVoteState()).remainingVotes).toBe(2);
+
+    vi.setSystemTime(new Date('2026-07-10T08:00:01Z')); // 04:00:01 EDT, vote day 2026-07-10
+    expect(await getMockVoteState()).toEqual(DEFAULT_VOTE_STATE);
+  });
+
+  it('scopes a vote cast just before the 04:00-local boundary to the pre-boundary vote day, and one cast just after to a fresh vote day', async () => {
+    vi.useFakeTimers();
+
+    // 01:00 EDT Saturday — post-midnight nightlife, but still "Friday night"
+    // under the 04:00 cutoff (#64).
+    vi.setSystemTime(new Date('2026-07-11T05:00:00Z'));
+    await castMockVote('v1');
+    await castMockVote('v2');
+    expect((await getMockVoteState()).remainingVotes).toBe(1);
+
+    // One second before the boundary: still the same vote day, budget carries.
+    vi.setSystemTime(new Date('2026-07-11T07:59:59Z'));
+    expect((await getMockVoteState()).remainingVotes).toBe(1);
+
+    // One second after the boundary (04:00:01 EDT Saturday): a new vote day,
+    // budget is fresh again.
+    vi.setSystemTime(new Date('2026-07-11T08:00:01Z'));
     expect(await getMockVoteState()).toEqual(DEFAULT_VOTE_STATE);
   });
 
