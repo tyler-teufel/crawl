@@ -83,7 +83,7 @@ Daily voting interface. Scrollable layout:
 1. **Header** — "Daily Hotspot Votes" title and subtitle
 2. **CitySelector** — opens a modal listing every city in the DB; selection updates `VenueContext` and refetches venues, votes, and rankings via TanStack Query queryKey invalidation
 3. **VoteCounter** — large display of remaining/max votes (e.g., "3 / 3")
-4. **CountdownTimer** — live HH:MM:SS countdown to midnight when votes reset
+4. **CountdownTimer** — live HH:MM:SS countdown to 04:00 America/New_York when votes reset
 5. **Venue list** — venues sorted by hotspot score, rendered as `VenueListItem` rows. Each has a heart button to cast or remove a vote.
 
 Uses `useVenueContext()` for `venues`, `voteState`, `castVote`, and `removeVote`. The CitySelector reads `selectedCity` from context directly.
@@ -267,7 +267,7 @@ Large centered vote display. Shows remaining votes in large purple-light text, m
 
 ### `components/voting/CountdownTimer.tsx`
 
-Live countdown to midnight. Three `TimeBlock` sub-components (hours, minutes, seconds) — each rendered in a rounded card-background box showing the value and a label (HRS/MIN/SEC). Purple colon separators between blocks. Powered by `useCountdown` hook, updates every second.
+Live countdown to 04:00 America/New_York (vote reset time). Three `TimeBlock` sub-components (hours, minutes, seconds) — each rendered in a rounded card-background box showing the value and a label (HRS/MIN/SEC). Purple colon separators between blocks. Powered by `useCountdown` hook, updates every second.
 
 ### `components/voting/CitySelector.tsx`
 
@@ -337,7 +337,7 @@ Auth state + identity context. Bootstraps the Supabase session on mount via `ens
 
 ### `src/hooks/useCountdown.ts`
 
-Custom hook returning `{ hours, minutes, seconds }` as zero-padded two-character strings. Calculates seconds remaining until midnight using `Date` objects. Sets a 1-second `setInterval` on mount, clears on unmount.
+Custom hook returning `{ hours, minutes, seconds }` as zero-padded two-character strings. Calculates seconds remaining until 04:00 America/New_York (vote reset time) using `Date` objects. Sets a 1-second `setInterval` on mount, clears on unmount.
 
 ### `src/lib/utils.ts`
 
@@ -453,7 +453,7 @@ Each entity (`user`, `venue`, `vote`) has an interface plus two implementations 
 
 `node-cron`-scheduled tasks, started from `startJobs()` in `index.ts` (skipped when `NODE_ENV=test`):
 
-- `reset-votes.ts` — daily at 00:00 UTC. Clears all votes and resets each venue's daily metrics.
+- `reset-votes.ts` — daily at 04:00 America/New_York. Clears all votes and resets each venue's daily metrics. This time marks the nightlife-day boundary (see #64).
 - `recalculate-scores.ts` — hourly cron job (node-cron, `'0 * * * *'`). Recomputes `hotspotScore` for every venue using the Phase 2 weighted formula: `(velocity * 0.4) + (dailyCount * 0.3) + (historicalAvg * 0.2) + (externalRating * 0.1)`. **Currently dormant** — the Fastify API is not deployed for this beta (Railway trial expired), so this job never runs. The responsibility has moved to Postgres via the `pg_cron` extension (see migration `0006_hotspot_score_pg_cron.sql` below). The node-cron job is retained in the codebase in case the Fastify path returns post-beta.
 - `syncVenues.ts` / `syncVenues.cli.ts` / `places/*` — Google Places client, filters, and transform logic to populate the `venues` table. Not cron-scheduled; run manually via `npm run sync:venues`.
 
