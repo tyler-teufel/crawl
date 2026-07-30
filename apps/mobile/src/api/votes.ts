@@ -95,6 +95,26 @@ export async function castSupabaseVote(venueId: string): Promise<VoteState> {
   return data as VoteState;
 }
 
+// Supabase-direct read (#196). The RPC is SECURITY INVOKER and takes no
+// arguments — it scopes to the caller via auth.uid() under the "votes: read
+// own" RLS policy — and returns the same shape cast_vote does, so both paths
+// translate errors identically.
+//
+// AUTH_REQUIRED is thrown, not swallowed and not defaulted to a full budget.
+// Falling back to mock state here would reintroduce the exact device-vs-server
+// divergence this function exists to remove, and #158 was an entire ticket
+// about a silently swallowed read failure. A read that races AuthProvider's
+// ensureSignedIn() on a cold boot resolves on one of React Query's retries.
+export async function getSupabaseVoteState(): Promise<VoteState> {
+  const { data, error } = await supabase.rpc('get_vote_state');
+  if (error) {
+    const message = VOTE_RPC_ERROR_MESSAGES[error.message];
+    if (message) throw new VoteError(error.message, message);
+    throw error;
+  }
+  return data as VoteState;
+}
+
 export async function removeMockVote(venueId: string): Promise<VoteState> {
   const current = await getMockVoteState();
   if (!current.votedVenueIds.includes(venueId)) return current;
@@ -111,8 +131,12 @@ export function useVoteState(city: string) {
   return useQuery<VoteState>({
     queryKey: voteKeys.state(city),
     queryFn: async () => {
-      if (!USE_REAL_API) return getMockVoteState();
-      return apiClient<VoteState>(`/votes?city=${encodeURIComponent(city)}`);
+      // Same precedence as useCastVote and the read hooks in venues.ts —
+      // before #196 this branched on hasApi alone, so a Supabase-only build
+      // wrote votes to Postgres and read them back from AsyncStorage.
+      if (hasApi) return apiClient<VoteState>(`/votes?city=${encodeURIComponent(city)}`);
+      if (hasSupabase) return getSupabaseVoteState();
+      return getMockVoteState();
     },
     staleTime: 5_000,
   });
