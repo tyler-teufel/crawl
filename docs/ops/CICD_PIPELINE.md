@@ -117,6 +117,7 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 | `.github/workflows/release-api.yml`        | `push → tags: api-v*`; `workflow_dispatch` (re-run an existing tag) | Docker build/push + optional migrate of `apps/api` |
 | `.github/workflows/staging-build.yml`      | `push → main` (path-filtered)    | EAS staging build (iOS → TestFlight, Android → internal) |
 | `.github/workflows/sync-venues.yml`        | scheduled / manual               | Operational job — unrelated to releases                |
+| `.github/workflows/db-migrate.yml`         | `workflow_dispatch` only         | Apply pending Drizzle migrations to the Supabase database — phone-safe, see "Applying database migrations" below |
 | `.github/workflows/dependabot-auto.yml.txt`| (disabled — see commit b9c7d75)  | Held in `.txt` form; Dependabot is currently off       |
 
 ---
@@ -379,6 +380,37 @@ This workflow only builds and pushes the image; it does not itself call `railway
 
 The old `run_migrations` boolean was a `workflow_dispatch` input with no tag equivalent. It's replaced by the `RUN_DB_MIGRATIONS` variable on the `staging` / `production` GitHub Environments — the same place `DATABASE_URL` already lives. Unset (or anything other than `true`) skips the migrate step's actual work, matching the old input's default of `false`; set it to `true` on an environment to make every tagged release for that environment run migrations automatically.
 
+**Note:** this `migrate` job's step sets `DATABASE_URL` (not `DIRECT_URL`) and does not set `NODE_ENV`, so `drizzle.config.ts`'s `resolveMigrationUrl()` falls through to its `NODE_ENV=development`-equivalent branch and accepts `DATABASE_URL` (the transaction pooler, port 6543) with only a `console.warn`, rather than requiring `DIRECT_URL` as documented immediately below. This predates `db-migrate.yml` and was not changed as part of adding it — flagged here rather than silently fixed, since correcting it changes an existing tag-triggered release workflow's behavior and secrets, which is outside this addition's scope.
+
+---
+
+## Applying database migrations (`db-migrate.yml`)
+
+`.github/workflows/db-migrate.yml` is the manual, `workflow_dispatch`-only way to apply pending Drizzle migrations (`apps/api/drizzle/*.sql`) to the Supabase database, independent of an API release. This repo's convention is `drizzle-kit generate`-only on merge — migrations are authored and committed by whoever writes them, but *applying* them is a separate, deliberate act. This workflow is that act's normal path when nobody has a laptop with `DIRECT_URL` in their environment; it's written to be run from the GitHub mobile app (Actions tab → this workflow → Run workflow).
+
+**Why `DIRECT_URL`, not `DATABASE_URL`:** `apps/api/drizzle.config.ts` requires `DIRECT_URL` (the Supabase direct/session-pooler connection, port 5432) whenever `NODE_ENV !== 'development'`, and throws otherwise. This job sets `NODE_ENV=production` at the job level specifically to keep that guard live, so a missing `DIRECT_URL` secret on the `database` Environment fails the run loudly instead of silently falling back to `DATABASE_URL` — the transaction pooler (port 6543), which breaks DDL and session-scoped features some migrations need and only fails "on later runs" in a way that's hard to trace back to this. See the `release-api.yml` note directly above for what that failure mode actually looks like in practice.
+
+**Inputs:**
+
+| Input | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `dry_run` | boolean | `true` | Preview only — lists pending migrations and the current ledger, applies nothing. The safe option is the default, so tapping through the dispatch form quickly on a phone previews rather than mutates. |
+| `confirm` | string | `''` | Must be typed as exactly `APPLY` (case-sensitive) to allow a real apply. Checked before checkout even runs — ignored entirely when `dry_run` is `true`. A mis-tap or an unset/blank confirm fails the run immediately with no database contact. |
+
+**What it does, in order:**
+
+1. **Validate confirmation input** — the guard above. Runs before checkout.
+2. **List pending migrations** — compares `apps/api/drizzle/meta/_journal.json` against the `drizzle.__drizzle_migrations` ledger in the target database and lists what's pending by name, written to `$GITHUB_STEP_SUMMARY`. Runs in both dry-run and real mode. Read-only (`.github/scripts/db-migrate-report.mjs`) — it never runs DDL or writes to the ledger.
+3. **`drizzle-kit check`** — validates migration-file consistency (catches a corrupted or conflicting local migration history) before anything is applied. Output is captured and written to the summary regardless of pass/fail, since a phone operator reading only the summary still needs to see why a `check` failure blocked the run.
+4. **Apply pending migrations** — only when `dry_run` is `false`, `confirm` is `APPLY`, and there's actually something pending; runs `drizzle-kit migrate` (`npm run db:migrate` in `apps/api`).
+5. **Report ledger state** — always runs (dry-run mode just shows the unchanged current state); prints every row in `drizzle.__drizzle_migrations`, resolved back to migration names, to the summary.
+
+Every step writes to `$GITHUB_STEP_SUMMARY` rather than relying on the raw log — on a phone the job summary is readable and the raw log is close to unusable, so this is the primary UI the workflow is designed around.
+
+**Never uses `drizzle-kit push`.** `db:push` bypasses the migrations ledger entirely and is not wired into this workflow or any `npm run` script path added by it — only `db:migrate` (ledger-tracked, forward-only) runs here.
+
+**GitHub Environment:** `database`, holding the `DIRECT_URL` secret. This is a dedicated Environment rather than reusing `staging`/`production` (which gate `apps/api`/`apps/mobile` deploys — see "GitHub Environments" below) specifically so a required-reviewer rule on database applies can be added independently, without also gating unrelated deploy approvals or being accidentally satisfied by one. Not yet configured with required reviewers as of this change — see "Required Secrets and Variables" for the secret to add.
+
 ---
 
 ## Required Secrets and Variables
@@ -390,6 +422,7 @@ The old `run_migrations` boolean was a `workflow_dispatch` input with no tag equ
 | Secret   | `RELEASE_TAG_APP_PRIVATE_KEY` | `release-tag.yml`        | GitHub App private key (PEM), paired with `RELEASE_TAG_APP_ID` |
 | Secret   | `RAILWAY_TOKEN`               | `release-api.yml`        | Railway CLI auth (not currently referenced by any step — see note below) |
 | Secret   | `DATABASE_URL`                | `release-api.yml` (migrate job) | Only set in the GitHub Environment that runs migrations |
+| Secret   | `DIRECT_URL`                  | `db-migrate.yml`         | Supabase direct/session-pooler connection (port 5432), set on the `database` GitHub Environment. See "Applying database migrations" above for why this is `DIRECT_URL` and not `DATABASE_URL` |
 | Variable | `RUN_DB_MIGRATIONS`           | `release-api.yml` (migrate job) | Per-environment opt-in gate; anything other than `true` skips the migrate step (default off) |
 | Variable | `RAILWAY_SERVICE_STAGING`     | `release-api.yml`        | Railway service name (per environment; not currently referenced by any step — see note below) |
 | Variable | `RAILWAY_SERVICE_PRODUCTION`  | `release-api.yml`        | Railway service name (per environment; not currently referenced by any step — see note below) |
@@ -502,6 +535,7 @@ points at the wrong project.
 | ------------- | --------------------------------- | ------------------- |
 | `staging`     | `release-mobile.yml`, `release-api.yml` | No                  |
 | `production`  | `release-mobile.yml`, `release-api.yml` | **Yes** — configure in Settings → Environments |
+| `database`    | `db-migrate.yml`                  | Optional — not yet configured; can be added later (Settings → Environments → `database` → required reviewers) without any workflow change, since `db-migrate.yml` already runs its `migrate` job under this Environment |
 
 The `production` environment is the gate that replaces the old `workflow_dispatch` button. Pushing a production tag (`api-vX.Y.Z`, `mobile-vX.Y.Z[-ota.<ts>]`) starts the workflow immediately; a designated reviewer must still approve before the environment-gated job (`build-and-push` for API; `release` for mobile) runs.
 
