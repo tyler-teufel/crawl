@@ -1,0 +1,175 @@
+name: DB — Apply Drizzle Migrations
+
+# Applies pending Drizzle migrations (apps/api/drizzle/*.sql) to the target
+# Supabase database. This repo follows a `drizzle-kit generate`-only
+# convention on merge — migrations are authored and committed by a laptop,
+# but APPLYING them is a separate, deliberate act, and this workflow is that
+# act's only automated entry point. Designed to be safely run from a phone
+# via the GitHub mobile app (Actions tab -> this workflow -> Run workflow).
+#
+# workflow_dispatch only — never on push, never scheduled. Applying DDL to
+# a production database is always a human decision.
+#
+# Guardrails, since this is DDL against production from a phone:
+#   1. Typed confirmation (`confirm` must be exactly "APPLY") is required
+#      before anything touches the database, checked before checkout even
+#      runs. A mis-tap on a phone must not migrate production.
+#   2. `dry_run` defaults to true — the safe path is what you get if you
+#      tap through the dispatch form quickly without reading it.
+#   3. Pending migrations (apps/api/drizzle/meta/_journal.json vs the
+#      drizzle.__drizzle_migrations ledger) are listed before anything
+#      applies, in both dry-run and real mode.
+#   4. `drizzle-kit check` runs before `drizzle-kit migrate`, so a corrupted
+#      or conflicting local migration history is caught before it's used.
+#   5. Everything is written to $GITHUB_STEP_SUMMARY, not just the log —
+#      the log is close to unusable on a phone; the summary is the point.
+#   6. Runs under the `database` GitHub Environment, which is where the
+#      DIRECT_URL secret lives — see docs/ops/CICD_PIPELINE.md for why this
+#      is a dedicated Environment rather than reusing `staging`/`production`.
+#
+# DIRECT_URL, not DATABASE_URL: apps/api/drizzle.config.ts requires
+# DIRECT_URL (Supabase direct/session-pooler connection, port 5432) for any
+# non-development run and throws if it's missing — DATABASE_URL is the
+# transaction pooler (port 6543), which breaks DDL and session-scoped
+# features some migrations need. NODE_ENV=production is set for this whole
+# job specifically so that guard stays live; nothing here weakens or works
+# around it.
+#
+# Never uses `drizzle-kit push` — it bypasses the migrations ledger and
+# violates this repo's generate-then-apply convention.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (preview only, no changes). Uncheck to actually apply migrations.'
+        type: boolean
+        required: true
+        default: true
+      confirm:
+        description: 'Type APPLY (exact, case-sensitive) to allow a real apply. Ignored when dry_run is checked.'
+        type: string
+        required: false
+        default: ''
+
+concurrency:
+  # Only one migration run against the database at a time, ever — and never
+  # cancel one mid-flight, since a cancelled `drizzle-kit migrate` could
+  # leave the ledger and schema in an ambiguous state.
+  group: db-migrate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Migrate database
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Where the DIRECT_URL secret lives. Deliberately a dedicated
+    # Environment rather than reusing `staging`/`production` (which gate
+    # apps/api and apps/mobile deploys in release-api.yml / release-mobile.yml)
+    # so that a required-reviewer rule on database applies doesn't get
+    # entangled with — or accidentally satisfied by — a deploy approval.
+    # See "GitHub Environments" in docs/ops/CICD_PIPELINE.md.
+    environment: database
+    env:
+      # Keeps drizzle.config.ts's DIRECT_URL requirement live for every
+      # drizzle-kit invocation in this job (see header comment above).
+      NODE_ENV: production
+    steps:
+      # Runs before checkout — this must fail before anything else in the
+      # job has a chance to touch the database. Inputs are passed through
+      # `env:` rather than interpolated directly into the script text, so a
+      # `confirm` value containing shell metacharacters can't do anything
+      # beyond a plain string comparison.
+      - name: Validate confirmation input
+        env:
+          ACTOR: ${{ github.actor }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          {
+            echo "## DB Migration run"
+            echo ""
+            echo "- **Triggered by:** @$ACTOR"
+            echo "- **Mode:** $([ "$DRY_RUN" = "true" ] && echo 'dry run (preview only)' || echo 'APPLY (will modify the database)')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$DRY_RUN" = "false" ]; then
+            if [ "$CONFIRM" != "APPLY" ]; then
+              echo "::error::To apply migrations, set dry_run to false AND type APPLY exactly (case-sensitive) in the confirm field. Got: '$CONFIRM'"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "**Refused: dry_run was false but confirm was not exactly \`APPLY\`. Nothing was touched.**" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            echo "Confirmed — this run WILL apply pending migrations to the target database."
+          else
+            echo "Dry run — no changes will be applied. (confirm input is ignored in dry-run mode.)"
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 25
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # Requirement: show pending migrations before applying, in both
+      # dry-run and real mode. Compares apps/api/drizzle/meta/_journal.json
+      # against the drizzle.__drizzle_migrations ledger in the target
+      # database (read-only — see .github/scripts/db-migrate-report.mjs).
+      - name: List pending migrations
+        id: list_pending
+        working-directory: apps/api
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node "$GITHUB_WORKSPACE/.github/scripts/db-migrate-report.mjs" pending
+
+      # Validates migration-file consistency (e.g. a conflicting or
+      # out-of-order local history) before anything is applied. Output is
+      # captured either way so a failure is readable from the summary, not
+      # just the log.
+      - name: Validate migrations (drizzle-kit check)
+        working-directory: apps/api
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          set +e
+          OUTPUT=$(npm run db:check 2>&1)
+          STATUS=$?
+          set -e
+          {
+            echo ""
+            echo "### drizzle-kit check"
+            echo ""
+            echo '```'
+            echo "$OUTPUT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$OUTPUT"
+          exit $STATUS
+
+      # Only runs on a real (non-dry-run), confirmed apply, and only if
+      # there's something pending — skips cleanly if the database is
+      # already up to date.
+      - name: Apply pending migrations
+        if: inputs.dry_run == false && steps.list_pending.outputs.pending_count != '0'
+        working-directory: apps/api
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npm run db:migrate
+
+      # Requirement: report the ledger state after applying, so the phone
+      # operator sees confirmation on the run itself instead of having to
+      # query the database separately. Runs in dry-run mode too, where it
+      # just reflects the database's current (unchanged) state.
+      - name: Report ledger state
+        working-directory: apps/api
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: node "$GITHUB_WORKSPACE/.github/scripts/db-migrate-report.mjs" ledger
