@@ -1,0 +1,6 @@
+---
+'@crawl/api': patch
+'@crawl/shared-types': patch
+---
+
+#64: fixed the daily vote budget resetting at UTC midnight (7-8pm Eastern, mid-evening — exactly when voting matters most) instead of at a sensible nightlife-day boundary. Added a canonical `voteDayFor`/`voteDayResetAt` helper to `@crawl/shared-types` (`packages/shared-types/src/voteDay.ts`) so the API, mobile mock store, and mobile countdown share one definition instead of drifting independently. The vote day now rolls over at 04:00 in the relevant city's timezone (`public.cities.timezone`, all `America/New_York` today) rather than the raw UTC calendar date, using a real `Intl.DateTimeFormat`-based zoned-time conversion (verified across the 2026 DST transitions) instead of a fixed UTC offset. `apps/api/src/services/vote.service.ts`'s `today()`, the `VoteRepository.create`/`delete` implementations (which previously stamped `votedAt` from either a second, independent `today()` or Postgres's `CURRENT_DATE` default), and the `reset-votes` cron schedule (now `04:00 America/New_York` instead of `00:00 UTC`) all derive from the shared helper. Mobile-side consumers (`voteStorage.ts`, `useCountdown`) are a follow-up in the same ticket.

@@ -634,21 +634,21 @@ The Explore venue list is a drag-to-collapse bottom sheet (`components/venue/Ven
 
 ---
 
-## Vote-Day Boundary (5am Local "Nightlife Day")
+## Vote-Day Boundary (04:00 City-Local "Nightlife Day")
 
-**Decided:** 2026-07-16, implementation pending (ticket #64, not yet landed)
+**Decided:** 2026-07-28 (timezone basis) / 2026-07-30 (04:00 cutoff hour confirmed), implemented in ticket #64.
 
-**Chosen:** Votes reset at 5am local time each day, not at UTC midnight. The "nightlife day" spans 5am–4:59am the next day (a night out on Friday gets votes counted toward Friday's rankings, not Saturday's).
+**Chosen:** Votes reset at 04:00 in the timezone of the relevant city (`public.cities.timezone`), not at UTC midnight and not at the previously-proposed fixed 5am. Vote day *D* runs 04:00 local on *D* through 03:59:59 local on *D+1* — a venue visit at 01:00 Saturday counts toward Friday night, and rollover lands after last call rather than mid-evening. Implemented once, canonically, in `packages/shared-types/src/voteDay.ts` (`voteDayFor`, `voteDayResetAt`) so the API, the mobile mock store, and the mobile countdown can't drift apart again the way `vote.service.ts`'s raw-UTC `today()` and `voteStorage.ts`'s `todayKey()` had.
 
-**Alternatives:** UTC midnight (current temporary impl), user-timezone midnight (requires location tracking).
+**Alternatives:** UTC midnight (the pre-#64 bug — resets at 7-8pm ET, mid-evening); a fixed 5am-local-nightlife-day boundary (the original proposal in this section, superseded — 4am was chosen instead per repo-owner sign-off, no material difference in mechanism, just the hour); true per-user local time inferred from device/location (rejected — would require tracking a `users.timezone` or per-request location on every vote call, and the whole point of a shared *city* timezone is that everyone at the same venue reset together, not on N different personal clocks).
 
-**Why:** Nightlife events typically run late into the morning. A user hitting a bar at 2am Friday and staying until 5am Saturday should have both visits counted as Friday's activity — they're all one long night out. Resetting at 5am avoids split-counting the tail end of a night session across two vote periods. The 5am threshold is chosen empirically: it's late enough that most venues close by then, but early enough that the reset happens before the next night's crowds arrive.
+**Which city's timezone governs a given user's vote day (sub-decision):** the cap is global per user (#62/#134) but the boundary is inherently per-city, so a user active across cities in different timezones could otherwise see two different "todays" under one global budget. Resolved by deriving vote day from the user's **currently-selected city**, not per-venue — a single user has exactly one vote day at any moment, consistent across every venue they're looking at. Per-venue derivation was rejected as incoherent with a global cap (the same user could simultaneously be in two different "todays" depending which venue's vote they're checking).
 
-**Trade-offs accepted:** Users in different timezones experience a "local 5am" reset independently (no sync point). The vote-reset job runs once per UTC day (00:00 UTC); per-user 5am local resets require either (a) storing user timezone + running a separate job per timezone bucket, or (b) deferring the reset until first vote after local 5am. Option (b) is simpler and aligns with the current architecture (no timezone storage yet).
+**This is behaviorally moot today:** all four active cities (Charlotte NC, South End Charlotte NC, Sayville NY, Patchogue NY) are `America/New_York`, so every user has the same vote day regardless of which is "selected." The first scenario that would exercise the distinction: a fifth city ships in a different timezone (e.g. a Central- or Pacific-time market) and a user who voted while their selected city was that new market then switches their selected city to an Eastern one (or vice versa) before the next boundary — at that point the resolved vote day could shift under them mid-session if the two cities' 04:00 boundaries don't coincide in UTC.
 
-**Implementation target:** `apps/api/src/services/vote.service.ts` to compare cast time against 5am local (read user timezone from a future `users.timezone` column or infer from `userLocation` on mobile, then pass as a parameter). On the mobile side, `src/api/voteStorage.ts` checks if the stored vote date has rolled past 5am local time before returning persisted state.
+**Known gap:** the API does not yet track a per-user "currently selected city" (no `cityId` on `users`, no city parameter on the vote endpoints) — `apps/api/src/services/vote.service.ts` currently resolves every user's vote day against the shared `DEFAULT_VOTE_DAY_TIMEZONE` constant (`America/New_York`) rather than a per-user lookup. This is a deliberate placeholder, correct today because of the single-timezone fact above, not a silent divergence from the "selected city" decision — wiring an actual per-user city resolution is follow-up work gated on the first non-Eastern city shipping.
 
----
+**Trade-offs accepted:** the vote-reset cron (`apps/api/src/jobs/reset-votes.ts`) now fires at `04:00 America/New_York` instead of `00:00 UTC` to stay aligned with the same boundary — a fixed UTC cron time would otherwise have zeroed venue vote counts mid-vote-day again, reintroducing the ticket's own symptom one layer down. The boundary computation uses `Intl.DateTimeFormat` with an explicit IANA `timeZone` (a two-pass zoned-time conversion, verified across the 2026 spring-forward and fall-back transitions) rather than a hand-rolled fixed offset, so it stays correct across DST without a new dependency — at the cost of a few dozen lines of offset-resolution logic instead of a one-line UTC-offset subtraction.
 
 ## Cutover & Rollout Control (Compile-Time Env Flags)
 

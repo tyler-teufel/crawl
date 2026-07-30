@@ -41,20 +41,22 @@ export class DrizzleVoteRepository implements VoteRepository {
     return rows[0] ? rowToVote(rows[0]) : null;
   }
 
-  async create(userId: string, venueId: string): Promise<Vote> {
-    const rows = await this.db.insert(schema.votes).values({ userId, venueId }).returning();
+  async create(userId: string, venueId: string, date: string): Promise<Vote> {
+    const rows = await this.db
+      .insert(schema.votes)
+      .values({ userId, venueId, votedAt: date })
+      .returning();
     return rowToVote(rows[0]);
   }
 
-  async delete(userId: string, venueId: string): Promise<boolean> {
-    const today = new Date().toISOString().slice(0, 10);
+  async delete(userId: string, venueId: string, date: string): Promise<boolean> {
     const result = await this.db
       .delete(schema.votes)
       .where(
         and(
           eq(schema.votes.userId, userId),
           eq(schema.votes.venueId, venueId),
-          eq(schema.votes.votedAt, today)
+          eq(schema.votes.votedAt, date)
         )
       )
       .returning({ id: schema.votes.id });
