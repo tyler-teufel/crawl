@@ -1,15 +1,19 @@
+import { voteDayFor, voteDayResetAt, DEFAULT_VOTE_DAY_TIMEZONE } from '@crawl/shared-types';
 import type { VoteRepository } from '../repositories/vote.repository.js';
 import type { VenueRepository } from '../repositories/venue.repository.js';
 import type { VoteState } from '../schemas/vote.schema.js';
 
 const MAX_DAILY_VOTES = 3;
-const today = () => new Date().toISOString().slice(0, 10);
 
-function nextMidnightUtc(): string {
-  const d = new Date();
-  d.setUTCHours(24, 0, 0, 0);
-  return d.toISOString();
-}
+// The API doesn't yet track a per-user "currently selected city," so vote
+// days use this shared timezone rather than a per-user one. All active
+// cities are America/New_York today, so this is behaviorally identical to
+// the correct per-city resolution until a non-Eastern city ships — see
+// docs/architecture/DESIGN_DECISIONS.md ("Vote-Day Boundary").
+const VOTE_DAY_TIMEZONE = DEFAULT_VOTE_DAY_TIMEZONE;
+
+const today = () => voteDayFor(new Date(), VOTE_DAY_TIMEZONE);
+const resetAt = () => voteDayResetAt(new Date(), VOTE_DAY_TIMEZONE).toISOString();
 
 export class VoteService {
   constructor(
@@ -23,7 +27,7 @@ export class VoteService {
       remainingVotes: Math.max(0, MAX_DAILY_VOTES - votes.length),
       maxVotes: MAX_DAILY_VOTES,
       votedVenueIds: votes.map((v) => v.venueId),
-      resetAt: nextMidnightUtc(),
+      resetAt: resetAt(),
     };
   }
 
@@ -44,14 +48,14 @@ export class VoteService {
       throw new VoteError('VENUE_NOT_FOUND', 'Venue not found.');
     }
 
-    await this.voteRepo.create(userId, venueId);
+    await this.voteRepo.create(userId, venueId, today());
     await this.venueRepo.incrementVoteCount(venueId);
 
     return this.getVoteState(userId);
   }
 
   async removeVote(userId: string, venueId: string): Promise<VoteState> {
-    const deleted = await this.voteRepo.delete(userId, venueId);
+    const deleted = await this.voteRepo.delete(userId, venueId, today());
     if (!deleted) {
       throw new VoteError('VOTE_NOT_FOUND', 'No vote found for this venue today.');
     }

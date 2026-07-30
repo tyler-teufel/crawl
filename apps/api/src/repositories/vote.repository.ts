@@ -11,13 +11,11 @@ export interface Vote {
 export interface VoteRepository {
   findByUserAndDate(userId: string, date: string): Promise<Vote[]>;
   findByUserVenueDate(userId: string, venueId: string, date: string): Promise<Vote | null>;
-  create(userId: string, venueId: string): Promise<Vote>;
-  delete(userId: string, venueId: string): Promise<boolean>;
+  create(userId: string, venueId: string, date: string): Promise<Vote>;
+  delete(userId: string, venueId: string, date: string): Promise<boolean>;
   resetByDate(date: string): Promise<number>;
   countByVenueAndDate(venueId: string, date: string): Promise<number>;
 }
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 export class InMemoryVoteRepository implements VoteRepository {
   private votes: Map<string, Vote> = new Map();
@@ -34,21 +32,21 @@ export class InMemoryVoteRepository implements VoteRepository {
     );
   }
 
-  async create(userId: string, venueId: string): Promise<Vote> {
+  async create(userId: string, venueId: string, date: string): Promise<Vote> {
     const vote: Vote = {
       id: randomUUID(),
       userId,
       venueId,
-      votedAt: today(),
+      votedAt: date,
       createdAt: new Date().toISOString(),
     };
     this.votes.set(vote.id, vote);
     return vote;
   }
 
-  async delete(userId: string, venueId: string): Promise<boolean> {
+  async delete(userId: string, venueId: string, date: string): Promise<boolean> {
     const vote = [...this.votes.values()].find(
-      (v) => v.userId === userId && v.venueId === venueId && v.votedAt === today()
+      (v) => v.userId === userId && v.venueId === venueId && v.votedAt === date
     );
     if (!vote) return false;
     this.votes.delete(vote.id);

@@ -27,7 +27,7 @@ describe('scheduleVoteReset', () => {
     vi.clearAllMocks();
   });
 
-  it('schedules a cron job with expression "0 0 * * *"', () => {
+  it('schedules a cron job at the vote-day boundary (04:00 local)', () => {
     const { voteService, venueService, logger } = makeServices();
     scheduleVoteReset(
       voteService as never,
@@ -35,9 +35,9 @@ describe('scheduleVoteReset', () => {
       logger
     );
     expect(mockSchedule).toHaveBeenCalledWith(
-      '0 0 * * *',
+      '0 4 * * *',
       expect.any(Function),
-      expect.any(Object)
+      expect.objectContaining({ timezone: 'America/New_York' })
     );
   });
 
