@@ -358,6 +358,26 @@ Route handler (HTTP)  →  Service (business logic)  →  Repository (persistenc
 
 ---
 
+## Vote-State Read Path: a `get_vote_state()` RPC, `SECURITY INVOKER` (#196)
+
+**Status:** Adopted 2026-07-30.
+
+**The problem:** #126 wired the vote *write* path to `cast_vote`, but the read path (`apps/mobile/src/api/votes.ts`'s `useVoteState`) still branched on `hasApi` only. In the beta's actual shape (`EXPO_PUBLIC_API_URL` unset, Supabase configured), `hasApi` is false, so every read fell through to `getMockVoteState()`, backed by AsyncStorage — votes are written to Postgres and read back from the device. A reinstall then appeared to grant a fresh daily budget while the server still held the real count, the next cast was rejected with `NO_VOTES_REMAINING` against a UI claiming votes remained, two devices on one account disagreed until each cast, and the vote-day rollover was evaluated against local storage instead of the server's boundary.
+
+**Chosen over a client-side `SELECT` against `votes` under RLS:** a companion RPC keeps the vote-day boundary (#64) computed in exactly one place, `public.vote_day()`, instead of reimplementing it client-side against device local time (the same class of drift #64 and the vote-day section above both exist to prevent), and it returns the identical `VoteState` shape `cast_vote` already returns, so the mobile client parses one shape regardless of which call produced it.
+
+**`SECURITY INVOKER`, not `SECURITY DEFINER`:** `cast_vote` needs definer privilege because it writes past RLS's insert-nothing posture for `authenticated` on `votes`. A read of the caller's *own* votes needs no such escalation — `0002_rls_policies.sql`'s existing `"votes: read own"` policy (`USING (auth.uid() = user_id)`) already restricts a plain `SELECT` run as `authenticated` to exactly the caller's own rows, and Supabase's default schema grants already give `authenticated` table-level `SELECT` on `votes` (the same default `cities`/`venues`'s public-read policies rely on). Defaulting to `SECURITY DEFINER` by copying `cast_vote`'s shape would grant this function elevated privilege it has no use for and every reason not to hold. `get_vote_state` keeps an explicit `WHERE user_id = auth.uid()` anyway, belt-and-suspenders, same as `cast_vote`'s own defensive re-checks — but the isolation guarantee comes from RLS, not that filter.
+
+**No duplicated `resetAt`/`maxVotes`:** `cast_vote` (0007) computed `v_reset_at` inline and declared the 3-vote cap as a local constant. Reimplementing either in `get_vote_state` would risk the same two-implementations drift `public.vote_day()` was introduced to eliminate for the vote-day boundary itself. `apps/api/drizzle/0008_get_vote_state_rpc.sql` extracts `public.vote_max_daily_votes()` (returns `3`) and `public.vote_reset_at(at, tz)` (built on `vote_day()`: the next vote day's 04:00-`tz` cutoff, as an instant) and re-points `cast_vote` at both via `CREATE OR REPLACE` — `0007_cast_vote_rpc.sql` itself stays immutable, same pattern 0007 used to re-point 0006's `recalculate_hotspot_scores()`. Neither helper needs `SECURITY DEFINER`/`REVOKE`/`GRANT`: both are pure functions of their arguments (via `vote_day()`, itself privilege-free) with no table access.
+
+**Grants:** `EXECUTE` revoked from `PUBLIC` and granted only to `authenticated` — not `anon`. Same reasoning as `cast_vote`: Supabase's `anon` role is unauthenticated PostgREST traffic, while both linked-account users and this beta's Supabase anonymous-sign-in users carry `authenticated` with a real `auth.uid()`. `auth.uid()` is the only source of identity — no user-id parameter, which would let any caller read anyone's vote state. A caller with zero votes today gets a well-formed full-budget state (`remainingVotes = maxVotes`, `votedVenueIds = []`), not null or an error — there's no row to be missing; the aggregate over zero matching rows already has that shape.
+
+**Verification:** nothing applied to the live Supabase project — the MCP connector was not authorized this session. Verified against a scratch local Postgres 16, with RLS enabled and the same `"votes: read own"` policy as `0002_rls_policies.sql` added to the test schema (not otherwise applied by `apps/api/tests/db/cast-vote-rpc.test.ts`, which only exercises 0006/0007/0008's own functions) — zero-votes-today returns a full budget, today's votes are reflected in `remainingVotes`/`votedVenueIds`, a vote inserted on a previous vote day is excluded, `resetAt` matches `cast_vote`'s for the same instant, an unauthenticated call is rejected with `AUTH_REQUIRED`, and `anon` is denied `EXECUTE` outright. All 26 pre-existing `cast_vote` tests still pass after the shared-helper re-point, confirming no behavior change. Added to the existing suite rather than a sibling test file, to avoid two files racing to `DROP`/`CREATE` the same unnamespaced `public.votes`/`venues`/`users` objects under Vitest's default file-parallel execution.
+
+**Scope:** this ticket ships the RPC only. Re-pointing `apps/mobile/src/api/votes.ts`'s `useVoteState` at it (replacing the `hasApi`-only branch) is mobile-engineer follow-up work, out of scope here.
+
+---
+
 ## Deployment Target: Railway (planned)
 
 **Chosen over:** Render, Fly.io, AWS ECS, Vercel, Supabase Edge Functions

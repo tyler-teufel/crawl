@@ -57,6 +57,13 @@
       "when": 1785423319289,
       "tag": "0007_cast_vote_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785426907980,
+      "tag": "0008_get_vote_state_rpc",
+      "breakpoints": true
     }
   ]
 }

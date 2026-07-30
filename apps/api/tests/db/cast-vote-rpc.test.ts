@@ -12,6 +12,12 @@ import { voteDayFor, voteDayResetAt } from '@crawl/shared-types';
  * vote.service.ts (covered by tests/services/vote.service.test.ts) only
  * protects the Fastify path, which isn't deployed for this beta.
  *
+ * Also covers `get_vote_state` (drizzle/0008_get_vote_state_rpc.sql, #196) —
+ * the read-path counterpart, added to this file rather than a sibling so it
+ * shares one beforeAll/afterAll-managed `public.votes`/`venues`/`users`
+ * schema instead of two test files racing to DROP/CREATE the same
+ * unnamespaced `public.*` objects against the one CI Postgres instance.
+ *
  * Opt-in: requires TEST_DATABASE_URL, pointed at a scratch Postgres
  * instance this suite is free to drop/recreate tables in — deliberately
  * NOT `DATABASE_URL`/`DIRECT_URL`, which may point at a real dev/prod
@@ -22,17 +28,24 @@ import { voteDayFor, voteDayResetAt } from '@crawl/shared-types';
  *   createdb crawl_rpc_test
  *   TEST_DATABASE_URL=postgres://localhost/crawl_rpc_test npm test -- cast-vote-rpc
  *
- * This applies the real 0007 migration file verbatim, so it's exercising
- * the exact SQL that ships. It does not exercise 0006's pg_cron scheduling
- * (unavailable outside Supabase) — only the functions 0007 creates/
- * replaces in `public`, against a minimal hand-rolled `users`/`venues`/
- * `votes` schema (not the full migration chain, which assumes a live
- * Supabase project's `auth.users`/seed data for its data-remediation
- * steps).
+ * This applies the real 0007 and 0008 migration files verbatim, so it's
+ * exercising the exact SQL that ships. It does not exercise 0006's pg_cron
+ * scheduling (unavailable outside Supabase) — only the functions 0007/0008
+ * create/replace in `public`, against a minimal hand-rolled `users`/
+ * `venues`/`votes` schema (not the full migration chain, which assumes a
+ * live Supabase project's `auth.users`/seed data for its data-remediation
+ * steps). RLS is enabled on `votes` with the same `"votes: read own"`
+ * policy `0002_rls_policies.sql` defines on the live project (not applied
+ * by this suite otherwise), since `get_vote_state` runs `SECURITY INVOKER`
+ * and its "own rows only" guarantee is meaningless to test without it.
  */
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const migrationSql = readFileSync(path.resolve(dir, '../../drizzle/0007_cast_vote_rpc.sql'), 'utf8');
+const getVoteStateMigrationSql = readFileSync(
+  path.resolve(dir, '../../drizzle/0008_get_vote_state_rpc.sql'),
+  'utf8'
+);
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const NY = 'America/New_York';
@@ -44,6 +57,10 @@ describe.skipIf(!TEST_DATABASE_URL)('cast_vote RPC (requires TEST_DATABASE_URL)'
   const USER_DUP = '10000000-0000-0000-0000-0000000000dd';
   const USER_COUNT = '10000000-0000-0000-0000-0000000000c0';
   const USER_CONCURRENT = '10000000-0000-0000-0000-0000000000cc';
+  const USER_READ_EMPTY = '10000000-0000-0000-0000-0000000000f0';
+  const USER_READ_TODAY = '10000000-0000-0000-0000-0000000000f1';
+  const USER_READ_PREVIOUS_DAY = '10000000-0000-0000-0000-0000000000f2';
+  const USER_READ_RESET_PARITY = '10000000-0000-0000-0000-0000000000f3';
   const VENUE_1 = '20000000-0000-0000-0000-000000000001';
   const VENUE_2 = '20000000-0000-0000-0000-000000000002';
   const VENUE_3 = '20000000-0000-0000-0000-000000000003';
@@ -86,6 +103,25 @@ describe.skipIf(!TEST_DATABASE_URL)('cast_vote RPC (requires TEST_DATABASE_URL)'
       return { state: null, error: err as Error };
     } finally {
       await conn.end();
+    }
+  }
+
+  async function getVoteStateAs(
+    userId: string | null
+  ): Promise<{ state: Record<string, unknown> | null; error: Error | null }> {
+    await client.query('SET ROLE authenticated');
+    if (userId) {
+      await client.query(`SET request.jwt.claim.sub = '${userId}'`);
+    } else {
+      await client.query('RESET request.jwt.claim.sub');
+    }
+    try {
+      const res = await client.query('SELECT public.get_vote_state() AS state');
+      return { state: res.rows[0].state as Record<string, unknown>, error: null };
+    } catch (err) {
+      return { state: null, error: err as Error };
+    } finally {
+      await client.query('RESET ROLE');
     }
   }
 
@@ -141,19 +177,53 @@ describe.skipIf(!TEST_DATABASE_URL)('cast_vote RPC (requires TEST_DATABASE_URL)'
         created_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE (user_id, venue_id, voted_at)
       );
+
+      -- Mirrors 0002_rls_policies.sql's "votes: read own" policy on the live
+      -- project (not otherwise applied by this suite) — get_vote_state
+      -- (0008) runs SECURITY INVOKER, so its "caller's own rows only"
+      -- guarantee only means something under RLS actually being enabled
+      -- here, same as production. Supabase also grants table-level
+      -- SELECT/INSERT/UPDATE/DELETE and schema USAGE to authenticated/anon
+      -- by default at project bootstrap (not via a tracked migration,
+      -- since 0000/0002 rely on it implicitly for the mobile client's
+      -- direct cities/venues reads) — reproduced here since this scratch
+      -- database has no such default.
+      ALTER TABLE public.votes ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "votes: read own"
+        ON public.votes FOR SELECT
+        USING (auth.uid() = user_id);
+      GRANT USAGE ON SCHEMA public TO authenticated;
+      GRANT SELECT ON public.votes TO authenticated;
+      -- Supabase also grants USAGE on the auth schema and EXECUTE on
+      -- auth.uid() to authenticated/anon by default -- needed here because
+      -- get_vote_state calls auth.uid() as SECURITY INVOKER (i.e. as
+      -- authenticated itself), unlike cast_vote's SECURITY DEFINER call to
+      -- the same function, which runs with the function owner's privileges.
+      GRANT USAGE ON SCHEMA auth TO authenticated;
+      GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
     `);
 
-    // The migration under test, applied verbatim — creates public.vote_day,
-    // public.cast_vote, replaces public.recalculate_hotspot_scores, and
-    // sets up the EXECUTE grants.
+    // The migrations under test, applied verbatim — 0007 creates
+    // public.vote_day, public.cast_vote, replaces
+    // public.recalculate_hotspot_scores, and sets up cast_vote's EXECUTE
+    // grants; 0008 adds public.vote_max_daily_votes, public.vote_reset_at,
+    // public.get_vote_state, and re-points cast_vote at the two new helpers.
     await client.query(migrationSql);
+    await client.query(getVoteStateMigrationSql);
 
-    await client.query('INSERT INTO public.users (id) VALUES ($1), ($2), ($3), ($4)', [
-      USER_CAP,
-      USER_DUP,
-      USER_COUNT,
-      USER_CONCURRENT,
-    ]);
+    await client.query(
+      'INSERT INTO public.users (id) VALUES ($1), ($2), ($3), ($4), ($5), ($6), ($7), ($8)',
+      [
+        USER_CAP,
+        USER_DUP,
+        USER_COUNT,
+        USER_CONCURRENT,
+        USER_READ_EMPTY,
+        USER_READ_TODAY,
+        USER_READ_PREVIOUS_DAY,
+        USER_READ_RESET_PARITY,
+      ]
+    );
     await client.query('INSERT INTO public.venues (id) VALUES ($1), ($2), ($3), ($4), ($5)', [
       VENUE_1,
       VENUE_2,
@@ -168,9 +238,12 @@ describe.skipIf(!TEST_DATABASE_URL)('cast_vote RPC (requires TEST_DATABASE_URL)'
       DROP TABLE IF EXISTS public.votes CASCADE;
       DROP TABLE IF EXISTS public.venues CASCADE;
       DROP TABLE IF EXISTS public.users CASCADE;
+      DROP FUNCTION IF EXISTS public.get_vote_state();
       DROP FUNCTION IF EXISTS public.cast_vote(uuid);
       DROP FUNCTION IF EXISTS public.recalculate_hotspot_scores();
+      DROP FUNCTION IF EXISTS public.vote_reset_at(timestamptz, text);
       DROP FUNCTION IF EXISTS public.vote_day(timestamptz, text);
+      DROP FUNCTION IF EXISTS public.vote_max_daily_votes();
     `);
     await client.end();
   });
@@ -327,6 +400,73 @@ describe.skipIf(!TEST_DATABASE_URL)('cast_vote RPC (requires TEST_DATABASE_URL)'
         [voteDay, NY]
       );
       expect(resetRes.rows[0].r).toBe(expected);
+    });
+  });
+
+  // #196: get_vote_state (drizzle/0008_get_vote_state_rpc.sql) — the read
+  // path that returns the caller's own vote state without writing anything.
+  describe('get_vote_state RPC', () => {
+    it('returns a full budget when the caller has cast no votes today', async () => {
+      const { state, error } = await getVoteStateAs(USER_READ_EMPTY);
+      expect(error).toBeNull();
+      expect(state?.remainingVotes).toBe(3);
+      expect(state?.maxVotes).toBe(3);
+      expect(state?.votedVenueIds).toEqual([]);
+    });
+
+    it("reflects the caller's votes cast today in remainingVotes and votedVenueIds", async () => {
+      const first = await castVoteAs(USER_READ_TODAY, VENUE_1);
+      expect(first.error).toBeNull();
+      const second = await castVoteAs(USER_READ_TODAY, VENUE_2);
+      expect(second.error).toBeNull();
+
+      const { state, error } = await getVoteStateAs(USER_READ_TODAY);
+      expect(error).toBeNull();
+      expect(state?.remainingVotes).toBe(1);
+      expect(state?.maxVotes).toBe(3);
+      expect((state?.votedVenueIds as string[]).slice().sort()).toEqual(
+        [VENUE_1, VENUE_2].sort()
+      );
+    });
+
+    it('excludes votes cast on a previous vote day', async () => {
+      const { rows: dayRows } = await client.query('SELECT public.vote_day(now()) AS d');
+      const today = dayRows[0].d as Date;
+
+      // Inserted directly (not via cast_vote, which always writes today's
+      // vote day) so it's dated strictly before the current vote day.
+      await client.query(
+        `INSERT INTO public.votes (user_id, venue_id, voted_at)
+         VALUES ($1, $2, ($3::date - interval '1 day')::date)`,
+        [USER_READ_PREVIOUS_DAY, VENUE_3, today]
+      );
+
+      const { state, error } = await getVoteStateAs(USER_READ_PREVIOUS_DAY);
+      expect(error).toBeNull();
+      expect(state?.remainingVotes).toBe(3);
+      expect(state?.votedVenueIds).toEqual([]);
+    });
+
+    it("agrees with cast_vote's resetAt for the same instant", async () => {
+      const cast = await castVoteAs(USER_READ_RESET_PARITY, VENUE_4);
+      expect(cast.error).toBeNull();
+
+      const { state, error } = await getVoteStateAs(USER_READ_RESET_PARITY);
+      expect(error).toBeNull();
+      expect(state?.resetAt).toBe(cast.state?.resetAt);
+    });
+
+    it('rejects an unauthenticated call (no auth.uid()) with AUTH_REQUIRED', async () => {
+      const { error } = await getVoteStateAs(null);
+      expect(error?.message).toBe('AUTH_REQUIRED');
+    });
+
+    it('denies the anon role EXECUTE outright (never reaches auth.uid())', async () => {
+      await client.query('SET ROLE anon');
+      await expect(client.query('SELECT public.get_vote_state()')).rejects.toThrow(
+        /permission denied for function get_vote_state/
+      );
+      await client.query('RESET ROLE');
     });
   });
 
