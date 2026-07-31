@@ -378,6 +378,24 @@ Route handler (HTTP)  →  Service (business logic)  →  Repository (persistenc
 
 ---
 
+## Auth Trigger Security Hardening: `handle_new_auth_user()` Search Path (#189)
+
+**Status:** Adopted 2026-07-31 (security review audit, pre-beta; not applied to any database).
+
+**The problem:** `0005_users_provisioning_and_geo_remediation.sql` declared `public.handle_new_auth_user()` as `SECURITY DEFINER` with only `SET search_path = public`, omitting `pg_temp`. Postgres always searches the caller's session-local temp schema (`pg_temp`) **before** any explicitly configured `search_path` unless `pg_temp` is listed explicitly — leaving a shadowing gap where a role with ordinary `TEMP` privilege (granted to `PUBLIC` by default, including Supabase's `anon`/`authenticated`) could `CREATE TEMP TABLE users(...)` in its session and have an unqualified reference inside the function body resolve to attacker-controlled rows instead of `public.users`.
+
+**Severity: LOW, not a live hole.** The function body already schema-qualifies its only table reference (`INSERT INTO public.users`), so nothing today shadows it. It's a trigger function (`RETURNS trigger`), which Postgres refuses to invoke outside trigger context and refuses to call directly via RPC regardless of `EXECUTE` grants — so it can't be called by a role that might have created a shadowing temp table. Safe today by accident of how it happens to be written, not by its declaration. This closes the gap so a future edit adding an unqualified reference can't silently become exploitable. Matches the `search_path = public, pg_temp` pattern `recalculate_hotspot_scores()` (0006) and `cast_vote()`/`vote_day()` (0007) already follow.
+
+**Chosen:** `apps/api/drizzle/0009_fix_handle_new_auth_user_search_path.sql` ships as `CREATE OR REPLACE FUNCTION` with identical signature (`handle_new_auth_user()`, no arguments, `RETURNS trigger`) and verbatim body — only the `search_path` line changes — so it replaces the existing function in-place rather than creating an overload. Same pattern 0007 used to re-point 0006's `recalculate_hotspot_scores()`. `0005` is an already-applied migration and stays immutable; this migration applies the fix via `CREATE OR REPLACE`.
+
+**REVOKE pattern divergence:** also issues `REVOKE EXECUTE ON FUNCTION public.handle_new_auth_user() FROM PUBLIC`, departing from 0006/0007's `REVOKE`-then-`GRANT`-to-a-specific-role pattern. No grant back is issued. This is deliberate and non-obvious: a trigger function has **no direct-invocation path**. The `on_auth_user_created` trigger calls it by OID without an `EXECUTE` check, and Postgres refuses any attempt to call a `RETURNS trigger` function directly via RPC regardless of `EXECUTE` grants — so there's no role to grant back to. Revoking `PUBLIC` is belt-and-braces hardening (a surface-level posture) rather than a functional bypass closure (the real safety comes from Postgres's restriction on trigger-function invocation). Note the `REVOKE` is required precisely *because* `CREATE OR REPLACE` preserves the existing ACL: the replace alone would have carried 0005's implicit default (`EXECUTE` to `PUBLIC`) forward unchanged.
+
+**Trade-off accepted:** like 0006 and 0007, the SQL lives as a migration file, not TypeScript — no behavioral change from the application layer, only a declaration fix, so there's no Route → Service → Repository sync needed.
+
+**Verification:** nothing applied to the live Supabase project — the MCP connector was not authorized this session. `0006`–`0008` are also still pending, so `0009` queues behind them. Verified statically: no other `SECURITY DEFINER` function in `apps/api/drizzle/**` omits `pg_temp`, and the signature is an exact match to 0005's.
+
+---
+
 ## Deployment Target: Railway (planned)
 
 **Chosen over:** Render, Fly.io, AWS ECS, Vercel, Supabase Edge Functions

@@ -64,6 +64,13 @@
       "when": 1785426907980,
       "tag": "0008_get_vote_state_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785533106433,
+      "tag": "0009_fix_handle_new_auth_user_search_path",
+      "breakpoints": true
     }
   ]
 }

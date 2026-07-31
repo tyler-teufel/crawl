@@ -20,10 +20,10 @@ import { VenueProvider } from '@/context/VenueContext';
 import { NAV_THEME } from '@/lib/theme';
 import {
   readOnboardingFlag,
+  readSessionWithTimeout,
   resolveOnboardingGateStatus,
   subscribeToOnboardingStatus,
 } from '@/lib/onboarding';
-import { supabase } from '@/lib/supabase';
 import { verifySentryDelivery } from '@/lib/sentry-verify';
 import { OfflineBanner } from '../components/ui/OfflineBanner';
 import { AnimatedSplash } from '../components/layout/AnimatedSplash';
@@ -189,6 +189,9 @@ const errorStyles = StyleSheet.create({
  * internals rather than a formal ordering guarantee — revisit it if
  * supabase-js is upgraded, a custom `lock` is added to the client, or
  * `ensureSignedIn()`'s existing-session-first check changes.
+ *
+ * The session read itself is bounded by a timeout (#191) — see
+ * `readSessionWithTimeout` in `src/lib/onboarding.ts`.
  */
 function OnboardingGate() {
   const [flagStatus, setFlagStatus] = React.useState<'loading' | 'onboarding' | 'done'>('loading');
@@ -199,12 +202,10 @@ function OnboardingGate() {
   React.useEffect(() => {
     let mounted = true;
 
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        if (mounted) setHasReturningSession(!!session?.user);
+    readSessionWithTimeout()
+      .then((hasSession) => {
+        if (mounted) setHasReturningSession(hasSession);
       })
-      .catch(() => {})
       .finally(() => {
         if (mounted) setSessionStatus('done');
       });

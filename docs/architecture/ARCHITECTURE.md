@@ -124,9 +124,13 @@ this launch's auth bootstrap (#158). A returning user with a persisted session
 is considered already onboarded even if the flag is unset, since they completed
 auth in a prior launch. The gate holds a `'loading'` state until both async
 reads settle, preventing a race-condition redirect on the session read's stale
-`false` default. The flag is still written by `markOnboardingComplete()` after
-the user picks an auth path on `/auth`, and it still gates the welcome and
-location screens for new installs. Subsequent launches skip the onboarding
+`false` default. The session read (`getSession()`) is raced against a 5-second
+timeout (#191) — if the read stalls (bad connectivity, captive-portal wifi,
+Supabase incident), it times out and is treated as "no returning session",
+falling through to the flag's answer. Both timeout and thrown errors are
+reported to Sentry. The flag is still written by `markOnboardingComplete()`
+after the user picks an auth path on `/auth`, and it still gates the welcome
+and location screens for new installs. Subsequent launches skip the onboarding
 group if either signal says done; reinstalling the app clears AsyncStorage and
 Supabase storage, restarting the flow.
 
