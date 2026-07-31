@@ -21,6 +21,7 @@ import { NAV_THEME } from '@/lib/theme';
 import {
   readOnboardingFlag,
   resolveOnboardingGateStatus,
+  resolveOnboardingRedirect,
   subscribeToOnboardingStatus,
 } from '@/lib/onboarding';
 import { supabase } from '@/lib/supabase';
@@ -189,6 +190,13 @@ const errorStyles = StyleSheet.create({
  * internals rather than a formal ordering guarantee — revisit it if
  * supabase-js is upgraded, a custom `lock` is added to the client, or
  * `ensureSignedIn()`'s existing-session-first check changes.
+ *
+ * The gate redirects in BOTH directions. `/` is claimed by two index routes —
+ * `(onboarding)/index` and `(tabs)/index` — and expo-router resolves that
+ * ambiguity in `(onboarding)`'s favor, so every cold start renders the welcome
+ * screen first. Redirecting only into onboarding therefore re-prompted a
+ * already-onboarded user for sign-in on every single launch; the 'done' branch
+ * below is what routes them back into the tabs.
  */
 function OnboardingGate() {
   const [flagStatus, setFlagStatus] = React.useState<'loading' | 'onboarding' | 'done'>('loading');
@@ -209,6 +217,14 @@ function OnboardingGate() {
         if (mounted) setSessionStatus('done');
       });
 
+    // Sign-out is the one event that must move `hasReturningSession` after the
+    // initial read. This listener only ever clears it: a session APPEARING
+    // mid-run is the anonymous bootstrap for a brand-new install, which must
+    // not be mistaken for a returning user and skip onboarding.
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted && !session) setHasReturningSession(false);
+    });
+
     const refresh = () => {
       readOnboardingFlag().then((done) => {
         if (mounted) setFlagStatus(done ? 'done' : 'onboarding');
@@ -216,17 +232,19 @@ function OnboardingGate() {
     };
 
     refresh();
-    // Re-read the flag when markOnboardingComplete fires so finishing the
-    // onboarding flow doesn't get bounced straight back to the splash.
+    // Re-read the flag when markOnboardingComplete / clearOnboardingFlag fires
+    // so finishing (or signing out of) the flow doesn't get bounced back.
     const unsubscribe = subscribeToOnboardingStatus(refresh);
 
     return () => {
       mounted = false;
+      sub.subscription.unsubscribe();
       unsubscribe();
     };
   }, []);
 
   const status = resolveOnboardingGateStatus(flagStatus, sessionStatus, hasReturningSession);
+  const redirect = resolveOnboardingRedirect(status, segments[0] === '(onboarding)');
 
   // Hide everything until we know which branch to take. The Stack already
   // rendered above us; we just don't redirect yet.
@@ -234,9 +252,5 @@ function OnboardingGate() {
     return <View style={{ display: 'none' }} />;
   }
 
-  const inOnboardingGroup = segments[0] === '(onboarding)';
-  if (status === 'onboarding' && !inOnboardingGroup) {
-    return <Redirect href="/(onboarding)" />;
-  }
-  return null;
+  return redirect ? <Redirect href={redirect} /> : null;
 }

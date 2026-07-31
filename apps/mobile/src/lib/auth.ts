@@ -45,6 +45,23 @@ export async function ensureSignedIn() {
 }
 
 // ---------------------------------------------------------------------------
+// Display name
+// ---------------------------------------------------------------------------
+
+/**
+ * Store the user's chosen display name on the Supabase user as
+ * `user_metadata.full_name` — the field `resolveDisplayName` reads and the
+ * one Google's id_token already populates. Set by the onboarding name step
+ * and by the Apple credential capture below.
+ */
+export async function updateDisplayName(name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const { error } = await supabase.auth.updateUser({ data: { full_name: trimmed } });
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
 // Apple
 // ---------------------------------------------------------------------------
 
@@ -91,6 +108,19 @@ export async function signInWithApple() {
     token: idToken,
   });
   if (error) throw error;
+
+  // Apple returns `fullName` only on the FIRST authorization for this app —
+  // never again, and never in the id_token — so it has to be captured here or
+  // it is lost. Without it a "Hide My Email" user has no name at all and the
+  // profile falls back to the opaque relay address.
+  const appleName = [credential.fullName?.givenName, credential.fullName?.familyName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  if (appleName) {
+    await updateDisplayName(appleName);
+  }
+
   return data;
 }
 

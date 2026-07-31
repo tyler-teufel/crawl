@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StepDots } from '../../components/onboarding/StepDots';
 
 export default function OnboardingWelcome() {
   const router = useRouter();
@@ -24,11 +25,7 @@ export default function OnboardingWelcome() {
       </View>
 
       <View className="w-full gap-8">
-        <View className="flex-row items-center justify-center gap-2">
-          <View className="h-2 w-2 rounded-full bg-crawl-purple-light" />
-          <View className="h-2 w-2 rounded-full bg-crawl-border" />
-          <View className="h-2 w-2 rounded-full bg-crawl-border" />
-        </View>
+        <StepDots index={0} />
         <Pressable
           onPress={() => router.push('/(onboarding)/location')}
           className="items-center rounded-crawl-lg bg-crawl-purple px-6 py-4 active:opacity-80">

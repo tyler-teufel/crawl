@@ -28,10 +28,12 @@ export interface VenueRow {
   hours: string | null;
   description: string | null;
   image_url: string | null;
+  phone: string | null;
+  website: string | null;
 }
 
 export const VENUE_COLUMNS =
-  'id, name, primary_type, address, latitude, longitude, hotspot_score, vote_count, is_open, is_trending, highlights, price_level, hours, description, image_url';
+  'id, name, primary_type, address, latitude, longitude, hotspot_score, vote_count, is_open, is_trending, highlights, price_level, hours, description, image_url, phone, website';
 
 export function rowToVenue(row: VenueRow): Venue | null {
   const lat = Number(row.latitude);
@@ -64,6 +66,8 @@ export function rowToVenue(row: VenueRow): Venue | null {
     priceLevel: row.price_level,
     hours: row.hours ?? '',
     description: row.description ?? '',
+    phone: row.phone,
+    website: row.website,
   };
 }
 

@@ -17,6 +17,8 @@ export const venueSchema = z.object({
   priceLevel: z.number().int().min(0).max(4).nullable(),
   hours: z.string(),
   description: z.string(),
+  phone: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
   imageUrl: z.string().url().optional(),
   distance: z.string().optional(),
   createdAt: z.string().datetime(),

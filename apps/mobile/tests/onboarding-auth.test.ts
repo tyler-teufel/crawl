@@ -19,6 +19,7 @@ import { readOnboardingFlag, resolveOnboardingGateStatus } from '@/lib/onboardin
 
 const setPending = vi.hoisted(() => vi.fn());
 const replace = vi.hoisted(() => vi.fn());
+const push = vi.hoisted(() => vi.fn());
 const linkApple = vi.hoisted(() => vi.fn());
 const linkGoogle = vi.hoisted(() => vi.fn());
 const ensureSignedIn = vi.hoisted(() => vi.fn());
@@ -43,7 +44,7 @@ vi.mock('react-native', () => ({
   Alert: { alert },
 }));
 
-vi.mock('expo-router', () => ({ useRouter: () => ({ replace }) }));
+vi.mock('expo-router', () => ({ useRouter: () => ({ replace, push }) }));
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -51,7 +52,10 @@ vi.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ linkApple, linkGoogle }) }));
 vi.mock('@/lib/auth', () => ({ ensureSignedIn }));
-// Only `markOnboardingComplete` is stubbed here — the onboarding-gate tests
+// `markOnboardingComplete` is no longer called by this screen (the name step
+// owns it), but it stays stubbed so an accidental re-introduction here is
+// caught by the assertions below rather than writing to AsyncStorage. The
+// onboarding-gate tests
 // below (#158) exercise the real `readOnboardingFlag` against a mocked
 // AsyncStorage, so the rest of the module's exports stay real.
 vi.mock('@/lib/onboarding', async (importOriginal) => {
@@ -106,6 +110,7 @@ beforeEach(() => {
   [
     setPending,
     replace,
+    push,
     linkApple,
     linkGoogle,
     ensureSignedIn,
@@ -116,41 +121,43 @@ beforeEach(() => {
 });
 
 describe('onboarding auth handlers — success paths (#49 regression)', () => {
-  it('handleApple links Apple, completes onboarding, then routes into (tabs)', async () => {
+  it('handleApple links Apple, then continues to the name step', async () => {
     linkApple.mockResolvedValue(undefined);
 
     await getHandlers().handleApple();
 
     expect(linkApple).toHaveBeenCalledTimes(1);
-    expect(markOnboardingComplete).toHaveBeenCalledTimes(1);
-    expect(replace).toHaveBeenCalledWith('/(tabs)');
+    // The name step marks onboarding complete and routes into (tabs) — doing
+    // it here would let the gate redirect past the name prompt.
+    expect(markOnboardingComplete).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith('/(onboarding)/name');
     expect(alert).not.toHaveBeenCalled();
     // pending is set to 'apple' while in flight, then cleared in `finally`.
     expect(setPending).toHaveBeenNthCalledWith(1, 'apple');
     expect(lastSetPending()).toBeNull();
   });
 
-  it('handleGoogle links Google, completes onboarding, then routes into (tabs)', async () => {
+  it('handleGoogle links Google, then continues to the name step', async () => {
     linkGoogle.mockResolvedValue(undefined);
 
     await getHandlers().handleGoogle();
 
     expect(linkGoogle).toHaveBeenCalledTimes(1);
-    expect(markOnboardingComplete).toHaveBeenCalledTimes(1);
-    expect(replace).toHaveBeenCalledWith('/(tabs)');
+    expect(markOnboardingComplete).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith('/(onboarding)/name');
     expect(alert).not.toHaveBeenCalled();
     expect(setPending).toHaveBeenNthCalledWith(1, 'google');
     expect(lastSetPending()).toBeNull();
   });
 
-  it('handleAnonymous signs in anonymously, completes onboarding, then routes into (tabs)', async () => {
+  it('handleAnonymous signs in anonymously, then continues to the name step', async () => {
     ensureSignedIn.mockResolvedValue({ id: 'anon-user' });
 
     await getHandlers().handleAnonymous();
 
     expect(ensureSignedIn).toHaveBeenCalledTimes(1);
-    expect(markOnboardingComplete).toHaveBeenCalledTimes(1);
-    expect(replace).toHaveBeenCalledWith('/(tabs)');
+    expect(markOnboardingComplete).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith('/(onboarding)/name');
     expect(alert).not.toHaveBeenCalled();
     expect(setPending).toHaveBeenNthCalledWith(1, 'anon');
     expect(lastSetPending()).toBeNull();
@@ -165,7 +172,7 @@ describe('onboarding auth handlers — failure paths (#49 regression)', () => {
 
     expect(alert).toHaveBeenCalledWith('Sign in with Apple failed', 'apple boom');
     expect(markOnboardingComplete).not.toHaveBeenCalled();
-    expect(replace).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
     expect(setPending).toHaveBeenNthCalledWith(1, 'apple');
     expect(lastSetPending()).toBeNull();
   });
@@ -177,7 +184,7 @@ describe('onboarding auth handlers — failure paths (#49 regression)', () => {
 
     expect(alert).toHaveBeenCalledWith('Sign in with Google failed', 'google boom');
     expect(markOnboardingComplete).not.toHaveBeenCalled();
-    expect(replace).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
     expect(setPending).toHaveBeenNthCalledWith(1, 'google');
     expect(lastSetPending()).toBeNull();
   });
@@ -189,7 +196,7 @@ describe('onboarding auth handlers — failure paths (#49 regression)', () => {
 
     expect(alert).toHaveBeenCalledWith('Could not continue', 'anon boom');
     expect(markOnboardingComplete).not.toHaveBeenCalled();
-    expect(replace).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
     expect(setPending).toHaveBeenNthCalledWith(1, 'anon');
     expect(lastSetPending()).toBeNull();
   });

@@ -42,7 +42,7 @@ The top-level layout wrapping the entire application. Responsibilities:
 
 ### `app/(onboarding)/_layout.tsx` — Onboarding Stack
 
-Stack navigator for the first-launch flow. `headerShown: false`, dark backdrop. Registers the three onboarding screens (`index`, `location`, `auth`).
+Stack navigator for the first-launch flow. `headerShown: false`, dark backdrop. Registers the four onboarding screens (`index`, `location`, `auth`, `name`).
 
 ### `app/(onboarding)/index.tsx` — Welcome Splash
 
@@ -60,7 +60,13 @@ Three vertically-stacked buttons:
 - **Continue with Google** — both platforms. Calls `linkGoogle()`.
 - **Continue anonymously** — calls `ensureSignedIn()`, which is a no-op if an anonymous session already exists.
 
-All three paths call `markOnboardingComplete()` and `router.replace('/(tabs)')`. Errors surface via `Alert.alert` with the helper's message — Apple/Google native module absence (Expo Go) flows through this path.
+All three paths push `/(onboarding)/name`, which is what marks onboarding complete — marking it here would let `OnboardingGate` redirect straight past the name prompt. Errors surface via `Alert.alert` with the helper's message — Apple/Google native module absence (Expo Go) flows through this path.
+
+### `app/(onboarding)/name.tsx` — Display Name
+
+Final onboarding step. A `TextInput` (32-char cap) prefilled from `readProfileName(user)` — Google's `user_metadata.name`, or the Apple `fullName` captured by `signInWithApple()` on first authorization. "Continue" writes it via `updateDisplayName()` (`supabase.auth.updateUser({ data: { full_name } })`); "Skip for now" leaves it unset. Both paths call `markOnboardingComplete()` and `router.replace('/(tabs)')`.
+
+This step exists because nothing upstream reliably supplies a name: anonymous users have no profile, and Sign in with Apple with "Hide My Email" yields only an opaque `@privaterelay.appleid.com` address — which the Profile header was rendering as the user's name (v1.1.2 report).
 
 ### `app/(tabs)/_layout.tsx` — Tab Layout
 
@@ -103,29 +109,33 @@ Uses `useTrending(city)` (see `src/api/trending.ts`) for the top-10 venues by sc
 
 User profile and identity screen. Layout from top to bottom:
 
-1. **Avatar + identity** — circular avatar showing initials (generated from full name) or a person icon for anonymous users. For anonymous: "Guest"; for linked identities: name from user metadata.
+1. **Avatar + identity** — circular avatar showing initials (generated from the display name) or a person icon for anonymous users. The name comes from `resolveDisplayName()` (`src/lib/displayName.ts`): a `user_metadata` name if one was captured, otherwise "Guest" (anonymous) or "Crawler". A real email address renders as a muted secondary line; Apple private-relay addresses are suppressed entirely.
 2. **Voting history** — today's voted venues, looked up via `useQueries` over `venueDetailQueryOptions(id)` for each ID in `voteState.votedVenueIds`. Renders `VoteHistoryEntry` items showing venue name + loading state.
 3. **Stats row** — "Votes Today" count (derived as `maxVotes - remainingVotes`) and a "Streaks" placeholder
 4. **Settings section** — placeholder menu rows (Settings, About, Feedback)
-5. **Sign-out button** — calls `signOut()` (from `AuthContext`), which clears the Supabase session and the API client token, then navigates to `/(onboarding)`
+5. **Sign-out button** — calls `signOut()` (from `AuthContext`), which clears the Supabase session, the API client token, the onboarding flag, and the cached/persisted vote state, then navigates to `/(onboarding)`
 
 Note: `OnboardingGate` reads both the `crawl.firstLaunchComplete.v1` AsyncStorage flag and a Supabase session read; a returning user with a persisted session is considered already-onboarded even if the flag is unset (#158). An explicit `router.replace('/(onboarding)')` on sign-out re-triggers onboarding for that session.
 
 ### `app/venue/[id].tsx` — Venue Detail
 
-Full venue detail screen accessed by tapping a venue card or list item. Reads the `id` URL parameter to find the venue in mock data.
+Full venue detail screen accessed by tapping a venue card or list item. Reads the `id` URL parameter and fetches via `useVenue(id)`.
 
 Layout:
 
 1. **Header** — back button (navigates back) and share button
-2. **Image placeholder** — dark card area with image icon
+2. **Hero** — `venue.imageUrl` rendered cover-fit, falling back to the icon placeholder when the venue has no image
 3. **Name + badges** — venue name with TRENDING badge if applicable
-4. **Status row** — OPEN/CLOSED badge, hours, price level (dollar signs)
-5. **HotspotScore** — animated SVG circular progress ring showing the score (0-100)
-6. **Vote button** — purple CTA "Vote as Tonight's Hotspot"
-7. **About** — venue description text
-8. **Highlights** — chips with sparkle icons for each highlight tag
-9. **Location** — card with address and navigate icon
+4. **Meta line** — type · price level · distance, joined by `metaLine()`, which drops whatever the venue lacks so no dangling `·` separator is left behind (ingested venues carry no `distance`)
+5. **Status row** — OPEN/CLOSED badge plus *today's* hours only, from `todayHours()`
+6. **HotspotScore** — animated SVG circular progress ring showing the score (0-100)
+7. **Vote button** — purple CTA "Vote as Tonight's Hotspot"
+8. **Quick actions** — Directions (always, via `Linking` to the platform maps URL), Call and Website when `venue.phone` / `venue.website` are present
+9. **Hours** — collapsed disclosure expanding to the full week from `parseWeeklyHours()`, today's row highlighted. Hidden for single-line schedules
+10. **About** / **Highlights** — each hidden entirely when the venue has no description / no highlights, rather than rendering a heading over empty space
+11. **Location** — tappable card with address; opens the platform maps app
+
+Sections 4, 5, 9, and 10 are the v1.1.2 detail-page fixes: `venue.hours` is Google's seven newline-joined `weekdayDescriptions`, and rendering that string raw dumped the whole week into the status row.
 
 ### `app/filters.tsx` — Filters Modal
 
@@ -158,6 +168,10 @@ Active tabs get a purple highlight background (`bg-crawl-purple/20`), filled ico
 ### `components/layout/AnimatedSplash.tsx`
 
 Full-screen branded splash overlay shown on cold launch. Fills the screen with the `#0a0a0f` brand background and renders the Crawl martini-pin mark with the "crawl" wordmark beneath it. The logo SVGs are inlined as raw strings and drawn via `SvgXml` from `react-native-svg` (the repo has no `.svg`-file metro transformer). Reanimated drives a fade-in + scale-settle entrance (0.92 → 1, opacity 0 → 1 over 600ms), a brief hold, then a 250ms overlay fade-out — ~950ms total. Respects the system reduce-motion setting via `ReduceMotion.System`. Calls `onAnimationComplete` when the exit fade finishes so the parent can unmount it. Mounted in `app/_layout.tsx` on top of the navigator, gated by `splashAnimationComplete` state; it takes over the moment the native splash is hidden so there is no visible gap.
+
+### `components/onboarding/StepDots.tsx`
+
+Progress dots for the onboarding flow: `<StepDots index={n} />` over `ONBOARDING_STEPS` (4). Rendered by every step — the welcome screen used to be the only one with dots, which read as a single-page flow and left the remaining steps looking unrelated (v1.1.2 report).
 
 ### `components/map/MapPlaceholder.tsx`
 
@@ -333,7 +347,9 @@ Auth state + identity context. Bootstraps the Supabase session on mount via `ens
 
 - `user`, `isAnonymous`, `initializing`
 - `userLocation`, `setUserLocation` — used by `app/(onboarding)/location.tsx` to stash the foreground-permission coords; available to consumers (e.g. Phase B Agent 2's city resolver)
-- `linkApple()`, `linkGoogle()`, `signOut()` — bound versions of the helpers in `src/lib/auth.ts`
+- `linkApple()`, `linkGoogle()`, `signOut()` — bound versions of the helpers in `src/lib/auth.ts`. `signOut()` additionally calls `clearOnboardingFlag()` so the gate re-runs onboarding for the next user.
+
+The auth listener also watches the user id. Signing in with a native id_token creates a **new** Supabase user rather than upgrading the anonymous one, so an id change is a genuine identity swap: the context resets the `votes` query cache and clears the device-scoped persisted vote state (`clearPersistedVoteState()`). Without that, the anonymous user's votes stayed on screen after signing in with Apple until an unrelated mutation happened to invalidate them (v1.1.2 report).
 
 ### `src/hooks/useCountdown.ts`
 
@@ -355,6 +371,7 @@ Auth helpers used by `AuthContext` and the onboarding auth screen:
 - `signInWithApple()` — iOS-only; lazily requires `expo-apple-authentication`, requests `FULL_NAME` + `EMAIL` scopes, then exchanges the `identityToken` via `supabase.auth.signInWithIdToken({ provider: 'apple' })`. When called with an active anonymous session, supabase-js upgrades the existing user in place rather than creating a new one.
 - `signInWithGoogle()` — same pattern using `@react-native-google-signin/google-signin`. Reads `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (and optional `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`) and configures `GoogleSignin` once on first call.
 - `signOut()` — passthrough to `supabase.auth.signOut()`.
+- `updateDisplayName(name)` — writes `user_metadata.full_name` via `supabase.auth.updateUser`. Called by the onboarding name step and by `signInWithApple()` when Apple returns a `fullName` (which it does only on the *first* authorization for the app — never again and never in the id_token, so it has to be captured at that moment or it is lost).
 
 Native module imports are wrapped in `try/catch` so the JS bundle still boots in Expo Go (where the native modules are absent); the helpers throw a descriptive error when invoked there instead.
 
@@ -368,7 +385,9 @@ Helpers around the AsyncStorage flag `crawl.firstLaunchComplete.v1` and the `Onb
 
 - `isOnboardingComplete()` — read flag.
 - `readOnboardingFlag()` — wraps `isOnboardingComplete()` and reports read failures to Sentry before falling back to `false`, replacing the old silent discard.
-- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/auth.tsx` once the user picks any auth path) and notify any subscribers so the `OnboardingGate` re-reads the flag without polling.
+- `markOnboardingComplete()` — write flag (called from `app/(onboarding)/name.tsx` at the end of the flow) and notify any subscribers so the `OnboardingGate` re-reads the flag without polling.
+- `clearOnboardingFlag()` — remove the flag on sign-out and notify subscribers. Without it the flag outlives the session and the gate's 'done' branch bounces a just-signed-out user back into the tabs.
+- `resolveOnboardingRedirect(status, inOnboardingGroup)` — the gate's pure routing decision, in both directions: `'/(tabs)'` for a completed user still sitting in the onboarding group, `'/(onboarding)'` for an un-onboarded user outside it, `null` otherwise.
 - `subscribeToOnboardingStatus(listener)` — register a listener that fires when the flag flips. Used by `OnboardingGate` so finishing onboarding doesn't bounce the user back to the splash.
 - `resolveOnboardingGateStatus(flagStatus, sessionStatus, hasReturningSession)` — pure decision logic for `OnboardingGate`, extracted for unit testing. Takes the flag read status, session read status (both can be `'loading'` or `'done'`), and whether a Supabase session existed before this launch. Returns `'loading'` if either read is pending, `'done'` if the flag is set or a session exists, and `'onboarding'` otherwise. Ensures the gate holds loading until both async reads settle, preventing a race-condition redirect on the session read's stale default.
 
@@ -398,6 +417,14 @@ Exports `verifySentryDelivery()`, a fire-and-forget heartbeat invoked from an ef
 
 `useTrending(city)` TanStack Query hook returning the top-10 venues for a given city, sorted by hotspot score descending with `name` as a deterministic tiebreak (every live venue currently scores 0, so an unbroken tie would reshuffle the leaderboard on each refetch). Exported `trendingKeys` factory for queryKey composition and cache invalidation. Branches on `dataSource`: `'api'` calls `GET /api/v1/trending/:city`; `'supabase'` reads `public.venues` filtered by `city_id` + `is_active` with `.limit(10)`, mapping rows through the shared `venueRow.ts` helpers; `'mock'` uses `getMockTrending(city)` (exported, used by tests). The Supabase branch was missing until #150, so staging builds silently rendered mock venues as live rankings. 30-second `staleTime`. Used by `app/(tabs)/global.tsx` for the city leaderboard.
 
+### `src/lib/displayName.ts`
+
+How a signed-in user is named in the UI. Exports `resolveDisplayName(user, isAnonymous)`, `resolveProfileEmail(user, isAnonymous)`, `readProfileName(user)`, `isPrivateRelayEmail(email)`, and `initialsFrom(name)`. A name only ever comes from `user_metadata` (`full_name`, then Google's `name`); the email is never used as one. This is the v1.1.2 Profile fix: the header fell back to `user.email` and rendered the `@privaterelay.appleid.com` address of an Apple "Hide My Email" user as their name.
+
+### `src/lib/venueHours.ts`
+
+Parsing for `venue.hours`, which holds Google's `weekdayDescriptions` joined with newlines. Exports `parseWeeklyHours(hours)` → `{ day, hours }[]` (a `:` inside a time is not treated as the day separator — only a real day name is), `todayHours(hours, now?)` (today's entry, or the sole entry for a single-line schedule, else `null`), and `todayIndex(week, now?)`. Used by `app/venue/[id].tsx` to show today inline and keep the week behind a disclosure.
+
 ### `src/lib/formatVenueType.ts`
 
 Exports `formatVenueType(type)` — turns a raw Google Places `primaryType` token into display text (`'night_club'` → `'Night Club'`, `'bar_and_grill'` → `'Bar and Grill'`, `'tex_mex_restaurant'` → `'Tex-Mex Restaurant'` via a small override map). Connector words stay lowercase unless they lead. Strings that are already human-formatted — anything with spaces, capitals, or punctuation — pass through untouched, so bundled mock values like `'BBQ & Bar'` aren't mangled into `'Bbq & Bar'`. Applied once in `rowToVenue` (`src/api/venueRow.ts`) rather than at each render site, so the venue card, list item, map callout, and detail screen cannot disagree.
@@ -408,7 +435,7 @@ The `public.venues` read shape shared by every Supabase-direct venue query. Expo
 
 ### `src/api/voteStorage.ts`
 
-AsyncStorage persistence for mock vote state. Fixes the bug where TanStack Query refetches (stale-time expiry, cache GC, city switches) reset daily vote count to default. Exports `readPersistedVoteState()` and `writePersistedVoteState(state)`. Single key `crawl.mockVoteState.v1` holds `{ date, state: VoteState }` scoped by today's ISO date; reads return `null` on day rollover (caller falls back to `DEFAULT_VOTE_STATE`), writes discard stale entries on rollover and treat corruption as absent so recovery is clean. Vote budget is GLOBAL per user per day (not per-city), matching the server's design in `apps/api/src/services/vote.service.ts`. Used by `src/api/votes.ts` mock branches.
+AsyncStorage persistence for mock vote state. Fixes the bug where TanStack Query refetches (stale-time expiry, cache GC, city switches) reset daily vote count to default. Exports `readPersistedVoteState()`, `writePersistedVoteState(state)`, and `clearPersistedVoteState()` (called on an identity swap — the key is device-scoped, not user-scoped). Single key `crawl.mockVoteState.v1` holds `{ date, state: VoteState }` scoped by today's ISO date; reads return `null` on day rollover (caller falls back to `DEFAULT_VOTE_STATE`), writes discard stale entries on rollover and treat corruption as absent so recovery is clean. Vote budget is GLOBAL per user per day (not per-city), matching the server's design in `apps/api/src/services/vote.service.ts`. Used by `src/api/votes.ts` mock branches.
 
 ### `apps/api/drizzle/0001_venue_filter_indexes.sql`
 

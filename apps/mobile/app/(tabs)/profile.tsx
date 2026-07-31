@@ -7,15 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useVenueContext } from '@/context/VenueContext';
 import { venueDetailQueryOptions } from '@/api/venues';
-
-function initialsFrom(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('');
-}
+import { initialsFrom, resolveDisplayName, resolveProfileEmail } from '@/lib/displayName';
 
 interface VoteHistoryEntry {
   id: string;
@@ -29,9 +21,10 @@ export default function ProfileScreen() {
   const { user, isAnonymous, signOut } = useAuth();
   const { voteState } = useVenueContext();
 
-  const displayName = isAnonymous
-    ? 'Guest'
-    : ((user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? 'Crawler');
+  // Never the raw email: an Apple "Hide My Email" user's relay address was
+  // being shown as their name. See src/lib/displayName.ts.
+  const displayName = resolveDisplayName(user, isAnonymous);
+  const profileEmail = resolveProfileEmail(user, isAnonymous);
 
   // Today's voting history, looked up by id via the same query key + fetcher
   // as useVenue(id) (src/api/venues.ts), NOT from VenueContext's `venues`.
@@ -84,10 +77,19 @@ export default function ProfileScreen() {
               </Text>
             )}
           </View>
-          <Text className="mt-4 font-display-bold text-2xl text-white">{displayName}</Text>
+          <Text
+            className="mt-4 font-display-bold text-2xl text-white"
+            numberOfLines={1}
+            ellipsizeMode="tail">
+            {displayName}
+          </Text>
           {isAnonymous ? (
             <Text className="mt-1 font-sans text-sm text-crawl-text-muted">
               Signed in anonymously
+            </Text>
+          ) : profileEmail ? (
+            <Text className="mt-1 font-sans text-sm text-crawl-text-muted" numberOfLines={1}>
+              {profileEmail}
             </Text>
           ) : null}
         </View>

@@ -25,6 +25,26 @@ export async function readOnboardingFlag(): Promise<boolean> {
 
 export type OnboardingGateStatus = 'loading' | 'onboarding' | 'done';
 
+/** Where OnboardingGate should redirect, or null to leave routing alone. */
+export type OnboardingRedirect = '/(onboarding)' | '/(tabs)' | null;
+
+/**
+ * OnboardingGate's routing decision. Both directions matter: `/` is claimed by
+ * two index routes ((onboarding) and (tabs)), and expo-router resolves that
+ * ambiguity in (onboarding)'s favor — so every cold start lands on the welcome
+ * screen. Redirecting only INTO onboarding, as the gate did before, left a
+ * user who had already finished it stranded on the sign-in flow on every
+ * launch with no way back other than re-running it.
+ */
+export function resolveOnboardingRedirect(
+  status: OnboardingGateStatus,
+  inOnboardingGroup: boolean
+): OnboardingRedirect {
+  if (status === 'loading') return null;
+  if (status === 'onboarding') return inOnboardingGroup ? null : '/(onboarding)';
+  return inOnboardingGroup ? '/(tabs)' : null;
+}
+
 /**
  * OnboardingGate's decision logic (#158): the flag and "does a returning
  * Supabase session already exist" are two independent async reads that
@@ -59,5 +79,16 @@ export function subscribeToOnboardingStatus(listener: () => void): () => void {
 
 export async function markOnboardingComplete(): Promise<void> {
   await AsyncStorage.setItem(FIRST_LAUNCH_KEY, '1');
+  listeners.forEach((listener) => listener());
+}
+
+/**
+ * Clears the first-launch flag. Called on sign-out: without it the flag would
+ * still read 'done' and the gate (which now redirects completed users out of
+ * the onboarding group) would bounce the just-signed-out user straight back
+ * into the tabs they no longer have a session for.
+ */
+export async function clearOnboardingFlag(): Promise<void> {
+  await AsyncStorage.removeItem(FIRST_LAUNCH_KEY);
   listeners.forEach((listener) => listener());
 }

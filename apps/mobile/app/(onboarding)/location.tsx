@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { StepDots } from '../../components/onboarding/StepDots';
 
 /**
  * Foreground location permission prompt. Skippable.
@@ -68,7 +69,8 @@ export default function OnboardingLocation() {
         </View>
       </View>
 
-      <View className="w-full">
+      <View className="w-full gap-8">
+        <StepDots index={1} />
         <Pressable
           onPress={requestLocation}
           disabled={requesting}

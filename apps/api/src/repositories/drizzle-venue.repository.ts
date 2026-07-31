@@ -23,6 +23,8 @@ function rowToVenue(row: schema.DbVenue): Venue {
     priceLevel: row.priceLevel,
     hours: row.hours,
     description: row.description,
+    phone: row.phone,
+    website: row.website,
     imageUrl: row.imageUrl ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

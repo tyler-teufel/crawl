@@ -86,6 +86,8 @@ List venues with optional filtering. No auth required.
       "priceLevel": 2,
       "hours": "4pm - 2am",
       "description": "...",
+      "phone": "+1 512-555-0100",
+      "website": "https://example.com",
       "imageUrl": null,
       "distance": "0.3 mi",
       "createdAt": "2026-04-20T00:00:00.000Z",

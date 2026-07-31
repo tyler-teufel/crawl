@@ -45,6 +45,20 @@ export async function readPersistedVoteState(): Promise<VoteState | null> {
   }
 }
 
+/**
+ * Drops the persisted entry. The key is device-scoped, not user-scoped, so
+ * whoever signs in next would otherwise inherit the previous user's votes —
+ * exactly what happened when an anonymous session's votes survived a sign-in
+ * with Apple. Called from AuthContext whenever the signed-in user changes.
+ */
+export async function clearPersistedVoteState(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Best-effort, same rationale as writePersistedVoteState below.
+  }
+}
+
 export async function writePersistedVoteState(state: VoteState): Promise<void> {
   try {
     const next: PersistedVoteState = { date: todayKey(), state };
