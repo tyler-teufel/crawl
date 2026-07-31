@@ -31,9 +31,11 @@ name: DB — Apply Drizzle Migrations
 # DIRECT_URL (Supabase direct/session-pooler connection, port 5432) for any
 # non-development run and throws if it's missing — DATABASE_URL is the
 # transaction pooler (port 6543), which breaks DDL and session-scoped
-# features some migrations need. NODE_ENV=production is set for this whole
-# job specifically so that guard stays live; nothing here weakens or works
-# around it.
+# features some migrations need. NODE_ENV=production is set on each step
+# that touches drizzle.config.ts (list/check/apply/report) so that guard
+# stays live for them — deliberately NOT set at the job level, since that
+# would also apply to `Install deps` and make `npm ci` skip devDependencies
+# (drizzle-kit is a devDependency; see #205).
 #
 # Never uses `drizzle-kit push` — it bypasses the migrations ledger and
 # violates this repo's generate-then-apply convention.
@@ -74,10 +76,6 @@ jobs:
     # entangled with — or accidentally satisfied by — a deploy approval.
     # See "GitHub Environments" in docs/ops/CICD_PIPELINE.md.
     environment: database
-    env:
-      # Keeps drizzle.config.ts's DIRECT_URL requirement live for every
-      # drizzle-kit invocation in this job (see header comment above).
-      NODE_ENV: production
     steps:
       # Runs before checkout — this must fail before anything else in the
       # job has a chance to touch the database. Inputs are passed through
@@ -127,6 +125,11 @@ jobs:
         id: list_pending
         working-directory: apps/api
         env:
+          # Keeps drizzle.config.ts's DIRECT_URL requirement live (see header
+          # comment above). Scoped to this step (not job-level) so it doesn't
+          # also apply to `Install deps`, where NODE_ENV=production would make
+          # `npm ci` skip devDependencies (drizzle-kit) — see #205.
+          NODE_ENV: production
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: node "$GITHUB_WORKSPACE/.github/scripts/db-migrate-report.mjs" pending
 
@@ -137,6 +140,9 @@ jobs:
       - name: Validate migrations (drizzle-kit check)
         working-directory: apps/api
         env:
+          # See "List pending migrations" step above for why NODE_ENV is
+          # scoped here rather than at the job level.
+          NODE_ENV: production
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
           set +e
@@ -161,6 +167,9 @@ jobs:
         if: inputs.dry_run == false && steps.list_pending.outputs.pending_count != '0'
         working-directory: apps/api
         env:
+          # See "List pending migrations" step above for why NODE_ENV is
+          # scoped here rather than at the job level.
+          NODE_ENV: production
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: npm run db:migrate
 
@@ -171,5 +180,8 @@ jobs:
       - name: Report ledger state
         working-directory: apps/api
         env:
+          # See "List pending migrations" step above for why NODE_ENV is
+          # scoped here rather than at the job level.
+          NODE_ENV: production
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: node "$GITHUB_WORKSPACE/.github/scripts/db-migrate-report.mjs" ledger
