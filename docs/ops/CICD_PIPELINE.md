@@ -96,10 +96,10 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 │       (staging also submits to   │  │       GH env approval)      │
 │        TestFlight; production    │  │                             │
 │        submit stays manual)      │  │                             │
-│   5. GitHub Release + CHANGELOG  │  │   5. Migrate (opt-in via    │
-│                                  │  │      RUN_DB_MIGRATIONS var) │
-│                                  │  │   6. GitHub Release +       │
+│   5. GitHub Release + CHANGELOG  │  │   5. GitHub Release +       │
 │                                  │  │      CHANGELOG              │
+│                                  │  │  (no migrate step — see     │
+│                                  │  │   db-migrate.yml below)     │
 └─────────────────────────────────┘  └─────────────────────────────┘
 ```
 
@@ -114,7 +114,7 @@ Crawl is **trunk-based on `main`** with **independent semver per service** and *
 | `.github/workflows/release-version.yml`    | `push → main` (path-filtered)    | Open / update Changesets "Version Packages" PR         |
 | `.github/workflows/release-tag.yml`        | `workflow_dispatch`              | Compose and push a release tag from the version already on `main` — the guarded entry point to a release. Pushes with a personal access token, not `GITHUB_TOKEN` (see "Personal access token for release tag pushes") |
 | `.github/workflows/release-mobile.yml`     | `push → tags: mobile-v*`; `workflow_dispatch` (re-run an existing tag) | OTA or binary release of `apps/mobile` via EAS |
-| `.github/workflows/release-api.yml`        | `push → tags: api-v*`; `workflow_dispatch` (re-run an existing tag) | Docker build/push + optional migrate of `apps/api` |
+| `.github/workflows/release-api.yml`        | `push → tags: api-v*`; `workflow_dispatch` (re-run an existing tag) | Docker build/push of `apps/api` (does **not** run migrations — see `db-migrate.yml`) |
 | `.github/workflows/staging-build.yml`      | `push → main` (path-filtered)    | EAS staging build (iOS → TestFlight, Android → internal) |
 | `.github/workflows/sync-venues.yml`        | scheduled / manual               | Operational job — unrelated to releases                |
 | `.github/workflows/db-migrate.yml`         | `workflow_dispatch` only         | Apply pending Drizzle migrations to the Supabase database — phone-safe, see "Applying database migrations" below |
@@ -371,16 +371,18 @@ Pushing `api-vX.Y.Z` (or `api-vX.Y.Z-staging`) runs `release-api.yml` end to end
 1. **resolve** — parse the tag into `version` + `environment`. A tag that doesn't match the grammar fails here with `::error::` before anything else runs.
 2. **validate** — checkout at the tag, run the version-consistency guard (tag semver vs `apps/api/package.json`), then lint, typecheck, vitest. A failure here aborts the rest.
 3. **build-and-push** — builds `apps/api/Dockerfile` and pushes to `ghcr.io/<repo>/api`, tagged `sha-<sha>` and (production only) `latest`. Gated by the `production` GitHub Environment with required reviewers on production tags (configure in repo Settings → Environments).
-4. **migrate (opt-in, off by default)** — runs `drizzle-kit migrate` against `DATABASE_URL` only when the `RUN_DB_MIGRATIONS` variable is `true` on the target GitHub Environment (there's no dispatch checkbox anymore — see "Migrations" below). Drizzle's `migrate` is forward-only; anything destructive (drops, `db:push --force`) must be done manually with eyes on it.
-5. **github-release** — creates a GitHub Release for the tag, body pulled from the matching `## <version>` section of `apps/api/CHANGELOG.md`. Staging tags are marked as a prerelease.
+4. **github-release** — creates a GitHub Release for the tag, body pulled from the matching `## <version>` section of `apps/api/CHANGELOG.md`. Staging tags are marked as a prerelease.
 
-This workflow only builds and pushes the image; it does not itself call `railway up` or any deploy CLI — how that image reaches the running Railway service is outside this workflow (see `docs/ops/RAILWAY_SETUP.md`).
+This workflow only builds and pushes the image; it does not itself call `railway up` or any deploy CLI — how that image reaches the running Railway service is outside this workflow (see `docs/ops/RAILWAY_SETUP.md`). It also does not run database migrations — see "Migrations are not part of the API release" below.
 
-### Migrations without a dispatch input
+### Migrations are not part of the API release
 
-The old `run_migrations` boolean was a `workflow_dispatch` input with no tag equivalent. It's replaced by the `RUN_DB_MIGRATIONS` variable on the `staging` / `production` GitHub Environments — the same place `DATABASE_URL` already lives. Unset (or anything other than `true`) skips the migrate step's actual work, matching the old input's default of `false`; set it to `true` on an environment to make every tagged release for that environment run migrations automatically.
+`release-api.yml` used to have a `migrate` job: an opt-in (`RUN_DB_MIGRATIONS` GitHub Environment variable, off by default) step that ran `drizzle-kit migrate` as a side effect of a tagged release. It was **removed** (#198), not fixed in place, for two reasons:
 
-**Note:** this `migrate` job's step sets `DATABASE_URL` (not `DIRECT_URL`) and does not set `NODE_ENV`, so `drizzle.config.ts`'s `resolveMigrationUrl()` falls through to its `NODE_ENV=development`-equivalent branch and accepts `DATABASE_URL` (the transaction pooler, port 6543) with only a `console.warn`, rather than requiring `DIRECT_URL` as documented immediately below. This predates `db-migrate.yml` and was not changed as part of adding it — flagged here rather than silently fixed, since correcting it changes an existing tag-triggered release workflow's behavior and secrets, which is outside this addition's scope.
+- **It had the exact bug `db-migrate.yml` (#188) exists to prevent.** The step set `DATABASE_URL` (the transaction pooler, port 6543) and never set `NODE_ENV`, so `apps/api/drizzle.config.ts`'s `resolveMigrationUrl()` guard — which requires `DIRECT_URL` (the direct/session-pooler connection, port 5432) whenever `NODE_ENV !== 'development'` — never engaged, and the config silently fell back to the pooler connection that can break DDL and session-scoped features some migrations need. This had never bitten in practice only because `release-api.yml` has never completed end-to-end (the Railway deploy target isn't viable yet — a separate, unrelated blocker).
+- **Even fixed, a migrate-on-deploy step is a weaker risk posture than `db-migrate.yml`.** `db-migrate.yml`'s own header comment already called itself "that act's only automated entry point" when it was added — applying DDL to production is meant to be a deliberate, reviewed act (typed `APPLY` confirmation, dry-run-by-default, pending-migration listing before anything applies, a dedicated `database` Environment). A release-triggered migrate step has none of that per-run confirmation; it just runs whenever a tag happens to be pushed with the variable on. Keeping both paths active means a release could apply a migration nobody reviewed at that moment — exactly the failure mode `db-migrate.yml` was built to close off.
+
+**Current model:** cutting an `api-v*` tag only builds/pushes the image and cuts a GitHub Release. If a release needs schema changes live first, run `db-migrate.yml` (see "Applying database migrations" below) before or after tagging, as a separate, deliberate step — same as any other migration apply. There is no automated path that applies migrations as a side effect of a release anymore.
 
 ---
 
@@ -388,7 +390,7 @@ The old `run_migrations` boolean was a `workflow_dispatch` input with no tag equ
 
 `.github/workflows/db-migrate.yml` is the manual, `workflow_dispatch`-only way to apply pending Drizzle migrations (`apps/api/drizzle/*.sql`) to the Supabase database, independent of an API release. This repo's convention is `drizzle-kit generate`-only on merge — migrations are authored and committed by whoever writes them, but *applying* them is a separate, deliberate act. This workflow is that act's normal path when nobody has a laptop with `DIRECT_URL` in their environment; it's written to be run from the GitHub mobile app (Actions tab → this workflow → Run workflow).
 
-**Why `DIRECT_URL`, not `DATABASE_URL`:** `apps/api/drizzle.config.ts` requires `DIRECT_URL` (the Supabase direct/session-pooler connection, port 5432) whenever `NODE_ENV !== 'development'`, and throws otherwise. This job sets `NODE_ENV=production` at the job level specifically to keep that guard live, so a missing `DIRECT_URL` secret on the `database` Environment fails the run loudly instead of silently falling back to `DATABASE_URL` — the transaction pooler (port 6543), which breaks DDL and session-scoped features some migrations need and only fails "on later runs" in a way that's hard to trace back to this. See the `release-api.yml` note directly above for what that failure mode actually looks like in practice.
+**Why `DIRECT_URL`, not `DATABASE_URL`:** `apps/api/drizzle.config.ts` requires `DIRECT_URL` (the Supabase direct/session-pooler connection, port 5432) whenever `NODE_ENV !== 'development'`, and throws otherwise. This job sets `NODE_ENV=production` at the job level specifically to keep that guard live, so a missing `DIRECT_URL` secret on the `database` Environment fails the run loudly instead of silently falling back to `DATABASE_URL` — the transaction pooler (port 6543), which breaks DDL and session-scoped features some migrations need and only fails "on later runs" in a way that's hard to trace back to this. `release-api.yml` used to have a migrate step with exactly this bug (it set `DATABASE_URL` and never set `NODE_ENV`); rather than fix it in place, that step was removed — see "Migrations are not part of the API release" above.
 
 **Inputs:**
 
@@ -420,9 +422,7 @@ Every step writes to `$GITHUB_STEP_SUMMARY` rather than relying on the raw log �
 | Secret   | `EXPO_TOKEN`                  | `release-mobile.yml`     | EAS auth                                       |
 | Secret   | `RELEASE_TAG_PAT`             | `release-tag.yml`        | Fine-grained personal access token used to push the release tag. See "Personal access token for release tag pushes" below |
 | Secret   | `RAILWAY_TOKEN`               | `release-api.yml`        | Railway CLI auth (not currently referenced by any step — see note below) |
-| Secret   | `DATABASE_URL`                | `release-api.yml` (migrate job) | Only set in the GitHub Environment that runs migrations |
-| Secret   | `DIRECT_URL`                  | `db-migrate.yml`         | Supabase direct/session-pooler connection (port 5432), set on the `database` GitHub Environment. See "Applying database migrations" above for why this is `DIRECT_URL` and not `DATABASE_URL` |
-| Variable | `RUN_DB_MIGRATIONS`           | `release-api.yml` (migrate job) | Per-environment opt-in gate; anything other than `true` skips the migrate step (default off) |
+| Secret   | `DIRECT_URL`                  | `db-migrate.yml`         | Supabase direct/session-pooler connection (port 5432), set on the `database` GitHub Environment. See "Applying database migrations" above for why this is `DIRECT_URL` and not `DATABASE_URL`. `release-api.yml` does not run migrations and does not use this — see "Migrations are not part of the API release" above |
 | Variable | `RAILWAY_SERVICE_STAGING`     | `release-api.yml`        | Railway service name (per environment; not currently referenced by any step — see note below) |
 | Variable | `RAILWAY_SERVICE_PRODUCTION`  | `release-api.yml`        | Railway service name (per environment; not currently referenced by any step — see note below) |
 | Variable | `STAGING_URL`, `PRODUCTION_URL` | `release-api.yml`      | Used in workflow summary URLs (not currently referenced by any step — see note below) |
