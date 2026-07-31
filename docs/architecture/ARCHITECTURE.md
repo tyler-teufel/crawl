@@ -105,7 +105,8 @@ Root Stack (app/_layout.tsx)
 ├── (onboarding)                    # First-launch only (AsyncStorage gate)
 │   ├── index        → /           # Welcome splash
 │   ├── location     → /location   # Foreground location prompt (skippable)
-│   └── auth         → /auth       # Apple / Google / anonymous
+│   ├── auth         → /auth       # Apple / Google / anonymous
+│   └── name         → /name       # Display-name prompt (skippable)
 ├── (tabs)                          # Tab navigator
 │   ├── index        → /           # Explore (default tab)
 │   ├── voting       → /voting     # Daily votes
@@ -124,11 +125,24 @@ this launch's auth bootstrap (#158). A returning user with a persisted session
 is considered already onboarded even if the flag is unset, since they completed
 auth in a prior launch. The gate holds a `'loading'` state until both async
 reads settle, preventing a race-condition redirect on the session read's stale
-`false` default. The flag is still written by `markOnboardingComplete()` after
-the user picks an auth path on `/auth`, and it still gates the welcome and
-location screens for new installs. Subsequent launches skip the onboarding
+`false` default. The flag is written by `markOnboardingComplete()` at the end
+of the flow (the `/name` step, not `/auth` — writing it earlier would let the
+gate redirect past the name prompt), and it gates the welcome, location, auth,
+and name screens for new installs. Subsequent launches skip the onboarding
 group if either signal says done; reinstalling the app clears AsyncStorage and
 Supabase storage, restarting the flow.
+
+The gate redirects in **both** directions (`resolveOnboardingRedirect()`):
+`/` is claimed by two index routes — `(onboarding)/index` and `(tabs)/index` —
+and expo-router resolves that ambiguity in `(onboarding)`'s favor, so every
+cold start renders the welcome screen first. Redirecting only *into* onboarding
+therefore re-prompted an already-onboarded user for sign-in on every launch;
+the 'done' branch routes them back into `(tabs)`. Sign-out is the inverse case:
+`AuthContext.signOut()` clears the flag (`clearOnboardingFlag()`) and the gate
+drops `hasReturningSession` on the `SIGNED_OUT` auth event, so a signed-out
+user isn't bounced straight back into the tabs. The gate's auth listener only
+ever *clears* that flag — a session appearing mid-run is the anonymous
+bootstrap for a brand-new install and must not count as "returning".
 
 ### Navigation Stack Behavior
 

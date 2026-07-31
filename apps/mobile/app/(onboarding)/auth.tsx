@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { ensureSignedIn } from '@/lib/auth';
-import { markOnboardingComplete } from '@/lib/onboarding';
+import { StepDots } from '../../components/onboarding/StepDots';
 
 type Pending = 'apple' | 'google' | 'anon' | null;
 
@@ -17,7 +17,8 @@ type Pending = 'apple' | 'google' | 'anon' | null;
  * - Anonymous — creates an anon Supabase user; can be linked later from
  *             Profile.
  *
- * All three paths mark onboarding complete and route into (tabs).
+ * All three paths continue to the name step, which is what marks onboarding
+ * complete and routes into (tabs).
  */
 export default function OnboardingAuth() {
   const router = useRouter();
@@ -25,9 +26,10 @@ export default function OnboardingAuth() {
   const { linkApple, linkGoogle } = useAuth();
   const [pending, setPending] = useState<Pending>(null);
 
+  // Onboarding is not complete here — the name step owns that, so a user who
+  // never picks a name isn't left with the flag set and no display name.
   const finish = async () => {
-    await markOnboardingComplete();
-    router.replace('/(tabs)');
+    router.push('/(onboarding)/name');
   };
 
   const handleApple = async () => {
@@ -86,6 +88,10 @@ export default function OnboardingAuth() {
       </View>
 
       <View className="w-full gap-3">
+        <View className="mb-5">
+          <StepDots index={2} />
+        </View>
+
         {Platform.OS === 'ios' ? (
           <ProviderButton
             iconName="logo-apple"

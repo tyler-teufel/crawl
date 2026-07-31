@@ -159,7 +159,7 @@ describe('Profile screen — initials derivation (#51)', () => {
     expect(findTextNodes(nodes, (t) => t === 'JQD')).toHaveLength(0);
   });
 
-  it('falls back to email-derived display name (no initials crash) when full_name is absent', () => {
+  it('falls back to a generic name — not the email — when full_name is absent', () => {
     useAuthMock.mockReturnValue({
       user: { user_metadata: {}, email: 'plain@example.com' },
       isAnonymous: false,
@@ -167,10 +167,23 @@ describe('Profile screen — initials derivation (#51)', () => {
     });
 
     const nodes = renderTree();
-    // displayName becomes the raw email; initialsFrom splits on spaces, so a
-    // single "word" email yields just its first character, uppercased.
+    // The email used to stand in as the display name. It is now only the
+    // secondary line under a generic name.
+    expect(findTextNodes(nodes, (t) => t === 'Crawler')).toHaveLength(1);
     expect(findTextNodes(nodes, (t) => t === 'plain@example.com')).toHaveLength(1);
-    expect(findTextNodes(nodes, (t) => t === 'P')).toHaveLength(1);
+    expect(findTextNodes(nodes, (t) => t === 'C')).toHaveLength(1);
+  });
+
+  it('never surfaces an Apple private-relay address (v1.1.2 report)', () => {
+    useAuthMock.mockReturnValue({
+      user: { user_metadata: {}, email: 'ndkkkycjtb5@privaterelay.appleid.com' },
+      isAnonymous: false,
+      signOut,
+    });
+
+    const nodes = renderTree();
+    expect(findTextNodes(nodes, (t) => t.includes('privaterelay.appleid.com'))).toHaveLength(0);
+    expect(findTextNodes(nodes, (t) => t === 'Crawler')).toHaveLength(1);
   });
 
   it('shows "Guest" for anonymous users instead of computing initials', () => {

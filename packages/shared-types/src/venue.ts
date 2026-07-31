@@ -13,8 +13,12 @@ export interface Venue {
   longitude: number;
   imageUrl?: string;
   priceLevel: number | null; // 0-4 (null when unknown)
+  /** Google `weekdayDescriptions`, one day per line. See mobile src/lib/venueHours.ts. */
   hours: string;
   description: string;
+  /** Contact details, when the venue's Places record had them. */
+  phone?: string | null;
+  website?: string | null;
 }
 
 export interface FilterOption {

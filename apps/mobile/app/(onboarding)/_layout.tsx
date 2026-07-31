@@ -12,6 +12,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="location" />
       <Stack.Screen name="auth" />
+      <Stack.Screen name="name" />
     </Stack>
   );
 }

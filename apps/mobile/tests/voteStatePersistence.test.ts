@@ -15,7 +15,7 @@ import {
   DEFAULT_VOTE_STATE,
   VoteError,
 } from '@/api/votes';
-import { readPersistedVoteState } from '@/api/voteStorage';
+import { clearPersistedVoteState, readPersistedVoteState } from '@/api/voteStorage';
 import { DEFAULT_VOTE_DAY_TIMEZONE, voteDayFor } from '@crawl/shared-types';
 
 // @/api/votes imports venueKeys from @/api/venues, which now has a
@@ -29,6 +29,9 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
     getItem: vi.fn(async (key: string) => storage.get(key) ?? null),
     setItem: vi.fn(async (key: string, value: string) => {
       storage.set(key, value);
+    }),
+    removeItem: vi.fn(async (key: string) => {
+      storage.delete(key);
     }),
   },
 }));
@@ -205,5 +208,22 @@ describe('mock vote state persistence', () => {
     await castMockVote('v3'); // budget now exhausted
 
     await expect(castMockVote('v1')).rejects.toMatchObject({ code: 'NO_VOTES_REMAINING' });
+  });
+});
+
+// Regression coverage for the v1.1.2 report: after signing in with Apple over
+// an anonymous session, the anonymous user's votes were still on screen. The
+// persisted entry is device-scoped, not user-scoped, so AuthContext drops it
+// whenever the signed-in user id changes.
+describe('clearPersistedVoteState — identity swap', () => {
+  it("drops the previous user's votes so the next user starts with a full budget", async () => {
+    await castMockVote('v1');
+    await castMockVote('v2');
+    expect((await getMockVoteState()).remainingVotes).toBe(1);
+
+    await clearPersistedVoteState();
+
+    expect(await getMockVoteState()).toEqual(DEFAULT_VOTE_STATE);
+    expect(await readPersistedVoteState()).toBeNull();
   });
 });
