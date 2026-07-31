@@ -189,7 +189,45 @@ const errorStyles = StyleSheet.create({
  * internals rather than a formal ordering guarantee — revisit it if
  * supabase-js is upgraded, a custom `lock` is added to the client, or
  * `ensureSignedIn()`'s existing-session-first check changes.
+ *
+ * `getSession()` can trigger a network token refresh, which has no built-in
+ * timeout — a stalled request (bad connectivity, a Supabase incident, a
+ * captive-portal wifi) would otherwise hold this gate in 'loading' forever
+ * with no way for the user to proceed (#191). `readSessionWithTimeout` races
+ * the read against `SESSION_READ_TIMEOUT_MS` and treats expiry as "no
+ * returning session found", falling through to the flag's answer — the same
+ * degraded-but-recoverable behavior as the pre-#158 code. Both the timeout
+ * and a thrown read error are reported to Sentry, consistent with the flag
+ * read's own failure reporting above.
  */
+export const SESSION_READ_TIMEOUT_MS = 5000;
+
+export async function readSessionWithTimeout(): Promise<boolean> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timedOut = new Promise<'timed-out'>((resolve) => {
+    timeoutId = setTimeout(() => resolve('timed-out'), SESSION_READ_TIMEOUT_MS);
+  });
+
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession().then(({ data: { session } }) => !!session?.user),
+      timedOut,
+    ]);
+    if (result === 'timed-out') {
+      Sentry.captureException(
+        new Error(`OnboardingGate: getSession() timed out after ${SESSION_READ_TIMEOUT_MS}ms`)
+      );
+      return false;
+    }
+    return result;
+  } catch (err) {
+    Sentry.captureException(err);
+    return false;
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
 function OnboardingGate() {
   const [flagStatus, setFlagStatus] = React.useState<'loading' | 'onboarding' | 'done'>('loading');
   const [sessionStatus, setSessionStatus] = React.useState<'loading' | 'done'>('loading');
@@ -199,12 +237,10 @@ function OnboardingGate() {
   React.useEffect(() => {
     let mounted = true;
 
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        if (mounted) setHasReturningSession(!!session?.user);
+    readSessionWithTimeout()
+      .then((hasSession) => {
+        if (mounted) setHasReturningSession(hasSession);
       })
-      .catch(() => {})
       .finally(() => {
         if (mounted) setSessionStatus('done');
       });
