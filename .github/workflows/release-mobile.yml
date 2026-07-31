@@ -144,14 +144,31 @@ jobs:
             --non-interactive
 
       # ── Binary path ──────────────────────────────────────────────
+      # `--json` is what makes the build id below recoverable: interactively
+      # `eas submit` prompts "which build?", but --non-interactive can't
+      # prompt, and it needs the archive source stated explicitly (--latest,
+      # --id, --path, or a submit-profile default) or it fails outright — see
+      # "EAS submit needs an explicit archive source" in
+      # docs/ops/CICD_PIPELINE.md. `--json` implies --non-interactive and
+      # (with the default `--wait`, unchanged here) waits for the build to
+      # finish, then prints exactly one JSON array of the finished Build
+      # objects — one per requested platform — to real stdout; every other
+      # log line is redirected to stderr while --json is set, so capturing
+      # stdout to a file gives clean JSON with no log noise mixed in.
       - name: EAS Build (binary)
+        id: eas_build
         if: needs.resolve.outputs.release_type == 'binary'
         working-directory: apps/mobile
         run: |
           eas build \
             --profile "${{ needs.resolve.outputs.channel }}" \
             --platform all \
-            --non-interactive
+            --non-interactive \
+            --json > eas-build-output.json
+
+          IOS_BUILD_ID=$(node -p "JSON.parse(require('fs').readFileSync('eas-build-output.json', 'utf8')).find(b => b.platform === 'IOS').id")
+          echo "ios_build_id=$IOS_BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "Resolved iOS build id for submit: $IOS_BUILD_ID"
 
       # Staging only. A tag push carries no inputs, so the old opt-in `submit`
       # checkbox has no tag equivalent — but App Store submission is
@@ -163,6 +180,19 @@ jobs:
       # A production tag builds the binary and stops. Promoting that build to
       # the App Store stays a deliberate, separate human action — see
       # "Submitting a production build" in docs/ops/CICD_PIPELINE.md.
+      #
+      # iOS only — apps/mobile/eas.json's `submit.staging` profile has no
+      # `android` entry, matching Android's staging build.android.distribution
+      # of "internal" (an EAS download link, not a store listing). There is
+      # nothing to submit Android to on staging.
+      #
+      # --id pins this to the exact build produced by the step above, using
+      # the id captured there. --latest was deliberately rejected: it re-reads
+      # "whichever iOS build for this profile finished most recently" at
+      # submit time, which can race and silently submit the wrong artifact if
+      # another build for the same platform finishes in between (e.g. two
+      # releases triggered close together, or a manual `eas build` run
+      # concurrently) — see #197.
       - name: EAS Submit (staging → TestFlight)
         if: needs.resolve.outputs.release_type == 'binary' && needs.resolve.outputs.channel == 'staging'
         working-directory: apps/mobile
@@ -170,7 +200,11 @@ jobs:
           EXPO_APPLE_ID: ${{ secrets.APPLE_ID }}
           EXPO_ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         run: |
-          eas submit --profile staging --platform ios --non-interactive
+          eas submit \
+            --profile staging \
+            --platform ios \
+            --id "${{ steps.eas_build.outputs.ios_build_id }}" \
+            --non-interactive
 
       - name: Summary
         run: |
