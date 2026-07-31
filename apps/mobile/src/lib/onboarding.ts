@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Sentry } from './sentry';
+import { supabase } from './supabase';
 
 const FIRST_LAUNCH_KEY = 'crawl.firstLaunchComplete.v1';
 
@@ -60,4 +61,43 @@ export function subscribeToOnboardingStatus(listener: () => void): () => void {
 export async function markOnboardingComplete(): Promise<void> {
   await AsyncStorage.setItem(FIRST_LAUNCH_KEY, '1');
   listeners.forEach((listener) => listener());
+}
+
+/**
+ * `getSession()` can trigger a network token refresh, which has no built-in
+ * timeout — a stalled request (bad connectivity, a Supabase incident, a
+ * captive-portal wifi) would otherwise hold OnboardingGate in 'loading'
+ * forever with no way for the user to proceed (#191). `readSessionWithTimeout`
+ * races the read against `SESSION_READ_TIMEOUT_MS` and treats expiry as "no
+ * returning session found", falling through to the flag's answer — the same
+ * degraded-but-recoverable behavior as the pre-#158 code. Both the timeout
+ * and a thrown read error are reported to Sentry, consistent with
+ * `readOnboardingFlag`'s own failure reporting above.
+ */
+export const SESSION_READ_TIMEOUT_MS = 5000;
+
+export async function readSessionWithTimeout(): Promise<boolean> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timedOut = new Promise<'timed-out'>((resolve) => {
+    timeoutId = setTimeout(() => resolve('timed-out'), SESSION_READ_TIMEOUT_MS);
+  });
+
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession().then(({ data: { session } }) => !!session?.user),
+      timedOut,
+    ]);
+    if (result === 'timed-out') {
+      Sentry.captureException(
+        new Error(`OnboardingGate: getSession() timed out after ${SESSION_READ_TIMEOUT_MS}ms`)
+      );
+      return false;
+    }
+    return result;
+  } catch (err) {
+    Sentry.captureException(err);
+    return false;
+  } finally {
+    clearTimeout(timeoutId!);
+  }
 }

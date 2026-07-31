@@ -1,9 +1,14 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 
 // Imported for its side effect of being the unit under test. Declared here so
 // eslint's import/first is satisfied; vi.mock calls below are hoisted above it.
 import OnboardingAuth from '../app/(onboarding)/auth';
-import { readOnboardingFlag, resolveOnboardingGateStatus } from '@/lib/onboarding';
+import {
+  readOnboardingFlag,
+  readSessionWithTimeout,
+  resolveOnboardingGateStatus,
+  SESSION_READ_TIMEOUT_MS,
+} from '@/lib/onboarding';
 
 // Regression coverage for the onboarding auth screen (ticket #49). The v1.1.0
 // reskin touched app/(onboarding)/auth.tsx presentation only; the three auth
@@ -26,6 +31,7 @@ const markOnboardingComplete = vi.hoisted(() => vi.fn());
 const alert = vi.hoisted(() => vi.fn());
 const getItem = vi.hoisted(() => vi.fn());
 const captureException = vi.hoisted(() => vi.fn());
+const getSession = vi.hoisted(() => vi.fn());
 
 // Override only `useState` so the component can run outside a React dispatcher;
 // everything else (createElement / jsx-runtime) stays real.
@@ -52,14 +58,16 @@ vi.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ linkApple, linkGoogle }) }));
 vi.mock('@/lib/auth', () => ({ ensureSignedIn }));
 // Only `markOnboardingComplete` is stubbed here — the onboarding-gate tests
-// below (#158) exercise the real `readOnboardingFlag` against a mocked
-// AsyncStorage, so the rest of the module's exports stay real.
+// below (#158, #191) exercise the real `readOnboardingFlag` and
+// `readSessionWithTimeout` against a mocked AsyncStorage/Supabase client, so
+// the rest of the module's exports stay real.
 vi.mock('@/lib/onboarding', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/onboarding')>();
   return { ...actual, markOnboardingComplete };
 });
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: { getItem } }));
 vi.mock('@/lib/sentry', () => ({ Sentry: { captureException } }));
+vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getSession } } }));
 
 type El = { props?: Record<string, unknown> } | unknown;
 
@@ -255,5 +263,57 @@ describe('resolveOnboardingGateStatus — combining the flag and session reads (
 
   it('resolves done from the flag alone once both reads have settled, no session required', () => {
     expect(resolveOnboardingGateStatus('done', 'done', false)).toBe('done');
+  });
+});
+
+// Regression coverage for OnboardingGate's session-read timeout (#191).
+// `getSession()` can trigger a network token refresh with no built-in
+// timeout — a stalled request (bad connectivity, a Supabase incident, a
+// captive-portal wifi) previously held the gate in 'loading' forever with no
+// way for the user to proceed. `readSessionWithTimeout` races the read
+// against `SESSION_READ_TIMEOUT_MS` and treats expiry as "no returning
+// session found", falling through to the flag's answer instead of hanging.
+describe('readSessionWithTimeout — OnboardingGate session-read timeout (#191 regression)', () => {
+  beforeEach(() => {
+    getSession.mockReset();
+    captureException.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('does not hang past SESSION_READ_TIMEOUT_MS when getSession() never resolves, and reports to Sentry', async () => {
+    vi.useFakeTimers();
+    getSession.mockReturnValue(new Promise(() => {})); // stalled forever, like a dead network request
+
+    const result = readSessionWithTimeout();
+    await vi.advanceTimersByTimeAsync(SESSION_READ_TIMEOUT_MS);
+
+    await expect(result).resolves.toBe(false);
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException.mock.calls[0][0]).toBeInstanceOf(Error);
+  });
+
+  it('reports to Sentry and resolves false when getSession() rejects', async () => {
+    const err = new Error('network down');
+    getSession.mockRejectedValue(err);
+
+    await expect(readSessionWithTimeout()).resolves.toBe(false);
+    expect(captureException).toHaveBeenCalledWith(err);
+  });
+
+  it('resolves true when a returning session exists and does not report to Sentry', async () => {
+    getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+
+    await expect(readSessionWithTimeout()).resolves.toBe(true);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it('resolves false when no session exists and does not report to Sentry', async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+
+    await expect(readSessionWithTimeout()).resolves.toBe(false);
+    expect(captureException).not.toHaveBeenCalled();
   });
 });
