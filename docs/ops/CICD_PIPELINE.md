@@ -592,6 +592,16 @@ eas submit --profile production --platform ios --latest
 
 The workflow's run summary prints this command after a production binary build, so the pending step is visible from the run itself rather than only here.
 
+### EAS submit needs an explicit archive source
+
+`eas submit --non-interactive` cannot infer which build to upload — interactively it prompts "which build?", but non-interactive mode has no prompt, so it needs the archive source stated explicitly via `--latest`, `--id <build-id>`, `--path <path>`, or a submit-profile default. Without one it fails after the build already succeeded: `You need to specify the archive source when running in non-interactive mode` (see #197).
+
+`release-mobile.yml`'s "EAS Build (binary)" step (`apps/mobile` working directory) runs `eas build --profile ... --platform all --non-interactive --json`, capturing stdout to `eas-build-output.json`. `--json` implies `--non-interactive`, and — with the default `--wait` behavior unchanged — makes `eas build` wait for the build(s) to finish and then print exactly one JSON array of the finished `Build` objects (one per requested platform, each with an `id` and a `platform` of `"IOS"` / `"ANDROID"`) to real stdout; every other log line is redirected to stderr for the duration, so the captured file is clean JSON. The step then extracts the iOS build's `id` with `node -p` and exposes it as a step output (`steps.eas_build.outputs.ios_build_id`).
+
+The "EAS Submit (staging → TestFlight)" step passes that id explicitly: `eas submit --profile staging --platform ios --id "$IOS_BUILD_ID" --non-interactive`. `--id` was chosen over `--latest` on purpose — `--latest` re-resolves "whichever iOS build for this profile finished most recently" at submit time, which races if any other build for that platform finishes in between (two releases triggered close together, or someone's manual `eas build` running concurrently) and would silently submit the wrong artifact. `--id` pins the submit to the exact build this run just produced.
+
+**Android is not submitted on staging, by design, not by omission.** `apps/mobile/eas.json`'s `submit.staging` profile has no `android` entry, and staging's `build.staging.android.distribution` is `"internal"` (an EAS download link) rather than `"store"` — there is no store listing to submit an Android build to on staging. `submit.production.android` does exist in `eas.json`, but production submission of either platform stays a deliberate manual step regardless (see "Submitting a production build" above); this ticket did not add auto-submission for anything that wasn't already auto-submitting.
+
 ---
 
 ## Branch Protection on `main`
