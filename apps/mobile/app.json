@@ -33,7 +33,12 @@
           "isAndroidForegroundServiceEnabled": false
         }
       ],
-      "@react-native-google-signin/google-signin",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.687285368385-85ektj36hop94dku57s69eoq1vn400fg"
+        }
+      ],
       [
         "@sentry/react-native/expo",
         {
