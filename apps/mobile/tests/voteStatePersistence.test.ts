@@ -16,6 +16,7 @@ import {
   VoteError,
 } from '@/api/votes';
 import { readPersistedVoteState } from '@/api/voteStorage';
+import { DEFAULT_VOTE_DAY_TIMEZONE, voteDayFor } from '@crawl/shared-types';
 
 // @/api/votes imports venueKeys from @/api/venues, which now has a
 // Supabase-direct read branch — mock the client so this test doesn't pull in
@@ -160,8 +161,16 @@ describe('mock vote state persistence', () => {
     // Pre-#62 persisted shape: { date, byCity: Record<string, VoteState> }.
     // Simulates a device that voted today under the old app version and then
     // received the #62 update before its next vote-state read.
+    //
+    // `date` must be today's *vote day* (voteDayFor, the #64 04:00-local
+    // boundary), not the raw UTC calendar date — voteStorage.ts's todayKey()
+    // computes the former, and the two only coincide after 4am ET. Using the
+    // raw date here made this test flaky: it passed only when run after 4am
+    // ET, and failed the rest of the night by tripping the day-mismatch
+    // branch (`null`) instead of the missing-`.state`-property branch this
+    // test actually exercises (`undefined`).
     const legacyPayload = {
-      date: new Date().toISOString().slice(0, 10),
+      date: voteDayFor(new Date(), DEFAULT_VOTE_DAY_TIMEZONE),
       byCity: {
         'Charlotte, NC': { remainingVotes: 1, maxVotes: 3, votedVenueIds: ['v1', 'v2'] },
       },
