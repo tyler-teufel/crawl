@@ -189,51 +189,27 @@ jobs:
           build-args: |
             APP_VERSION=${{ env.TAG }}
 
-  # ── Migrate DB (opt-in per GitHub Environment) ──────────────────────
-  # There is no tag equivalent of the old `run_migrations` dispatch checkbox,
-  # so the opt-in now lives as the `RUN_DB_MIGRATIONS` variable on the
-  # `staging` / `production` GitHub Environments (same place DATABASE_URL
-  # already lives). Defaults to off — unset or anything other than "true"
-  # skips the actual migrate step, matching the old input's default of
-  # `false`. See docs/ops/CICD_PIPELINE.md for how to turn it on.
-  migrate:
-    name: Migrate DB (${{ needs.resolve.outputs.environment }})
-    needs: [resolve, build-and-push]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: ${{ needs.resolve.outputs.environment }}
-    steps:
-      - name: Check migration gate
-        id: gate
-        run: |
-          if [ "${{ vars.RUN_DB_MIGRATIONS }}" = "true" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Migrations skipped — set RUN_DB_MIGRATIONS=true on the ${{ needs.resolve.outputs.environment }} GitHub Environment to enable."
-          fi
-
-      - uses: actions/checkout@v7
-        if: steps.gate.outputs.run == 'true'
-        with:
-          ref: ${{ needs.resolve.outputs.tag }}
-
-      - uses: actions/setup-node@v7
-        if: steps.gate.outputs.run == 'true'
-        with:
-          node-version: 25
-          cache: npm
-
-      - name: Install deps
-        if: steps.gate.outputs.run == 'true'
-        run: npm ci
-
-      - name: Run Drizzle migrations
-        if: steps.gate.outputs.run == 'true'
-        working-directory: apps/api
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run db:migrate
+  # ── Database migrations are NOT run here (see issue #198) ───────────
+  # This job used to run `drizzle-kit migrate` as an opt-in side effect of a
+  # release (gated by a RUN_DB_MIGRATIONS variable). It was removed rather
+  # than fixed in place: applying DDL as a side effect of a deploy — with no
+  # per-run confirmation and no preview of what's pending — is a different
+  # (weaker) risk posture than db-migrate.yml's deliberate, gated path
+  # (typed "APPLY" confirmation, dry-run-by-default, pending-migration
+  # listing before anything applies, dedicated `database` Environment). This
+  # workflow's job header already declared itself "that act's only automated
+  # entry point" when it was added (#188); this removal makes that true
+  # instead of aspirational. It also happens to close the bug this job had —
+  # it provided DATABASE_URL (the transaction pooler) and never set
+  # NODE_ENV, so apps/api/drizzle.config.ts's guard requiring DIRECT_URL in
+  # any non-development run never engaged. Never bitten in practice because
+  # this workflow has never completed end-to-end (Railway deploy target
+  # isn't viable yet — unrelated blocker).
+  #
+  # To apply pending migrations for a release, run
+  # Actions → "DB — Apply Drizzle Migrations" → Run workflow, separately
+  # from (before or after) cutting the api-v* tag. See
+  # docs/ops/CICD_PIPELINE.md, "Applying database migrations".
 
   # ── GitHub Release ────────────────────────────────────────────────
   # The "tied to a release" half of the trunk-based model: every successful
@@ -241,7 +217,7 @@ jobs:
   # the CHANGELOG section Changesets already wrote for this version.
   github-release:
     name: Create GitHub Release
-    needs: [resolve, build-and-push, migrate]
+    needs: [resolve, build-and-push]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -274,7 +250,7 @@ jobs:
 
   summary:
     name: Summary
-    needs: [resolve, build-and-push, migrate, github-release]
+    needs: [resolve, build-and-push, github-release]
     if: always()
     runs-on: ubuntu-latest
     steps:
