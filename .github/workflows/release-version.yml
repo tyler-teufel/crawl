@@ -52,7 +52,7 @@ jobs:
         run: npm ci
 
       - name: Create / update Version PR
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           # `version` runs `changeset version`, which bumps versions and
           # writes CHANGELOG.md. No publish — all packages are private.
