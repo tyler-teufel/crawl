@@ -9,7 +9,7 @@
     "build": "tsc --project tsconfig.build.json"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "zod": "^4.4.3"
